@@ -117,7 +117,7 @@
     "telegraf": "4.15.3"
   },
   "bin": {
-    "@backtest-kit/cli": "./build/index.mjs"
+    "backtest-kit": "./build/index.mjs"
   },
   "publishConfig": {
     "access": "public"
