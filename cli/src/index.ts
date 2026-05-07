@@ -18,6 +18,7 @@ import "./main/dump";
 import "./main/pnldebug";
 import "./main/flush";
 import "./main/init";
+import "./main/docker";
 import "./main/help";
 
 import "./main/version";

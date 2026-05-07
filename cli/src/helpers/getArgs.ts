@@ -157,6 +157,10 @@ export const getArgs = singleshot(() => {
         type: "boolean",
         default: false,
       },
+      docker: {
+        type: "boolean",
+        default: false,
+      },
       help: {
         type: "boolean",
         default: false,

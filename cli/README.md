@@ -1369,6 +1369,48 @@ Or via the pre-configured npm script:
 npm run sync:lib
 ```
 
+## 🐳 Running in Docker (`--docker`)
+
+`@backtest-kit/cli` can scaffold a ready-to-use Docker workspace — a self-contained directory with `docker-compose.yaml` and a sample strategy. 
+
+### CLI Flags
+
+| Flag | Type | Description |
+|------|------|-------------|
+| `--docker` | boolean | Scaffold a Docker workspace |
+| `--output` | string | Target directory name (default: `backtest-kit-docker`) |
+
+### Usage
+
+```bash
+npx @backtest-kit/cli --docker
+```
+
+Creates `./backtest-kit-docker/` in the current working directory.
+
+Override the directory name with `--output`:
+
+```bash
+npx @backtest-kit/cli --docker --output my-docker-workspace
+```
+
+The target directory must not exist or must be empty — the command aborts if it contains any files.
+
+### Generated Workspace Structure
+
+```
+backtest-kit-docker/
+├── docker-compose.yaml           # ready-to-run service definition
+├── .env.example                  # environment variable reference
+├── package.json                  # dependencies for editing strategies locally
+├── tsconfig.json                 # TypeScript config for content/
+└── content/
+    └── feb_2026/
+        ├── feb_2026.strategy.ts  # example strategy entry point
+        └── modules/
+            └── backtest.module.ts  # CCXT Binance exchange + frame schema
+```
+
 ## 🌍 Environment Variables
 
 Create a `.env` file in your project root:

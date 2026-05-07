@@ -44,6 +44,17 @@ npm start
 
 Sidekick generates a project where the exchange adapter, frame definitions, risk rules, strategy logic, and runner script all live as editable source files inside the project. Use it when you need full visibility and control over every part of the setup.
 
+### 🐳 Running in Docker
+
+`@backtest-kit/cli` can scaffold a ready-to-use Docker workspace — a self-contained directory with `docker-compose.yaml` and a sample strategy. 
+
+```bash
+npx @backtest-kit/cli --docker
+cd backtest-kit-docker
+docker-compose up -d
+docker-compose logs -f
+```
+
 ### 📦 Manual Installation
 
 > **Want to see the code?** 👉 [Demo app](https://github.com/tripolskypetr/backtest-kit/tree/master/example) 👈

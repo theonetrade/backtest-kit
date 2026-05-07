@@ -35,6 +35,7 @@
     "types.d.ts",
     "template",
     "config",
+    "docker",
     "README.md"
   ],
   "repository": {

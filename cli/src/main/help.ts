@@ -22,6 +22,7 @@ Modes:
   --brokerdebug         Fire a single broker commit against the live broker adapter
   --flush  <entry...>   Delete report/log/markdown/agent folders from strategy dump dir
   --init                Scaffold a new project in the current directory
+  --docker              Scaffold a Docker workspace for running strategies in a container
   --help                Print this help message
 
 Backtest flags:
@@ -131,6 +132,14 @@ Init flags (--init):
 
   Scaffolds a project and runs scripts/fetch_docs.mjs to download library docs.
 
+Docker flags (--docker):
+
+  --output <string>   Target directory name (default: backtest-kit-docker)
+
+  Scaffolds a Docker workspace: docker-compose.yaml, .env.example, package.json,
+  tsconfig.json, and a sample strategy under content/. Run npm install then
+  docker compose up to start the container.
+
 Module hooks (loaded automatically by each mode):
 
   modules/backtest.module   --backtest   Broker adapter for backtest
@@ -172,6 +181,7 @@ Examples:
   node ${ENTRY_PATH} --flush ./content/feb_2026.strategy/feb_2026.strategy.ts
   node ${ENTRY_PATH} --flush ./content/feb_2026.strategy/feb_2026.strategy.ts ./content/feb_2026.strategy/feb_2026.test.ts
   node ${ENTRY_PATH} --init --output my-trading-bot
+  node ${ENTRY_PATH} --docker --output my-docker-workspace
 `.trimStart();
 
 export const main = async () => {
