@@ -25,7 +25,9 @@
 
 ---
 
-## 🔪 TRXUSDT January 2026 — Liquidity Harvesting
+## 🎲 Briefing
+
+### 🔪 TRXUSDT January 2026 — Liquidity Harvesting
 
 > **Hypothesis:** The Telegram channel publishes SHORT signals with average R:R of 0.375:1 and 106% deposit at risk at 25× leverage — mathematically guaranteed to lose. Fifteen minutes before each post a volume spike appears on the chart; the TP step multipliers and T5/SL ratio are identical across all signals, indicating an algorithm. If you reverse engineer the algorithm — liquidity is yours
 
@@ -37,11 +39,11 @@
 
 ---
 
-## 📰 BTCUSDT February 2026 — AI News Sentiment
+### 📰 BTCUSDT February 2026 — AI News Sentiment
 
 > **Hypothesis:** an LLM reading live crypto/macro news every few hours can produce a directional bias (bullish / bearish / wait) that outperforms random on a sustained trending month.
 
-### How it works
+#### How it works
 
 1. Every 4–8 hours, a Tavily search fetches the latest Bitcoin and macro headlines.
 2. The raw news text is passed to a local Ollama model, which returns one of `bullish`, `bearish`, or `wait`.
@@ -50,11 +52,11 @@
 
 ---
 
-## 🪂 BTCUSDT March 2026 — SHORT DCA Ladder
+### 🪂 BTCUSDT March 2026 — SHORT DCA Ladder
 
 > **Hypothesis:** in a high-volatility, mean-reverting month, dollar-cost averaging into every spike upward raises the blended cost basis enough to hit a 0.5% profit target on each reversal.
 
-### How it works
+#### How it works
 
 1. `getSignal` opens a SHORT on every new pending signal via `Position.moonbag` with a 25% hard stop and $100 cost.
 2. While active, `commitAverageBuy` fires on each ping if the current price moves outside a ±1–5% band around the last entry and fewer than 10 rungs have been added.
@@ -62,11 +64,11 @@
 
 ---
 
-## 🧗 BTCUSDT April 2026 — LONG DCA Ladder
+### 🧗 BTCUSDT April 2026 — LONG DCA Ladder
 
 > **Hypothesis:** in a trending bull month, dollar-cost averaging into every dip lowers the blended cost basis enough to hit a 3% profit target faster and more often than a single-entry approach.
 
-### How it works
+#### How it works
 
 1. `getSignal` opens a LONG on every new pending signal via `Position.moonbag` with a 25% hard stop and $100 cost.
 2. While active, `commitAverageBuy` fires on each ping if the current price falls outside a ±1–5% band around the last entry and fewer than 10 rungs have been added.
@@ -74,11 +76,11 @@
 
 ---
 
-## 🧠 BTCUSDT October 2021 — TensorFlow Neural Network
+### 🧠 BTCUSDT October 2021 — TensorFlow Neural Network
 
 > **Hypothesis:** a simple feed-forward neural network trained on normalized candle patterns every 8 hours can predict next candle close position within its high-low range, enabling profitable entries when current price is below predicted price.
 
-### How it works
+#### How it works
 
 1. Every 8 hours, the strategy fetches 58 candles (50 for training + 8 for prediction), trains a neural network (8→6→4→1 architecture) on normalized data.
 2. Normalization maps each candle's close to [0,1] as `(close - low) / (high - low)`, representing where the close sits within the candle's range.
@@ -87,11 +89,11 @@
 
 ---
 
-## 🌲 BTCUSDT December 2025 — Pine Script Range Breakout
+### 🌲 BTCUSDT December 2025 — Pine Script Range Breakout
 
 > **Hypothesis:** Bollinger Band breakouts from a horizontal range, confirmed by a volume spike, and produce directional signals with positive expectancy on a choppy December.
 
-### How it works
+#### How it works
 
 1. Every hour `Cache.fn` runs `btc_dec2025_range.pine` on 1h candles (RSI 14) and extracts: BB bands, range boundaries, `signal` (±1), `isRanging`, `volSpike`.
 2. `getSignal` opens a LONG on `signal === 1` or SHORT on `signal === -1`, but skips if price has already moved past the close at signal time, or if `isRanging === 1`.
@@ -99,11 +101,11 @@
 
 ---
 
-## 🐍 DOTUSDT February 2021 — Python EMA Crossover
+### 🐍 DOTUSDT February 2021 — Python EMA Crossover
 
 > **Hypothesis:** A classic EMA(9)/EMA(21) crossover strategy executed via Python WebAssembly can capture short-term momentum reversals on 8-hour candles with fixed bracket orders.
 
-### How it works
+#### How it works
 
 1. Every 8 hours, `Cache.fn` runs the Python indicator (`strategy.py`) on 8h candles to calculate EMA(9) and EMA(21).
 2. A signal fires based on EMA crossover and 4h range midpoint confirmation: if EMA(9) > EMA(21), open LONG; otherwise SELL.
