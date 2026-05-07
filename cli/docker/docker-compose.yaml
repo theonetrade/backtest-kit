@@ -3,7 +3,7 @@ version: '3.8'
 services:
   backtest:
     image: tripolskypetr/backtest-kit
-    network_mode: host
+    # network_mode: host
     extra_hosts:
       - "host.docker.internal:host-gateway"
     container_name: backtest
