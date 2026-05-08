@@ -1371,7 +1371,7 @@ npm run sync:lib
 
 ## 🐳 Running in Docker (`--docker`)
 
-CLI can scaffold a ready-to-use Docker workspace: self-contained directory with `docker-compose.yaml` and a strategy entry point. 
+CLI can create a ready-to-use Docker workspace: self-contained directory with `docker-compose.yaml` and a strategy entry point. 
 
 ### CLI Flags
 
