@@ -65,6 +65,8 @@ CLI can create a ready-to-use Docker workspace: self-contained directory with `d
 npm install backtest-kit ccxt ollama uuid
 ```
 
+Install the core library and peer dependencies manually. Use this approach when integrating backtest-kit into an existing project or when you need full control over your package setup.
+
 ## ✨ Why Choose Backtest Kit?
 
 - 🚀 **Production-Ready**: Seamless switch between backtest/live modes; identical code across environments.
