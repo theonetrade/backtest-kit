@@ -48,14 +48,14 @@ Sidekick generates a project where the exchange adapter, frame definitions, risk
 
 > **Automatic restarts — Zero-downtime trading:**
 
-CLI can create a ready-to-use Docker workspace: self-contained directory with `docker-compose.yaml` and a strategy entry point. 
-
 ```bash
 npx @backtest-kit/cli --docker
 cd backtest-kit-docker
 docker-compose up -d
 docker-compose logs -f
 ```
+
+CLI can create a ready-to-use Docker workspace: self-contained directory with `docker-compose.yaml` and a strategy entry point. 
 
 ### 📦 Manual Installation
 
