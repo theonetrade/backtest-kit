@@ -51,7 +51,7 @@ Sidekick generates a project where the exchange adapter, frame definitions, risk
 ```bash
 npx @backtest-kit/cli --docker
 cd backtest-kit-docker
-MODE=live SYMBOL=TRXUSDT UI=1 docker-compose up -d
+MODE=live SYMBOL=TRXUSDT STRATEGY_FILE=./content/feb_2026/feb_2026.strategy.ts docker-compose up -d
 docker-compose logs -f
 ```
 

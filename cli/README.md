@@ -1422,7 +1422,7 @@ command:
 Pass `MODE` and `STRATEGY_FILE` on the command line — no file edits needed:
 
 ```bash
-MODE=live SYMBOL=TRXUSDT UI=1 docker-compose up -d
+MODE=live SYMBOL=TRXUSDT STRATEGY_FILE=./content/feb_2026/feb_2026.strategy.ts docker-compose up -d
 ```
 
 | Variable | Required | Default | Description |
