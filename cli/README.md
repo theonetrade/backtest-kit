@@ -277,7 +277,7 @@ npx @backtest-kit/cli --walker \
 # → ./dump/feb_2026_comparison.md
 ```
 
-## 🐙 Multiple Symbol Strategy
+## 🐙 Multiple Symbol Parallel
 
 > **For Poweruser — skip unless needed.** The standard flow runs one symbol from `--symbol`. Use `--entry` only to fan out one strategy across many symbols at once, or to drive `*.background()` from a UI / DB / API.
 
