@@ -283,7 +283,7 @@ npx @backtest-kit/cli --walker \
 
 With `--entry`, the CLI does only the boilerplate — `Setup`, providers (`--ui` / `--telegram`), the matching `./modules/<mode>.module`, SIGINT that stops every active run via `*.list()`, and `shutdown()` once `listenDone*` reports all your runs complete. Picking the symbol set, warming cache, and calling `*.background()` is on you.
 
-`--entry` is a modifier — combine it with exactly one of `--backtest` / `--live` / `--paper` / `--walker`. One positional: the path to your entry file.
+The `--entry` flag is a modifier — combine it with exactly one of `--backtest` / `--live` / `--paper` / `--walker`. One positional: the path to your entry file.
 
 ```bash
 npx @backtest-kit/cli --backtest --entry ./src/multi-symbol.mjs
