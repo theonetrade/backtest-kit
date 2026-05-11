@@ -43,6 +43,9 @@ export const main = async () => {
   if (!values.paper) {
     return;
   }
+  if (values.entry) {
+    return;
+  }
   cli.paperMainService.connect();
   listenGracefulShutdown();
 };

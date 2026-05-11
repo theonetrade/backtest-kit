@@ -40,6 +40,9 @@ export const main = async () => {
   if (!values.live) {
     return;
   }
+  if (values.entry) {
+    return;
+  }
   await cli.liveMainService.connect();
   listenGracefulShutdown();
 };

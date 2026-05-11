@@ -38,6 +38,9 @@ export const main = async () => {
   if (!values.walker) {
     return;
   }
+  if (values.entry) {
+    return;
+  }
   if (!values.noFlush) {
     for (const entryPoint of getPositionals()) {
       await flush(entryPoint);

@@ -9,6 +9,8 @@ import "./main/walker";
 import "./main/paper";
 import "./main/live";
 
+import "./main/entry";
+
 import "./main/frontend";
 import "./main/telegram";
 

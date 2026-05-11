@@ -42,6 +42,9 @@ export const main = async () => {
   if (!values.backtest) {
     return;
   }
+  if (values.entry) {
+    return;
+  }
   if (!values.noFlush) {
     const [entryPoint = null] = getPositionals();
     entryPoint && await flush(entryPoint);

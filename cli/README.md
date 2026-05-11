@@ -277,6 +277,71 @@ npx @backtest-kit/cli --walker \
 # → ./dump/feb_2026_comparison.md
 ```
 
+## 🐙 Multiple Symbol Strategy
+
+> **Advanced — skip unless needed.** The standard flow runs one symbol from `--symbol`. Use `--entry` only to fan out one strategy across many symbols at once, or to drive `*.background()` from a UI / DB / API.
+
+With `--entry`, the CLI does only the boilerplate — `Setup`, providers (`--ui` / `--telegram`), the matching `./modules/<mode>.module`, SIGINT that stops every active run via `*.list()`, and `shutdown()` once `listenDone*` reports all your runs complete. Picking the symbol set, warming cache, and calling `*.background()` is on you.
+
+`--entry` is a modifier — combine it with exactly one of `--backtest` / `--live` / `--paper` / `--walker`. One positional: the path to your entry file.
+
+```bash
+npx @backtest-kit/cli --backtest --entry ./src/multi-symbol.mjs
+```
+
+### Example: backtest a strategy on five symbols at once
+
+```javascript
+// src/multi-symbol.mjs
+import {
+  addExchangeSchema,
+  addFrameSchema,
+  addStrategySchema,
+  Backtest,
+  Cache,
+} from "backtest-kit";
+import ccxt from "ccxt";
+
+addExchangeSchema({
+  exchangeName: "binance",
+  getCandles: async (symbol, interval, since, limit) => {
+    const exchange = new ccxt.binance();
+    const ohlcv = await exchange.fetchOHLCV(symbol, interval, since.getTime(), limit);
+    return ohlcv.map(([timestamp, open, high, low, close, volume]) => ({
+      timestamp, open, high, low, close, volume,
+    }));
+  },
+  formatPrice: (symbol, price) => price.toFixed(2),
+  formatQuantity: (symbol, quantity) => quantity.toFixed(8),
+});
+
+addFrameSchema({
+  frameName: "feb-2026",
+  interval: "1m",
+  startDate: new Date("2026-02-01"),
+  endDate: new Date("2026-02-28"),
+});
+
+addStrategySchema({
+  strategyName: "my-strategy",
+  interval: "15m",
+  getSignal: async (symbol) => null,
+});
+
+// Decide the symbol set yourself — from a UI, database, API, or just a list.
+const symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"];
+
+for (const symbol of symbols) {
+  Backtest.background(symbol, {
+    strategyName: "my-strategy",
+    exchangeName: "binance",
+    frameName: "feb-2026",
+  });
+}
+```
+
+The same shape works for `--live --entry` / `--paper --entry` (call `Live.background()` per symbol with your broker adapter)
+
 ## 🗂️ Monorepo Usage
 
 `@backtest-kit/cli` works out of the box in a monorepo where each strategy lives in its own subdirectory. When the CLI loads your entry point file, it automatically changes the working directory to the file's location — so all relative paths (`dump/`, `modules/`, `template/`) resolve inside that strategy's folder, not the project root.
