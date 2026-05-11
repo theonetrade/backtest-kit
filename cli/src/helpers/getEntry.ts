@@ -2,9 +2,9 @@ import { fileURLToPath } from 'url';
 import { realpathSync } from 'fs';
 import path from 'path';
 
-export const getEntry = (metaUrl) => {
+export const getEntry = (metaUrl: string) => {
     if (!process.argv[1]) {
-        return metaUrl;
+        return "";
     }
     const metaPath = fileURLToPath(metaUrl);
     const realArgv = realpathSync(process.argv[1]);
