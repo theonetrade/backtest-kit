@@ -127,6 +127,7 @@ export const main = async () => {
       "--entry requires exactly one of --backtest, --live, --paper, --walker",
     );
     process.exit(1);
+    return;
   }
 
   const [entryPoint = null] = getPositionals();
