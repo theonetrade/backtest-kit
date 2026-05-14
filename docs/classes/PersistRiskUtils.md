@@ -23,11 +23,14 @@ constructor();
 
 ## Properties
 
-### PersistRiskFactory
+### PersistRiskInstanceCtor
 
 ```ts
-PersistRiskFactory: any
+PersistRiskInstanceCtor: any
 ```
+
+Constructor used to create per-context risk instances.
+Replaceable via usePersistRiskAdapter() / useJson() / useDummy().
 
 ### getRiskStorage
 
@@ -35,16 +38,16 @@ PersistRiskFactory: any
 getRiskStorage: any
 ```
 
+Memoized factory creating one IPersistRiskInstance per (riskName, exchange) pair.
+
 ### readPositionData
 
 ```ts
 readPositionData: (riskName: string, exchangeName: string) => Promise<RiskData>
 ```
 
-Reads persisted active positions for a risk profile.
-
-Called by ClientRisk.waitForInit() to restore state.
-Returns empty Map if no positions exist.
+Reads persisted active positions for the given risk context.
+Lazily initializes the instance on first access.
 
 ### writePositionData
 
@@ -52,20 +55,19 @@ Returns empty Map if no positions exist.
 writePositionData: (riskRow: RiskData, riskName: string, exchangeName: string) => Promise<void>
 ```
 
-Writes active positions to disk with atomic file writes.
-
-Called by ClientRisk after addSignal/removeSignal to persist state.
-Uses atomic writes to prevent corruption on crashes.
+Writes active positions for the given risk context.
+Lazily initializes the instance on first access.
 
 ## Methods
 
 ### usePersistRiskAdapter
 
 ```ts
-usePersistRiskAdapter(Ctor: TPersistBaseCtor<RiskName, RiskData>): void;
+usePersistRiskAdapter(Ctor: TPersistRiskInstanceCtor): void;
 ```
 
-Registers a custom persistence adapter.
+Registers a custom IPersistRiskInstance constructor.
+Clears the memoization cache so subsequent calls use the new adapter.
 
 ### clear
 
@@ -73,9 +75,8 @@ Registers a custom persistence adapter.
 clear(): void;
 ```
 
-Clears the memoized storage cache.
-Call this when process.cwd() changes between strategy iterations
-so new storage instances are created with the updated base path.
+Clears the memoized instance cache.
+Call when process.cwd() changes between strategy iterations.
 
 ### useJson
 
@@ -83,8 +84,7 @@ so new storage instances are created with the updated base path.
 useJson(): void;
 ```
 
-Switches to the default JSON persist adapter.
-All future persistence writes will use JSON storage.
+Switches to the default file-based PersistRiskInstance.
 
 ### useDummy
 
@@ -92,5 +92,4 @@ All future persistence writes will use JSON storage.
 useDummy(): void;
 ```
 
-Switches to a dummy persist adapter that discards all writes.
-All future persistence writes will be no-ops.
+Switches to PersistRiskDummyInstance (all operations are no-ops).

@@ -131,3 +131,27 @@ avgFallPnl: number
 ```
 
 Average fall PNL percentage across all closed signals (_fall.pnlPercentage), null if unsafe. Closer to 0 is better.
+
+### sortinoRatio
+
+```ts
+sortinoRatio: number
+```
+
+Sortino Ratio (avgPnl / downside deviation — stdDev of losses only), null if unsafe. Higher is better.
+
+### calmarRatio
+
+```ts
+calmarRatio: number
+```
+
+Calmar Ratio (annualized expected return / max drawdown), null if unsafe. Higher is better.
+
+### recoveryFactor
+
+```ts
+recoveryFactor: number
+```
+
+Recovery Factor (totalPnl / max drawdown), null if unsafe. Higher is better.

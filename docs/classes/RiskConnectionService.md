@@ -68,7 +68,7 @@ Cache key includes exchangeName and frameName to isolate risk per exchange+frame
 ### checkSignal
 
 ```ts
-checkSignal: (params: IRiskCheckArgs, payload: { riskName: string; exchangeName: string; frameName: string; backtest: boolean; }) => Promise<boolean>
+checkSignal: (params: IRiskCheckArgs, payload: { riskName: string; exchangeName: string; frameName: string; backtest: boolean; }, options?: Partial<IRiskCheckOptions>) => Promise<...>
 ```
 
 Checks if a signal should be allowed based on risk limits.
@@ -76,6 +76,21 @@ Checks if a signal should be allowed based on risk limits.
 Routes to appropriate ClientRisk instance based on provided context.
 Validates portfolio drawdown, symbol exposure, position count, and daily loss limits.
 ClientRisk will emit riskSubject event via onRejected callback when signal is rejected.
+
+### checkSignalAndReserve
+
+```ts
+checkSignalAndReserve: (params: IRiskCheckArgs, payload: { riskName: string; exchangeName: string; frameName: string; backtest: boolean; }) => Promise<boolean>
+```
+
+Concurrency-safe variant of {@link checkSignal} — validates the signal AND
+reserves a placeholder in the active position map atomically.
+
+Routes to the same ClientRisk instance as {@link checkSignal} but delegates
+to its `checkSignalAndReserve` method. Use from execution paths where the
+caller will follow up with `addSignal` on success — guarantees concurrent
+callers cannot all pass validation against a stale empty map. See
+{@link IRisk.checkSignalAndReserve} for the full rationale.
 
 ### addSignal
 

@@ -19,11 +19,14 @@ constructor();
 
 ## Properties
 
-### PersistIntervalFactory
+### PersistIntervalInstanceCtor
 
 ```ts
-PersistIntervalFactory: any
+PersistIntervalInstanceCtor: any
 ```
+
+Constructor used to create per-bucket interval marker instances.
+Replaceable via usePersistIntervalAdapter() / useJson() / useDummy().
 
 ### getIntervalStorage
 
@@ -31,13 +34,16 @@ PersistIntervalFactory: any
 getIntervalStorage: any
 ```
 
+Memoized factory creating one IPersistIntervalInstance per bucket.
+
 ### readIntervalData
 
 ```ts
 readIntervalData: (bucket: string, key: string) => Promise<IntervalData>
 ```
 
-Reads interval data for a given bucket and key.
+Reads an interval marker from the given bucket by key.
+Lazily initializes the bucket instance on first access.
 
 ### writeIntervalData
 
@@ -45,7 +51,8 @@ Reads interval data for a given bucket and key.
 writeIntervalData: (data: IntervalData, bucket: string, key: string) => Promise<void>
 ```
 
-Writes interval data to disk.
+Writes an interval marker to the given bucket under the given key.
+Lazily initializes the bucket instance on first access.
 
 ### removeIntervalData
 
@@ -53,19 +60,19 @@ Writes interval data to disk.
 removeIntervalData: (bucket: string, key: string) => Promise<void>
 ```
 
-Marks an interval entry as removed (soft delete — file is kept on disk).
-After this call `readIntervalData` for the same key returns `null`,
-so the function will fire again on the next `IntervalFileInstance.run` call.
+Soft-deletes a marker in the given bucket by setting `removed: true`.
+Lazily initializes the bucket instance on first access.
 
 ## Methods
 
 ### usePersistIntervalAdapter
 
 ```ts
-usePersistIntervalAdapter(Ctor: TPersistBaseCtor<string, IntervalData>): void;
+usePersistIntervalAdapter(Ctor: TPersistIntervalInstanceCtor): void;
 ```
 
-Registers a custom persistence adapter.
+Registers a custom IPersistIntervalInstance constructor.
+Clears the memoization cache so subsequent calls use the new adapter.
 
 ### listIntervalData
 
@@ -73,8 +80,8 @@ Registers a custom persistence adapter.
 listIntervalData(bucket: string): AsyncGenerator<string>;
 ```
 
-Async generator yielding all non-removed entity keys for a given bucket.
-Used by `IntervalFileInstance.clear()` to iterate and soft-delete all entries.
+Iterates all non-removed markers for the given bucket.
+Lazily initializes the bucket instance on first access.
 
 ### clear
 
@@ -82,8 +89,8 @@ Used by `IntervalFileInstance.clear()` to iterate and soft-delete all entries.
 clear(): void;
 ```
 
-Clears the memoized storage cache.
-Call this when process.cwd() changes between strategy iterations.
+Clears the memoized bucket instance cache.
+Call when process.cwd() changes between strategy iterations.
 
 ### useJson
 
@@ -91,7 +98,7 @@ Call this when process.cwd() changes between strategy iterations.
 useJson(): void;
 ```
 
-Switches to the default JSON persist adapter.
+Switches to the default file-based PersistIntervalInstance.
 
 ### useDummy
 
@@ -99,4 +106,4 @@ Switches to the default JSON persist adapter.
 useDummy(): void;
 ```
 
-Switches to a dummy persist adapter that discards all writes.
+Switches to PersistIntervalDummyInstance (all operations are no-ops).

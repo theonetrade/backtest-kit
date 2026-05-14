@@ -23,11 +23,23 @@ constructor();
 
 ## Properties
 
-### PersistRecentFactory
+### PersistRecentInstanceCtor
 
 ```ts
-PersistRecentFactory: any
+PersistRecentInstanceCtor: any
 ```
+
+Constructor used to create per-context recent signal instances.
+Replaceable via usePersistRecentAdapter() / useJson() / useDummy().
+
+### createKey
+
+```ts
+createKey: any
+```
+
+Builds the composite memoization key for a recent signal context.
+Includes optional frameName and the backtest/live mode flag.
 
 ### getStorage
 
@@ -35,11 +47,7 @@ PersistRecentFactory: any
 getStorage: any
 ```
 
-### createKeyParts
-
-```ts
-createKeyParts: any
-```
+Memoized factory creating one IPersistRecentInstance per context tuple.
 
 ### readRecentData
 
@@ -47,9 +55,8 @@ createKeyParts: any
 readRecentData: (symbol: string, strategyName: string, exchangeName: string, frameName: string, backtest: boolean) => Promise<IPublicSignalRow>
 ```
 
-Reads the latest persisted recent signal for a given context.
-
-Returns null if no recent signal exists.
+Reads the latest recent signal for the given context.
+Lazily initializes the instance on first access.
 
 ### writeRecentData
 
@@ -57,20 +64,19 @@ Returns null if no recent signal exists.
 writeRecentData: (signalRow: IPublicSignalRow, symbol: string, strategyName: string, exchangeName: string, frameName: string, backtest: boolean) => Promise<void>
 ```
 
-Writes the latest recent signal to disk with atomic file writes.
-
-Uses symbol as the entity ID within the per-context storage instance.
-Uses atomic writes to prevent corruption on crashes.
+Writes the latest recent signal for the given context.
+Lazily initializes the instance on first access.
 
 ## Methods
 
 ### usePersistRecentAdapter
 
 ```ts
-usePersistRecentAdapter(Ctor: TPersistBaseCtor<string, IPublicSignalRow>): void;
+usePersistRecentAdapter(Ctor: TPersistRecentInstanceCtor): void;
 ```
 
-Registers a custom persistence adapter.
+Registers a custom IPersistRecentInstance constructor.
+Clears the memoization cache so subsequent calls use the new adapter.
 
 ### clear
 
@@ -78,9 +84,8 @@ Registers a custom persistence adapter.
 clear(): void;
 ```
 
-Clears the memoized storage cache.
-Call this when process.cwd() changes between strategy iterations
-so new storage instances are created with the updated base path.
+Clears the memoized instance cache.
+Call when process.cwd() changes between strategy iterations.
 
 ### useJson
 
@@ -88,8 +93,7 @@ so new storage instances are created with the updated base path.
 useJson(): void;
 ```
 
-Switches to the default JSON persist adapter.
-All future persistence writes will use JSON storage.
+Switches to the default file-based PersistRecentInstance.
 
 ### useDummy
 
@@ -97,5 +101,4 @@ All future persistence writes will use JSON storage.
 useDummy(): void;
 ```
 
-Switches to a dummy persist adapter that discards all writes.
-All future persistence writes will be no-ops.
+Switches to PersistRecentDummyInstance (all operations are no-ops).

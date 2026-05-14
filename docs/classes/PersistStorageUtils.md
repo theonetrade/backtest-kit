@@ -24,11 +24,14 @@ constructor();
 
 ## Properties
 
-### PersistStorageFactory
+### PersistStorageInstanceCtor
 
 ```ts
-PersistStorageFactory: any
+PersistStorageInstanceCtor: any
 ```
+
+Constructor used to create per-mode signal storage instances.
+Replaceable via usePersistStorageAdapter() / useJson() / useDummy().
 
 ### getStorage
 
@@ -36,17 +39,17 @@ PersistStorageFactory: any
 getStorage: any
 ```
 
+Memoized factory creating one IPersistStorageInstance per mode (backtest/live).
+Key: "backtest" or "live".
+
 ### readStorageData
 
 ```ts
 readStorageData: (backtest: boolean) => Promise<StorageData>
 ```
 
-Reads persisted signals data.
-
-Called by StorageLiveUtils/StorageBacktestUtils.waitForInit() to restore state.
-Uses keys() from PersistBase to iterate over all stored signals.
-Returns empty array if no signals exist.
+Reads all persisted signals for the given mode.
+Lazily initializes the instance on first access.
 
 ### writeStorageData
 
@@ -54,21 +57,19 @@ Returns empty array if no signals exist.
 writeStorageData: (signalData: StorageData, backtest: boolean) => Promise<void>
 ```
 
-Writes signal data to disk with atomic file writes.
-
-Called by StorageLiveUtils/StorageBacktestUtils after signal changes to persist state.
-Uses signal.id as the storage key for individual file storage.
-Uses atomic writes to prevent corruption on crashes.
+Writes signals for the given mode.
+Lazily initializes the instance on first access.
 
 ## Methods
 
 ### usePersistStorageAdapter
 
 ```ts
-usePersistStorageAdapter(Ctor: TPersistBaseCtor<string, IStorageSignalRow>): void;
+usePersistStorageAdapter(Ctor: TPersistStorageInstanceCtor): void;
 ```
 
-Registers a custom persistence adapter.
+Registers a custom IPersistStorageInstance constructor.
+Clears the memoization cache so subsequent calls use the new adapter.
 
 ### clear
 
@@ -76,9 +77,8 @@ Registers a custom persistence adapter.
 clear(): void;
 ```
 
-Clears the memoized storage cache.
-Call this when process.cwd() changes between strategy iterations
-so new storage instances are created with the updated base path.
+Clears the memoized instance cache.
+Call when process.cwd() changes between strategy iterations.
 
 ### useJson
 
@@ -86,8 +86,7 @@ so new storage instances are created with the updated base path.
 useJson(): void;
 ```
 
-Switches to the default JSON persist adapter.
-All future persistence writes will use JSON storage.
+Switches to the default file-based PersistStorageInstance.
 
 ### useDummy
 
@@ -95,5 +94,4 @@ All future persistence writes will use JSON storage.
 useDummy(): void;
 ```
 
-Switches to a dummy persist adapter that discards all writes.
-All future persistence writes will be no-ops.
+Switches to PersistStorageDummyInstance (all operations are no-ops).

@@ -24,11 +24,14 @@ constructor();
 
 ## Properties
 
-### PersistSessionFactory
+### PersistSessionInstanceCtor
 
 ```ts
-PersistSessionFactory: any
+PersistSessionInstanceCtor: any
 ```
+
+Constructor used to create per-context session instances.
+Replaceable via usePersistSessionAdapter() / useJson() / useDummy().
 
 ### getSessionStorage
 
@@ -36,13 +39,17 @@ PersistSessionFactory: any
 getSessionStorage: any
 ```
 
+Memoized factory creating one IPersistSessionInstance per
+(strategyName, exchangeName, frameName) triple.
+
 ### waitForInit
 
 ```ts
 waitForInit: (strategyName: string, exchangeName: string, frameName: string, initial: boolean) => Promise<void>
 ```
 
-Initializes the storage for a given (strategyName, exchangeName, frameName) triple.
+Initializes the session storage for the given context.
+Skips initialization when `initial` is false (used to gate first-time setup).
 
 ### readSessionData
 
@@ -50,7 +57,8 @@ Initializes the storage for a given (strategyName, exchangeName, frameName) trip
 readSessionData: (strategyName: string, exchangeName: string, frameName: string) => Promise<SessionData>
 ```
 
-Reads a session entry from persistence storage.
+Reads persisted session data for the given context.
+Lazily initializes the instance on first access.
 
 ### writeSessionData
 
@@ -58,7 +66,8 @@ Reads a session entry from persistence storage.
 writeSessionData: (data: SessionData, strategyName: string, exchangeName: string, frameName: string) => Promise<void>
 ```
 
-Writes a session entry to disk with atomic file writes.
+Writes session data for the given context.
+Lazily initializes the instance on first access.
 
 ### useDummy
 
@@ -66,8 +75,7 @@ Writes a session entry to disk with atomic file writes.
 useDummy: () => void
 ```
 
-Switches to a dummy persist adapter that discards all writes.
-All future persistence writes will be no-ops.
+Switches to PersistSessionDummyInstance (all operations are no-ops).
 
 ### useJson
 
@@ -75,8 +83,7 @@ All future persistence writes will be no-ops.
 useJson: () => void
 ```
 
-Switches to the default JSON persist adapter.
-All future persistence writes will use JSON storage.
+Switches to the default file-based PersistSessionInstance.
 
 ### clear
 
@@ -84,9 +91,8 @@ All future persistence writes will use JSON storage.
 clear: () => void
 ```
 
-Clears the memoized storage cache.
-Call this when process.cwd() changes between strategy iterations
-so new storage instances are created with the updated base path.
+Clears the memoized instance cache.
+Call when process.cwd() changes between strategy iterations.
 
 ### dispose
 
@@ -94,15 +100,16 @@ so new storage instances are created with the updated base path.
 dispose: (strategyName: string, exchangeName: string, frameName: string) => void
 ```
 
-Disposes of the session adapter and releases any resources.
-Call this when a session is removed to clean up its associated storage.
+Drops the memoized instance for the given context.
+Call when a session is removed to clean up its associated storage entry.
 
 ## Methods
 
 ### usePersistSessionAdapter
 
 ```ts
-usePersistSessionAdapter(Ctor: TPersistBaseCtor<string, SessionData>): void;
+usePersistSessionAdapter(Ctor: TPersistSessionInstanceCtor): void;
 ```
 
-Registers a custom persistence adapter.
+Registers a custom IPersistSessionInstance constructor.
+Clears the memoization cache so subsequent calls use the new adapter.

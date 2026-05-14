@@ -153,3 +153,27 @@ avgFallPnl: number
 ```
 
 Average fall PNL percentage across all trades (_fall.pnlPercentage). Closer to 0 is better.
+
+### sortinoRatio
+
+```ts
+sortinoRatio: number
+```
+
+Sortino Ratio (avgPnl / downside deviation — stdDev of losses only). Higher is better.
+
+### calmarRatio
+
+```ts
+calmarRatio: number
+```
+
+Calmar Ratio (totalPnl / maxDrawdown). Higher is better.
+
+### recoveryFactor
+
+```ts
+recoveryFactor: number
+```
+
+Recovery Factor (totalPnl / maxDrawdown). Higher is better.

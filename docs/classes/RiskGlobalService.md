@@ -63,10 +63,24 @@ Logs validation activity.
 ### checkSignal
 
 ```ts
-checkSignal: (params: IRiskCheckArgs, payload: { riskName: string; exchangeName: string; frameName: string; backtest: boolean; }) => Promise<boolean>
+checkSignal: (params: IRiskCheckArgs, payload: { riskName: string; exchangeName: string; frameName: string; backtest: boolean; }, options?: Partial<IRiskCheckOptions>) => Promise<...>
 ```
 
 Checks if a signal should be allowed based on risk limits.
+
+### checkSignalAndReserve
+
+```ts
+checkSignalAndReserve: (params: IRiskCheckArgs, payload: { riskName: string; exchangeName: string; frameName: string; backtest: boolean; }) => Promise<boolean>
+```
+
+Concurrency-safe variant of {@link checkSignal} — validates the signal AND
+reserves a placeholder in the active position map atomically.
+
+Use from strategy execution paths where the caller will follow up with
+`addSignal` on success — guarantees concurrent callers cannot all pass
+validation against a stale empty map. See {@link IRisk.checkSignalAndReserve}
+for the full rationale.
 
 ### addSignal
 

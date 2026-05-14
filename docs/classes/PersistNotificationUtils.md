@@ -24,11 +24,14 @@ constructor();
 
 ## Properties
 
-### PersistNotificationFactory
+### PersistNotificationInstanceCtor
 
 ```ts
-PersistNotificationFactory: any
+PersistNotificationInstanceCtor: any
 ```
+
+Constructor used to create per-mode notification instances.
+Replaceable via usePersistNotificationAdapter() / useJson() / useDummy().
 
 ### getNotificationStorage
 
@@ -36,17 +39,17 @@ PersistNotificationFactory: any
 getNotificationStorage: any
 ```
 
+Memoized factory creating one IPersistNotificationInstance per mode (backtest/live).
+Key: "backtest" or "live".
+
 ### readNotificationData
 
 ```ts
 readNotificationData: (backtest: boolean) => Promise<NotificationData>
 ```
 
-Reads persisted notifications data.
-
-Called by NotificationPersistLiveUtils/NotificationPersistBacktestUtils.waitForInit() to restore state.
-Uses keys() from PersistBase to iterate over all stored notifications.
-Returns empty array if no notifications exist.
+Reads persisted notifications for the given mode.
+Lazily initializes the instance on first access.
 
 ### writeNotificationData
 
@@ -54,21 +57,19 @@ Returns empty array if no notifications exist.
 writeNotificationData: (notificationData: NotificationData, backtest: boolean) => Promise<void>
 ```
 
-Writes notification data to disk with atomic file writes.
-
-Called by NotificationPersistLiveUtils/NotificationPersistBacktestUtils after notification changes to persist state.
-Uses notification.id as the storage key for individual file storage.
-Uses atomic writes to prevent corruption on crashes.
+Writes notifications for the given mode.
+Lazily initializes the instance on first access.
 
 ## Methods
 
 ### usePersistNotificationAdapter
 
 ```ts
-usePersistNotificationAdapter(Ctor: TPersistBaseCtor<string, NotificationModel>): void;
+usePersistNotificationAdapter(Ctor: TPersistNotificationInstanceCtor): void;
 ```
 
-Registers a custom persistence adapter.
+Registers a custom IPersistNotificationInstance constructor.
+Clears the memoization cache so subsequent calls use the new adapter.
 
 ### clear
 
@@ -76,9 +77,9 @@ Registers a custom persistence adapter.
 clear(): void;
 ```
 
-Clears the memoized storage cache.
-Call this when process.cwd() changes between strategy iterations
-so new storage instances are created with the updated base path.
+Clears the memoized instance cache.
+Call when process.cwd() changes between strategy iterations so new
+instances are created with the updated base path.
 
 ### useJson
 
@@ -86,8 +87,7 @@ so new storage instances are created with the updated base path.
 useJson(): void;
 ```
 
-Switches to the default JSON persist adapter.
-All future persistence writes will use JSON storage.
+Switches to the default file-based PersistNotificationInstance.
 
 ### useDummy
 
@@ -95,5 +95,4 @@ All future persistence writes will use JSON storage.
 useDummy(): void;
 ```
 
-Switches to a dummy persist adapter that discards all writes.
-All future persistence writes will be no-ops.
+Switches to PersistNotificationDummyInstance (all operations are no-ops).

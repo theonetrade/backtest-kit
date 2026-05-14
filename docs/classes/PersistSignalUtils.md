@@ -23,11 +23,14 @@ constructor();
 
 ## Properties
 
-### PersistSignalFactory
+### PersistSignalInstanceCtor
 
 ```ts
-PersistSignalFactory: any
+PersistSignalInstanceCtor: any
 ```
+
+Constructor used to create per-context signal instances.
+Replaceable via usePersistSignalAdapter() / useJson() / useDummy().
 
 ### getStorage
 
@@ -35,16 +38,16 @@ PersistSignalFactory: any
 getStorage: any
 ```
 
+Memoized factory creating one IPersistSignalInstance per (symbol, strategy, exchange) triple.
+
 ### readSignalData
 
 ```ts
 readSignalData: (symbol: string, strategyName: string, exchangeName: string) => Promise<ISignalRow>
 ```
 
-Reads persisted signal data for a symbol and strategy.
-
-Called by ClientStrategy.waitForInit() to restore state.
-Returns null if no signal exists.
+Reads persisted signal for the given context.
+Lazily initializes the instance on first access.
 
 ### writeSignalData
 
@@ -52,20 +55,19 @@ Returns null if no signal exists.
 writeSignalData: (signalRow: ISignalRow, symbol: string, strategyName: string, exchangeName: string) => Promise<void>
 ```
 
-Writes signal data to disk with atomic file writes.
-
-Called by ClientStrategy.setPendingSignal() to persist state.
-Uses atomic writes to prevent corruption on crashes.
+Writes signal data (or null to clear) for the given context.
+Lazily initializes the instance on first access.
 
 ## Methods
 
 ### usePersistSignalAdapter
 
 ```ts
-usePersistSignalAdapter(Ctor: TPersistBaseCtor<StrategyName, SignalData>): void;
+usePersistSignalAdapter(Ctor: TPersistSignalInstanceCtor): void;
 ```
 
-Registers a custom persistence adapter.
+Registers a custom IPersistSignalInstance constructor.
+Clears the memoization cache so subsequent calls use the new adapter.
 
 ### clear
 
@@ -73,9 +75,8 @@ Registers a custom persistence adapter.
 clear(): void;
 ```
 
-Clears the memoized storage cache.
-Call this when process.cwd() changes between strategy iterations
-so new storage instances are created with the updated base path.
+Clears the memoized instance cache.
+Call when process.cwd() changes between strategy iterations.
 
 ### useJson
 
@@ -83,8 +84,7 @@ so new storage instances are created with the updated base path.
 useJson(): void;
 ```
 
-Switches to the default JSON persist adapter.
-All future persistence writes will use JSON storage.
+Switches to the default file-based PersistSignalInstance.
 
 ### useDummy
 
@@ -92,5 +92,4 @@ All future persistence writes will use JSON storage.
 useDummy(): void;
 ```
 
-Switches to a dummy persist adapter that discards all writes.
-All future persistence writes will be no-ops.
+Switches to PersistSignalDummyInstance (all operations are no-ops).

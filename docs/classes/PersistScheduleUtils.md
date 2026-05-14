@@ -23,11 +23,14 @@ constructor();
 
 ## Properties
 
-### PersistScheduleFactory
+### PersistScheduleInstanceCtor
 
 ```ts
-PersistScheduleFactory: any
+PersistScheduleInstanceCtor: any
 ```
+
+Constructor used to create per-context scheduled signal instances.
+Replaceable via usePersistScheduleAdapter() / useJson() / useDummy().
 
 ### getScheduleStorage
 
@@ -35,16 +38,16 @@ PersistScheduleFactory: any
 getScheduleStorage: any
 ```
 
+Memoized factory creating one IPersistScheduleInstance per (symbol, strategy, exchange) triple.
+
 ### readScheduleData
 
 ```ts
 readScheduleData: (symbol: string, strategyName: string, exchangeName: string) => Promise<IScheduledSignalRow>
 ```
 
-Reads persisted scheduled signal data for a symbol and strategy.
-
-Called by ClientStrategy.waitForInit() to restore scheduled signal state.
-Returns null if no scheduled signal exists.
+Reads persisted scheduled signal for the given context.
+Lazily initializes the instance on first access.
 
 ### writeScheduleData
 
@@ -52,20 +55,19 @@ Returns null if no scheduled signal exists.
 writeScheduleData: (scheduledSignalRow: IScheduledSignalRow, symbol: string, strategyName: string, exchangeName: string) => Promise<void>
 ```
 
-Writes scheduled signal data to disk with atomic file writes.
-
-Called by ClientStrategy.setScheduledSignal() to persist state.
-Uses atomic writes to prevent corruption on crashes.
+Writes scheduled signal (or null to clear) for the given context.
+Lazily initializes the instance on first access.
 
 ## Methods
 
 ### usePersistScheduleAdapter
 
 ```ts
-usePersistScheduleAdapter(Ctor: TPersistBaseCtor<StrategyName, ScheduleData>): void;
+usePersistScheduleAdapter(Ctor: TPersistScheduleInstanceCtor): void;
 ```
 
-Registers a custom persistence adapter.
+Registers a custom IPersistScheduleInstance constructor.
+Clears the memoization cache so subsequent calls use the new adapter.
 
 ### clear
 
@@ -73,9 +75,8 @@ Registers a custom persistence adapter.
 clear(): void;
 ```
 
-Clears the memoized storage cache.
-Call this when process.cwd() changes between strategy iterations
-so new storage instances are created with the updated base path.
+Clears the memoized instance cache.
+Call when process.cwd() changes between strategy iterations.
 
 ### useJson
 
@@ -83,8 +84,7 @@ so new storage instances are created with the updated base path.
 useJson(): void;
 ```
 
-Switches to the default JSON persist adapter.
-All future persistence writes will use JSON storage.
+Switches to the default file-based PersistScheduleInstance.
 
 ### useDummy
 
@@ -92,5 +92,4 @@ All future persistence writes will use JSON storage.
 useDummy(): void;
 ```
 
-Switches to a dummy persist adapter that discards all writes.
-All future persistence writes will be no-ops.
+Switches to PersistScheduleDummyInstance (all operations are no-ops).

@@ -23,11 +23,14 @@ constructor();
 
 ## Properties
 
-### PersistMeasureFactory
+### PersistMeasureInstanceCtor
 
 ```ts
-PersistMeasureFactory: any
+PersistMeasureInstanceCtor: any
 ```
+
+Constructor used to create per-bucket measure cache instances.
+Replaceable via usePersistMeasureAdapter() / useJson() / useDummy().
 
 ### getMeasureStorage
 
@@ -35,13 +38,16 @@ PersistMeasureFactory: any
 getMeasureStorage: any
 ```
 
+Memoized factory creating one IPersistMeasureInstance per bucket.
+
 ### readMeasureData
 
 ```ts
 readMeasureData: (bucket: string, key: string) => Promise<MeasureData>
 ```
 
-Reads cached measure data for a given bucket and key.
+Reads a measure entry from the given bucket by key.
+Lazily initializes the bucket instance on first access.
 
 ### writeMeasureData
 
@@ -49,7 +55,8 @@ Reads cached measure data for a given bucket and key.
 writeMeasureData: (data: MeasureData, bucket: string, key: string) => Promise<void>
 ```
 
-Writes measure data to disk with atomic file writes.
+Writes a measure entry to the given bucket under the given key.
+Lazily initializes the bucket instance on first access.
 
 ### removeMeasureData
 
@@ -57,18 +64,19 @@ Writes measure data to disk with atomic file writes.
 removeMeasureData: (bucket: string, key: string) => Promise<void>
 ```
 
-Marks a cached entry as removed (soft delete — file is kept on disk).
-After this call `readMeasureData` for the same key returns `null`.
+Soft-deletes a measure entry in the given bucket by setting `removed: true`.
+Lazily initializes the bucket instance on first access.
 
 ## Methods
 
 ### usePersistMeasureAdapter
 
 ```ts
-usePersistMeasureAdapter(Ctor: TPersistBaseCtor<string, MeasureData>): void;
+usePersistMeasureAdapter(Ctor: TPersistMeasureInstanceCtor): void;
 ```
 
-Registers a custom persistence adapter.
+Registers a custom IPersistMeasureInstance constructor.
+Clears the memoization cache so subsequent calls use the new adapter.
 
 ### listMeasureData
 
@@ -76,8 +84,8 @@ Registers a custom persistence adapter.
 listMeasureData(bucket: string): AsyncGenerator<string>;
 ```
 
-Async generator yielding all non-removed entity keys for a given bucket.
-Used by `CacheFileInstance.clear()` to iterate and soft-delete all entries.
+Iterates all non-removed measure entries for the given bucket.
+Lazily initializes the bucket instance on first access.
 
 ### clear
 
@@ -85,9 +93,8 @@ Used by `CacheFileInstance.clear()` to iterate and soft-delete all entries.
 clear(): void;
 ```
 
-Clears the memoized storage cache.
-Call this when process.cwd() changes between strategy iterations
-so new storage instances are created with the updated base path.
+Clears the memoized bucket instance cache.
+Call when process.cwd() changes between strategy iterations.
 
 ### useJson
 
@@ -95,7 +102,7 @@ so new storage instances are created with the updated base path.
 useJson(): void;
 ```
 
-Switches to the default JSON persist adapter.
+Switches to the default file-based PersistMeasureInstance.
 
 ### useDummy
 
@@ -103,4 +110,4 @@ Switches to the default JSON persist adapter.
 useDummy(): void;
 ```
 
-Switches to a dummy persist adapter that discards all writes.
+Switches to PersistMeasureDummyInstance (all operations are no-ops).

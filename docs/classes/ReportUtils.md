@@ -23,7 +23,7 @@ constructor();
 ### enable
 
 ```ts
-enable: ({ backtest: bt, breakeven, heat, live, partial, performance, risk, schedule, walker, strategy, sync, highest_profit, max_drawdown, }?: Partial<IReportTarget>) => (...args: any[]) => any
+enable: (({ backtest: bt, breakeven, heat, live, partial, performance, risk, schedule, walker, strategy, sync, highest_profit, max_drawdown, }?: Partial<IReportTarget>) => (...args: any[]) => any) & ISingleshotClearable<({ backtest: bt, breakeven, heat, live, partial, performance, risk, schedule, walker, strategy, sync, hig...
 ```
 
 Enables report services selectively.

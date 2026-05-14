@@ -23,7 +23,7 @@ constructor();
 ### enable
 
 ```ts
-enable: ({ backtest: bt, breakeven, heat, live, partial, performance, strategy, risk, schedule, walker, sync, highest_profit, max_drawdown, }?: Partial<IMarkdownTarget>) => (...args: any[]) => any
+enable: (({ backtest: bt, breakeven, heat, live, partial, performance, strategy, risk, schedule, walker, sync, highest_profit, max_drawdown, }?: Partial<IMarkdownTarget>) => (...args: any[]) => any) & ISingleshotClearable<({ backtest: bt, breakeven, heat, live, partial, performance, strategy, risk, schedule, walker, sync, h...
 ```
 
 Enables markdown report services selectively.

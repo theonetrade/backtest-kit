@@ -25,11 +25,14 @@ constructor();
 
 ## Properties
 
-### PersistMemoryFactory
+### PersistMemoryInstanceCtor
 
 ```ts
-PersistMemoryFactory: any
+PersistMemoryInstanceCtor: any
 ```
+
+Constructor used to create per-context memory instances.
+Replaceable via usePersistMemoryAdapter() / useJson() / useDummy().
 
 ### getMemoryStorage
 
@@ -37,13 +40,16 @@ PersistMemoryFactory: any
 getMemoryStorage: any
 ```
 
+Memoized factory creating one IPersistMemoryInstance per (signalId, bucketName) pair.
+
 ### waitForInit
 
 ```ts
 waitForInit: (signalId: string, bucketName: string, initial: boolean) => Promise<void>
 ```
 
-Initializes the storage for a given (signalId, bucketName) pair.
+Initializes the memory storage for the given context.
+Skips initialization when `initial` is false (used to gate first-time setup).
 
 ### readMemoryData
 
@@ -51,7 +57,8 @@ Initializes the storage for a given (signalId, bucketName) pair.
 readMemoryData: (signalId: string, bucketName: string, memoryId: string) => Promise<MemoryData>
 ```
 
-Reads a memory entry from persistence storage.
+Reads a memory entry for the given context and id.
+Lazily initializes the instance on first access.
 
 ### hasMemoryData
 
@@ -59,7 +66,8 @@ Reads a memory entry from persistence storage.
 hasMemoryData: (signalId: string, bucketName: string, memoryId: string) => Promise<boolean>
 ```
 
-Checks if a memory entry exists in persistence storage.
+Checks whether a memory entry exists on disk for the given context.
+Lazily initializes the instance on first access.
 
 ### writeMemoryData
 
@@ -67,7 +75,8 @@ Checks if a memory entry exists in persistence storage.
 writeMemoryData: (data: MemoryData, signalId: string, bucketName: string, memoryId: string) => Promise<void>
 ```
 
-Writes a memory entry to disk with atomic file writes.
+Writes a memory entry for the given context.
+Lazily initializes the instance on first access.
 
 ### removeMemoryData
 
@@ -75,7 +84,8 @@ Writes a memory entry to disk with atomic file writes.
 removeMemoryData: (signalId: string, bucketName: string, memoryId: string) => Promise<void>
 ```
 
-Marks a memory entry as removed (soft delete — file is kept on disk).
+Soft-deletes a memory entry for the given context.
+Lazily initializes the instance on first access.
 
 ### clear
 
@@ -83,9 +93,8 @@ Marks a memory entry as removed (soft delete — file is kept on disk).
 clear: () => void
 ```
 
-Clears the memoized storage cache.
-Call this when process.cwd() changes between strategy iterations
-so new storage instances are created with the updated base path.
+Clears the memoized instance cache.
+Call when process.cwd() changes between strategy iterations.
 
 ### dispose
 
@@ -93,18 +102,19 @@ so new storage instances are created with the updated base path.
 dispose: (signalId: string, bucketName: string) => void
 ```
 
-Disposes of the memory adapter and releases any resources.
-Call this when a signal is removed to clean up its associated storage.
+Drops the memoized instance for the given context.
+Call when a signal is removed to clean up its associated storage entry.
 
 ## Methods
 
 ### usePersistMemoryAdapter
 
 ```ts
-usePersistMemoryAdapter(Ctor: TPersistBaseCtor<string, MemoryData>): void;
+usePersistMemoryAdapter(Ctor: TPersistMemoryInstanceCtor): void;
 ```
 
-Registers a custom persistence adapter.
+Registers a custom IPersistMemoryInstance constructor.
+Clears the memoization cache so subsequent calls use the new adapter.
 
 ### listMemoryData
 
@@ -115,8 +125,9 @@ listMemoryData(signalId: string, bucketName: string): AsyncGenerator<{
 }>;
 ```
 
-Lists all memory entry IDs for a given (signalId, bucketName) pair.
+Iterates all non-removed memory entries for the given context.
 Used by MemoryPersistInstance to rebuild the BM25 index on init.
+Lazily initializes the instance on first access.
 
 ### useJson
 
@@ -124,8 +135,7 @@ Used by MemoryPersistInstance to rebuild the BM25 index on init.
 useJson(): void;
 ```
 
-Switches to the default JSON persist adapter.
-All future persistence writes will use JSON storage.
+Switches to the default file-based PersistMemoryInstance.
 
 ### useDummy
 
@@ -133,5 +143,4 @@ All future persistence writes will use JSON storage.
 useDummy(): void;
 ```
 
-Switches to a dummy persist adapter that discards all writes.
-All future persistence writes will be no-ops.
+Switches to PersistMemoryDummyInstance (all operations are no-ops).

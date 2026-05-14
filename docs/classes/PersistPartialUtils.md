@@ -23,11 +23,14 @@ constructor();
 
 ## Properties
 
-### PersistPartialFactory
+### PersistPartialInstanceCtor
 
 ```ts
-PersistPartialFactory: any
+PersistPartialInstanceCtor: any
 ```
+
+Constructor used to create per-context partial data instances.
+Replaceable via usePersistPartialAdapter() / useJson() / useDummy().
 
 ### getPartialStorage
 
@@ -35,16 +38,17 @@ PersistPartialFactory: any
 getPartialStorage: any
 ```
 
+Memoized factory creating one IPersistPartialInstance per (symbol, strategy, exchange) triple.
+Each signal's partial data is stored under its own signalId within the instance.
+
 ### readPartialData
 
 ```ts
 readPartialData: (symbol: string, strategyName: string, signalId: string, exchangeName: string) => Promise<PartialData>
 ```
 
-Reads persisted partial data for a symbol and strategy.
-
-Called by ClientPartial.waitForInit() to restore state.
-Returns empty object if no partial data exists.
+Reads partial data for the given context and signalId.
+Lazily initializes the instance on first access.
 
 ### writePartialData
 
@@ -52,20 +56,19 @@ Returns empty object if no partial data exists.
 writePartialData: (partialData: PartialData, symbol: string, strategyName: string, signalId: string, exchangeName: string) => Promise<void>
 ```
 
-Writes partial data to disk with atomic file writes.
-
-Called by ClientPartial after profit/loss level changes to persist state.
-Uses atomic writes to prevent corruption on crashes.
+Writes partial data for the given context and signalId.
+Lazily initializes the instance on first access.
 
 ## Methods
 
 ### usePersistPartialAdapter
 
 ```ts
-usePersistPartialAdapter(Ctor: TPersistBaseCtor<string, PartialData>): void;
+usePersistPartialAdapter(Ctor: TPersistPartialInstanceCtor): void;
 ```
 
-Registers a custom persistence adapter.
+Registers a custom IPersistPartialInstance constructor.
+Clears the memoization cache so subsequent calls use the new adapter.
 
 ### clear
 
@@ -73,9 +76,8 @@ Registers a custom persistence adapter.
 clear(): void;
 ```
 
-Clears the memoized storage cache.
-Call this when process.cwd() changes between strategy iterations
-so new storage instances are created with the updated base path.
+Clears the memoized instance cache.
+Call when process.cwd() changes between strategy iterations.
 
 ### useJson
 
@@ -83,8 +85,7 @@ so new storage instances are created with the updated base path.
 useJson(): void;
 ```
 
-Switches to the default JSON persist adapter.
-All future persistence writes will use JSON storage.
+Switches to the default file-based PersistPartialInstance.
 
 ### useDummy
 
@@ -92,5 +93,4 @@ All future persistence writes will use JSON storage.
 useDummy(): void;
 ```
 
-Switches to a dummy persist adapter that discards all writes.
-All future persistence writes will be no-ops.
+Switches to PersistPartialDummyInstance (all operations are no-ops).

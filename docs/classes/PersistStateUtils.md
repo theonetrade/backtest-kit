@@ -24,11 +24,14 @@ constructor();
 
 ## Properties
 
-### PersistStateFactory
+### PersistStateInstanceCtor
 
 ```ts
-PersistStateFactory: any
+PersistStateInstanceCtor: any
 ```
+
+Constructor used to create per-context state instances.
+Replaceable via usePersistStateAdapter() / useJson() / useDummy().
 
 ### getStateStorage
 
@@ -36,13 +39,16 @@ PersistStateFactory: any
 getStateStorage: any
 ```
 
+Memoized factory creating one IPersistStateInstance per (signalId, bucketName) pair.
+
 ### waitForInit
 
 ```ts
 waitForInit: (signalId: string, bucketName: string, initial: boolean) => Promise<void>
 ```
 
-Initializes the storage for a given (signalId, bucketName) pair.
+Initializes the state storage for the given context.
+Skips initialization when `initial` is false (used to gate first-time setup).
 
 ### readStateData
 
@@ -50,7 +56,8 @@ Initializes the storage for a given (signalId, bucketName) pair.
 readStateData: (signalId: string, bucketName: string) => Promise<StateData>
 ```
 
-Reads a state entry from persistence storage.
+Reads persisted state for the given context.
+Lazily initializes the instance on first access.
 
 ### writeStateData
 
@@ -58,7 +65,8 @@ Reads a state entry from persistence storage.
 writeStateData: (data: StateData, signalId: string, bucketName: string) => Promise<void>
 ```
 
-Writes a state entry to disk with atomic file writes.
+Writes state for the given context.
+Lazily initializes the instance on first access.
 
 ### useDummy
 
@@ -66,8 +74,7 @@ Writes a state entry to disk with atomic file writes.
 useDummy: () => void
 ```
 
-Switches to a dummy persist adapter that discards all writes.
-All future persistence writes will be no-ops.
+Switches to PersistStateDummyInstance (all operations are no-ops).
 
 ### useJson
 
@@ -75,8 +82,7 @@ All future persistence writes will be no-ops.
 useJson: () => void
 ```
 
-Switches to the default JSON persist adapter.
-All future persistence writes will use JSON storage.
+Switches to the default file-based PersistStateInstance.
 
 ### clear
 
@@ -84,9 +90,8 @@ All future persistence writes will use JSON storage.
 clear: () => void
 ```
 
-Clears the memoized storage cache.
-Call this when process.cwd() changes between strategy iterations
-so new storage instances are created with the updated base path.
+Clears the memoized instance cache.
+Call when process.cwd() changes between strategy iterations.
 
 ### dispose
 
@@ -94,15 +99,16 @@ so new storage instances are created with the updated base path.
 dispose: (signalId: string, bucketName: string) => void
 ```
 
-Disposes of the state adapter and releases any resources.
-Call this when a signal is removed to clean up its associated storage.
+Drops the memoized instance for the given context.
+Call when a signal is removed to clean up its associated storage entry.
 
 ## Methods
 
 ### usePersistStateAdapter
 
 ```ts
-usePersistStateAdapter(Ctor: TPersistBaseCtor<string, StateData>): void;
+usePersistStateAdapter(Ctor: TPersistStateInstanceCtor): void;
 ```
 
-Registers a custom persistence adapter.
+Registers a custom IPersistStateInstance constructor.
+Clears the memoization cache so subsequent calls use the new adapter.

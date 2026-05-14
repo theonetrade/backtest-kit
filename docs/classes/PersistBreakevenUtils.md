@@ -8,7 +8,7 @@ group: docs
 Persistence utility class for breakeven state management.
 
 Handles reading and writing breakeven state to disk.
-Uses memoized PersistBase instances per symbol-strategy pair.
+Uses memoized PersistBreakevenInstance instances per symbol-strategy pair.
 
 Features:
 - Atomic file writes via PersistBase.writeValue()
@@ -33,14 +33,14 @@ constructor();
 
 ## Properties
 
-### PersistBreakevenFactory
+### PersistBreakevenInstanceCtor
 
 ```ts
-PersistBreakevenFactory: any
+PersistBreakevenInstanceCtor: any
 ```
 
-Factory for creating PersistBase instances.
-Can be replaced via usePersistBreakevenAdapter().
+Constructor used to create per-context breakeven instances.
+Replaceable via usePersistBreakevenAdapter() / useJson() / useDummy().
 
 ### getBreakevenStorage
 
@@ -48,9 +48,8 @@ Can be replaced via usePersistBreakevenAdapter().
 getBreakevenStorage: any
 ```
 
-Memoized storage factory for breakeven data.
-Creates one PersistBase instance per symbol-strategy-exchange combination.
-Key format: "symbol:strategyName:exchangeName"
+Memoized factory creating one IPersistBreakevenInstance per (symbol, strategy, exchange) triple.
+Each signal's breakeven data is stored under its own signalId within the instance.
 
 ### readBreakevenData
 
@@ -58,10 +57,8 @@ Key format: "symbol:strategyName:exchangeName"
 readBreakevenData: (symbol: string, strategyName: string, signalId: string, exchangeName: string) => Promise<BreakevenData>
 ```
 
-Reads persisted breakeven data for a symbol and strategy.
-
-Called by ClientBreakeven.waitForInit() to restore state.
-Returns empty object if no breakeven data exists.
+Reads breakeven data for the given context and signalId.
+Lazily initializes the instance on first access.
 
 ### writeBreakevenData
 
@@ -69,21 +66,19 @@ Returns empty object if no breakeven data exists.
 writeBreakevenData: (breakevenData: BreakevenData, symbol: string, strategyName: string, signalId: string, exchangeName: string) => Promise<void>
 ```
 
-Writes breakeven data to disk.
-
-Called by ClientBreakeven._persistState() after state changes.
-Creates directory and file if they don't exist.
-Uses atomic writes to prevent data corruption.
+Writes breakeven data for the given context and signalId.
+Lazily initializes the instance on first access.
 
 ## Methods
 
 ### usePersistBreakevenAdapter
 
 ```ts
-usePersistBreakevenAdapter(Ctor: TPersistBaseCtor<string, BreakevenData>): void;
+usePersistBreakevenAdapter(Ctor: TPersistBreakevenInstanceCtor): void;
 ```
 
-Registers a custom persistence adapter.
+Registers a custom IPersistBreakevenInstance constructor.
+Clears the memoization cache so subsequent calls use the new adapter.
 
 ### clear
 
@@ -91,9 +86,8 @@ Registers a custom persistence adapter.
 clear(): void;
 ```
 
-Clears the memoized storage cache.
-Call this when process.cwd() changes between strategy iterations
-so new storage instances are created with the updated base path.
+Clears the memoized instance cache.
+Call when process.cwd() changes between strategy iterations.
 
 ### useJson
 
@@ -101,8 +95,7 @@ so new storage instances are created with the updated base path.
 useJson(): void;
 ```
 
-Switches to the default JSON persist adapter.
-All future persistence writes will use JSON storage.
+Switches to the default file-based PersistBreakevenInstance.
 
 ### useDummy
 
@@ -110,5 +103,4 @@ All future persistence writes will use JSON storage.
 useDummy(): void;
 ```
 
-Switches to a dummy persist adapter that discards all writes.
-All future persistence writes will be no-ops.
+Switches to PersistBreakevenDummyInstance (all operations are no-ops).

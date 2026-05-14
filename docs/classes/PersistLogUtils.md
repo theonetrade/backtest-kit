@@ -8,7 +8,7 @@ group: docs
 Utility class for managing log entry persistence.
 
 Features:
-- Memoized storage instance
+- Cached storage instance
 - Custom adapter support
 - Atomic read/write operations for LogData
 - Each log entry stored as separate file keyed by id
@@ -24,23 +24,31 @@ constructor();
 
 ## Properties
 
-### PersistLogFactory
+### PersistLogInstanceCtor
 
 ```ts
-PersistLogFactory: any
+PersistLogInstanceCtor: any
 ```
 
-### _logStorage
+Constructor used to create the global log instance.
+Replaceable via usePersistLogAdapter() / useJson() / useDummy().
+
+### _logInstance
 
 ```ts
-_logStorage: any
+_logInstance: any
 ```
 
-### getLogStorage
+Cached singleton log instance. Lazily created on first access.
+Reset to null by clear() and usePersistLogAdapter().
+
+### getLogInstance
 
 ```ts
-getLogStorage: any
+getLogInstance: any
 ```
+
+Returns the cached log instance, creating it on first access.
 
 ### readLogData
 
@@ -48,11 +56,8 @@ getLogStorage: any
 readLogData: () => Promise<LogData>
 ```
 
-Reads persisted log entries.
-
-Called by LogPersistUtils.waitForInit() to restore state.
-Uses keys() from PersistBase to iterate over all stored entries.
-Returns empty array if no entries exist.
+Reads all persisted log entries.
+Lazily initializes the instance on first access.
 
 ### writeLogData
 
@@ -60,21 +65,19 @@ Returns empty array if no entries exist.
 writeLogData: (logData: LogData) => Promise<void>
 ```
 
-Writes log entries to disk with atomic file writes.
-
-Called by LogPersistUtils after each log call to persist state.
-Uses entry.id as the storage key for individual file storage.
-Uses atomic writes to prevent corruption on crashes.
+Writes log entries (append-only — duplicates by id are skipped).
+Lazily initializes the instance on first access.
 
 ## Methods
 
 ### usePersistLogAdapter
 
 ```ts
-usePersistLogAdapter(Ctor: TPersistBaseCtor<string, ILogEntry>): void;
+usePersistLogAdapter(Ctor: TPersistLogInstanceCtor): void;
 ```
 
-Registers a custom persistence adapter.
+Registers a custom IPersistLogInstance constructor.
+Drops the cached instance so the next access uses the new adapter.
 
 ### clear
 
@@ -82,9 +85,8 @@ Registers a custom persistence adapter.
 clear(): void;
 ```
 
-Clears the cached storage instance.
-Call this when process.cwd() changes between strategy iterations
-so a new storage instance is created with the updated base path.
+Drops the cached log instance.
+Call when process.cwd() changes between strategy iterations.
 
 ### useJson
 
@@ -92,8 +94,7 @@ so a new storage instance is created with the updated base path.
 useJson(): void;
 ```
 
-Switches to the default JSON persist adapter.
-All future persistence writes will use JSON storage.
+Switches to the default file-based PersistLogInstance.
 
 ### useDummy
 
@@ -101,5 +102,4 @@ All future persistence writes will use JSON storage.
 useDummy(): void;
 ```
 
-Switches to a dummy persist adapter that discards all writes.
-All future persistence writes will be no-ops.
+Switches to PersistLogDummyInstance (all operations are no-ops).

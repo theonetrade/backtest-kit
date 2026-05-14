@@ -23,11 +23,14 @@ constructor();
 
 ## Properties
 
-### PersistCandlesFactory
+### PersistCandleInstanceCtor
 
 ```ts
-PersistCandlesFactory: any
+PersistCandleInstanceCtor: any
 ```
+
+Constructor used to create per-context candle cache instances.
+Replaceable via usePersistCandleAdapter() / useJson() / useDummy().
 
 ### getCandlesStorage
 
@@ -35,20 +38,16 @@ PersistCandlesFactory: any
 getCandlesStorage: any
 ```
 
+Memoized factory creating one IPersistCandleInstance per (symbol, interval, exchange) triple.
+
 ### readCandlesData
 
 ```ts
-readCandlesData: (symbol: string, interval: CandleInterval, exchangeName: string, limit: number, sinceTimestamp: number, _untilTimestamp: number) => Promise<ICandleData[]>
+readCandlesData: (symbol: string, interval: CandleInterval, exchangeName: string, limit: number, sinceTimestamp: number, untilTimestamp: number) => Promise<ICandleData[]>
 ```
 
-Reads cached candles for a specific exchange, symbol, and interval.
-Returns candles only if cache contains ALL requested candles.
-
-Algorithm (matches ClientExchange.ts logic):
-1. Calculate expected timestamps: sinceTimestamp, sinceTimestamp + stepMs, ..., sinceTimestamp + (limit-1) * stepMs
-2. Try to read each expected candle by timestamp key
-3. If ANY candle is missing, return null (cache miss)
-4. If all candles found, return them in order
+Reads cached candles for the given context and time window.
+Lazily initializes the instance on first access.
 
 ### writeCandlesData
 
@@ -56,23 +55,19 @@ Algorithm (matches ClientExchange.ts logic):
 writeCandlesData: (candles: ICandleData[], symbol: string, interval: CandleInterval, exchangeName: string) => Promise<void>
 ```
 
-Writes candles to cache with atomic file writes.
-Each candle is stored as a separate JSON file named by its timestamp.
-
-The candles passed to this function should be validated candles from the adapter:
-- First candle.timestamp equals aligned sinceTimestamp (openTime)
-- Exact number of candles as requested
-- All candles are fully closed (timestamp + stepMs &lt; untilTimestamp)
+Writes candles to cache for the given context.
+Lazily initializes the instance on first access.
 
 ## Methods
 
 ### usePersistCandleAdapter
 
 ```ts
-usePersistCandleAdapter(Ctor: TPersistBaseCtor<string, CandleData>): void;
+usePersistCandleAdapter(Ctor: TPersistCandleInstanceCtor): void;
 ```
 
-Registers a custom persistence adapter.
+Registers a custom IPersistCandleInstance constructor.
+Clears the memoization cache so subsequent calls use the new adapter.
 
 ### clear
 
@@ -80,9 +75,8 @@ Registers a custom persistence adapter.
 clear(): void;
 ```
 
-Clears the memoized storage cache.
-Call this when process.cwd() changes between strategy iterations
-so new storage instances are created with the updated base path.
+Clears the memoized instance cache.
+Call when process.cwd() changes between strategy iterations.
 
 ### useJson
 
@@ -90,8 +84,7 @@ so new storage instances are created with the updated base path.
 useJson(): void;
 ```
 
-Switches to the default JSON persist adapter.
-All future persistence writes will use JSON storage.
+Switches to the default file-based PersistCandleInstance.
 
 ### useDummy
 
@@ -99,5 +92,4 @@ All future persistence writes will use JSON storage.
 useDummy(): void;
 ```
 
-Switches to a dummy persist adapter that discards all writes.
-All future persistence writes will be no-ops.
+Switches to PersistCandleDummyInstance (always returns null on read, discards writes).
