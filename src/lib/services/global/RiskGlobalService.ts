@@ -2,7 +2,7 @@ import { inject } from "../../core/di";
 import { TLoggerService } from "../base/LoggerService";
 import TYPES from "../../core/types";
 import RiskConnectionService from "../connection/RiskConnectionService";
-import { IRisk, IRiskCheckArgs, RiskName } from "../../../interfaces/Risk.interface";
+import { IRisk, IRiskCheckArgs, IRiskCheckOptions, RiskName } from "../../../interfaces/Risk.interface";
 import { memoize } from "functools-kit";
 import RiskValidationService from "../validation/RiskValidationService";
 import ExchangeValidationService from "../validation/ExchangeValidationService";
@@ -87,14 +87,40 @@ export class RiskGlobalService implements TRisk {
    */
   public checkSignal = async (
     params: IRiskCheckArgs,
-    payload: { riskName: RiskName; exchangeName: ExchangeName; frameName: FrameName; backtest: boolean }
+    payload: { riskName: RiskName; exchangeName: ExchangeName; frameName: FrameName; backtest: boolean },
+    options: Partial<IRiskCheckOptions> = {}
   ) => {
     this.loggerService.log("riskGlobalService checkSignal", {
       symbol: params.symbol,
       payload,
     });
     await this.validate(payload);
-    return await this.riskConnectionService.checkSignal(params, payload);
+    return await this.riskConnectionService.checkSignal(params, payload, options);
+  };
+
+  /**
+   * Concurrency-safe variant of {@link checkSignal} — validates the signal AND
+   * reserves a placeholder in the active position map atomically.
+   *
+   * Use from strategy execution paths where the caller will follow up with
+   * `addSignal` on success — guarantees concurrent callers cannot all pass
+   * validation against a stale empty map. See {@link IRisk.checkSignalAndReserve}
+   * for the full rationale.
+   *
+   * @param params - Risk check arguments (portfolio state, position details)
+   * @param payload - Execution payload with risk name, exchangeName, frameName and backtest mode
+   * @returns Promise resolving to true if allowed (and reserved), false if rejected (no reservation)
+   */
+  public checkSignalAndReserve = async (
+    params: IRiskCheckArgs,
+    payload: { riskName: RiskName; exchangeName: ExchangeName; frameName: FrameName; backtest: boolean }
+  ) => {
+    this.loggerService.log("riskGlobalService checkSignalAndReserve", {
+      symbol: params.symbol,
+      payload,
+    });
+    await this.validate(payload);
+    return await this.riskConnectionService.checkSignalAndReserve(params, payload);
   };
 
   /**

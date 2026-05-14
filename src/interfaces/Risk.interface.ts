@@ -11,6 +11,16 @@ import { TExecutionContextService } from "../lib/services/context/ExecutionConte
 export type RiskRejection = void | IRiskRejectionResult | string | null;
 
 /**
+ * Risk check options for concurrent calls.
+ * `reserve: true` writes a placeholder into the active position map atomically with the check,
+ * so concurrent checkSignal calls observe the incremented size before the deferred addSignal call lands.
+ */
+export interface IRiskCheckOptions {
+  /** concurrent checkSignal calls observe the incremented size before the deferred addSignal call lands. */
+  reserve: boolean;
+}
+
+/**
  * Risk check arguments for evaluating whether to allow opening a new position.
  * Called BEFORE signal creation to validate if conditions allow new signals.
  * Contains only passthrough arguments from ClientStrategy context.
@@ -187,9 +197,41 @@ export interface IRisk {
    * Check if a signal should be allowed based on risk limits.
    *
    * @param params - Risk check arguments (position size, portfolio state, etc.)
+   * @param options - Optional flags. `reserve: true` writes a placeholder
+   *                  into the active position map atomically with the check,
+   *                  so concurrent checkSignal calls observe the incremented
+   *                  size before the deferred addSignal call lands.
    * @returns Promise resolving to risk check result
    */
-  checkSignal: (params: IRiskCheckArgs) => Promise<boolean>;
+  checkSignal: (params: IRiskCheckArgs, options?: Partial<IRiskCheckOptions>) => Promise<boolean>;
+
+  /**
+   * Concurrency-safe variant of {@link checkSignal}: atomically validates the
+   * signal AND, on success, writes a placeholder for the future position into
+   * the active position map within the same critical section.
+   *
+   * **Why this exists.** `checkSignal` followed later by `addSignal` is not
+   * atomic — between the two calls the caller does signal setup work that
+   * yields to the event loop (sync-open callback, persist writes, etc.). When
+   * several strategies sharing the same risk profile run in parallel, all of
+   * them can pass `checkSignal` while the active position map is still empty,
+   * then each call `addSignal` and blow past the limit. Reserving inside the
+   * lock guarantees the next concurrent caller observes the incremented size
+   * before its own validation runs.
+   *
+   * The reservation uses the same map key as the eventual `addSignal` call
+   * (`strategyName + exchangeName + symbol`), so `addSignal` overwrites the
+   * placeholder rather than appending a duplicate.
+   *
+   * Callers MUST ensure that every successful return is followed by either
+   * `addSignal` (overwrites the placeholder with real data) or `removeSignal`
+   * (clears the placeholder if opening is aborted). Otherwise the riskMap
+   * accumulates stale reservations.
+   *
+   * @param params - Risk check arguments (position size, portfolio state, etc.)
+   * @returns Promise resolving to true if allowed (and reserved), false if rejected (no reservation)
+   */
+  checkSignalAndReserve: (params: IRiskCheckArgs) => Promise<boolean>;
 
   /**
    * Register a new opened signal/position.
