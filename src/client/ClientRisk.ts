@@ -434,28 +434,6 @@ export class ClientRisk implements IRisk {
         return false;
       }
 
-      // Reserve slot in riskMap so concurrent checkSignal calls observe
-      // the incremented size before the deferred addSignal call lands.
-      // addSignal will overwrite this placeholder with real position data.
-      const reserveKey = CREATE_NAME_FN(
-        params.strategyName,
-        params.exchangeName,
-        params.symbol,
-      );
-      const signal = params.currentSignal;
-      riskMap.set(reserveKey, {
-        strategyName: params.strategyName,
-        exchangeName: params.exchangeName,
-        frameName: params.frameName,
-        symbol: params.symbol,
-        position: signal.position,
-        priceOpen: signal.priceOpen ?? params.currentPrice,
-        priceStopLoss: signal.priceStopLoss,
-        priceTakeProfit: signal.priceTakeProfit,
-        minuteEstimatedTime: signal.minuteEstimatedTime,
-        openTimestamp: timestamp,
-      });
-
       // All checks passed
       await CALL_ALLOWED_CALLBACKS_FN(this, params.symbol, params);
 
