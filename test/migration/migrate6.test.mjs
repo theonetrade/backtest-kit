@@ -391,20 +391,24 @@ test("Risk.getData returns correct statistics after rejections", async ({ pass, 
 
   const awaitSubject = new Subject();
   let backtestsDone = 0;
-  listenDoneBacktest(() => {
+
+  const runInBackground = async (symbol, context) => {
+    for await (const _ of lib.backtestCommandService.run(symbol, context)) {
+      // drain
+    }
     backtestsDone++;
     if (backtestsDone === 2) {
       awaitSubject.next();
     }
-  });
+  };
 
-  Backtest.background("BTCUSDT", {
+  runInBackground("BTCUSDT", {
     strategyName: "test-strategy-get-data-1",
     exchangeName: "binance-integration-get-data",
     frameName: "3d-get-data",
   });
 
-  Backtest.background("BTCUSDT", {
+  runInBackground("BTCUSDT", {
     strategyName: "test-strategy-get-data-2",
     exchangeName: "binance-integration-get-data",
     frameName: "3d-get-data",
@@ -543,20 +547,24 @@ test("Risk.getReport generates markdown with correct table structure", async ({ 
 
   const awaitSubject = new Subject();
   let backtestsDone = 0;
-  listenDoneBacktest(() => {
+
+  const runInBackground = async (symbol, context) => {
+    for await (const _ of lib.backtestCommandService.run(symbol, context)) {
+      // drain
+    }
     backtestsDone++;
     if (backtestsDone === 2) {
       awaitSubject.next();
     }
-  });
+  };
 
-  Backtest.background("ETHUSDT", {
+  runInBackground("ETHUSDT", {
     strategyName: "test-strategy-get-report-1",
     exchangeName: "binance-integration-get-report",
     frameName: "2d-get-report",
   });
 
-  Backtest.background("ETHUSDT", {
+  runInBackground("ETHUSDT", {
     strategyName: "test-strategy-get-report-2",
     exchangeName: "binance-integration-get-report",
     frameName: "2d-get-report",
@@ -705,20 +713,24 @@ test("RejectionNote field captures validation note in rejection events", async (
 
   const awaitSubject = new Subject();
   let backtestsDone = 0;
-  listenDoneBacktest(() => {
+
+  const runInBackground = async (symbol, context) => {
+    for await (const _ of lib.backtestCommandService.run(symbol, context)) {
+      // drain
+    }
     backtestsDone++;
     if (backtestsDone === 2) {
       awaitSubject.next();
     }
-  });
+  };
 
-  Backtest.background("BTCUSDT", {
+  runInBackground("BTCUSDT", {
     strategyName: "test-strategy-comment-field-1",
     exchangeName: "binance-integration-rejection-note-field",
     frameName: "2d-comment-field",
   });
 
-  Backtest.background("BTCUSDT", {
+  runInBackground("BTCUSDT", {
     strategyName: "test-strategy-comment-field-2",
     exchangeName: "binance-integration-rejection-note-field",
     frameName: "2d-comment-field",
@@ -845,33 +857,37 @@ test("Multiple rejection tracking with bySymbol and byStrategy statistics", asyn
 
   const awaitSubject = new Subject();
   let backtestCount = 0;
-  listenDoneBacktest(() => {
+
+  const runInBackground = async (symbol, context) => {
+    for await (const _ of lib.backtestCommandService.run(symbol, context)) {
+      // drain
+    }
     backtestCount++;
     if (backtestCount === 4) {
       awaitSubject.next();
     }
-  });
+  };
 
   // Run multiple symbol-strategy combinations
-  Backtest.background("BTCUSDT", {
+  runInBackground("BTCUSDT", {
     strategyName: "test-strategy-stats-1",
     exchangeName: "binance-integration-multi-stats",
     frameName: "3d-multi-stats",
   });
 
-  Backtest.background("ETHUSDT", {
+  runInBackground("ETHUSDT", {
     strategyName: "test-strategy-stats-1",
     exchangeName: "binance-integration-multi-stats",
     frameName: "3d-multi-stats",
   });
 
-  Backtest.background("BTCUSDT", {
+  runInBackground("BTCUSDT", {
     strategyName: "test-strategy-stats-2",
     exchangeName: "binance-integration-multi-stats",
     frameName: "3d-multi-stats",
   });
 
-  Backtest.background("ETHUSDT", {
+  runInBackground("ETHUSDT", {
     strategyName: "test-strategy-stats-2",
     exchangeName: "binance-integration-multi-stats",
     frameName: "3d-multi-stats",
