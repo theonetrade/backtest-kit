@@ -11,6 +11,9 @@ export {
   getActionSchema,
 } from "./function/get";
 export {
+  waitForReady,
+} from "./function/init";
+export {
   commitCancelScheduled,
   commitClosePending,
   commitPartialLoss,
