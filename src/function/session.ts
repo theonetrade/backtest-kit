@@ -39,13 +39,14 @@ export async function getSessionData<Value extends object = object>(
   if (!MethodContextService.hasContext()) {
     throw new Error("getSession requires a method context");
   }
-  const { backtest: isBacktest } = backtest.executionContextService.context;
+  const { backtest: isBacktest, when } = backtest.executionContextService.context;
   const { exchangeName, frameName, strategyName } =
     backtest.methodContextService.context;
   return await Session.getData<Value>(
     symbol,
     { exchangeName, frameName, strategyName },
     isBacktest,
+    when
   );
 }
 
@@ -82,7 +83,7 @@ export async function setSessionData<Value extends object = object>(
   if (!MethodContextService.hasContext()) {
     throw new Error("setSession requires a method context");
   }
-  const { backtest: isBacktest } = backtest.executionContextService.context;
+  const { backtest: isBacktest, when } = backtest.executionContextService.context;
   const { exchangeName, frameName, strategyName } =
     backtest.methodContextService.context;
   await Session.setData<Value>(
@@ -90,5 +91,6 @@ export async function setSessionData<Value extends object = object>(
     value,
     { exchangeName, frameName, strategyName },
     isBacktest,
+    when
   );
 }

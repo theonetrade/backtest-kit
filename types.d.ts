@@ -12827,6 +12827,7 @@ type MeasureData = {
 type IntervalData = {
     id: string;
     data: unknown;
+    when: Date;
     removed: boolean;
 };
 /**
@@ -15562,6 +15563,7 @@ declare const PersistStateAdapter: PersistStateUtils;
 type SessionData = {
     id: string;
     data: object | null;
+    when: number;
 };
 /**
  * Per-context session persistence instance interface.
@@ -16628,13 +16630,19 @@ interface ISessionInstance {
     /**
      * Write a new session value.
      * @param value - New value or null to clear
+     * @param when - Logical timestamp this value belongs to.
+     *               A write with a smaller `when` overwrites an existing record —
+     *               that lets a restarted backtest reset live-written state.
      */
-    setData<Value extends object = object>(value: Value | null): Promise<void>;
+    setData<Value extends object = object>(value: Value | null, when: Date): Promise<void>;
     /**
      * Read the current session value.
-     * @returns Current session value, or null if not set
+     * Returns null when the stored `when` is greater than the requested `when`
+     * (look-ahead bias protection).
+     * @param when - Logical timestamp at which the read is happening
+     * @returns Current session value, or null if not set / look-ahead
      */
-    getData<Value extends object = object>(): Promise<Value | null>;
+    getData<Value extends object = object>(when: Date): Promise<Value | null>;
     /**
      * Releases any resources held by this instance.
      */
@@ -16671,13 +16679,14 @@ declare class SessionBacktestAdapter implements TSessionAdapter {
      * @param context.strategyName - Strategy identifier
      * @param context.exchangeName - Exchange identifier
      * @param context.frameName - Frame identifier
-     * @returns Current session value, or null if not set
+     * @param when - Logical timestamp at which the read is happening (look-ahead guard)
+     * @returns Current session value, or null if not set / look-ahead
      */
     getData: <Value extends object = object>(symbol: string, context: {
         strategyName: StrategyName;
         exchangeName: ExchangeName;
         frameName: FrameName;
-    }) => Promise<Value | null>;
+    }, when: Date) => Promise<Value | null>;
     /**
      * Update the session value for a backtest run.
      * @param symbol - Trading pair symbol
@@ -16685,12 +16694,13 @@ declare class SessionBacktestAdapter implements TSessionAdapter {
      * @param context.strategyName - Strategy identifier
      * @param context.exchangeName - Exchange identifier
      * @param context.frameName - Frame identifier
+     * @param when - Logical timestamp this value belongs to
      */
     setData: <Value extends object = object>(symbol: string, value: Value | null, context: {
         strategyName: StrategyName;
         exchangeName: ExchangeName;
         frameName: FrameName;
-    }) => Promise<void>;
+    }, when: Date) => Promise<void>;
     /**
      * Switches to in-memory adapter (default).
      * All data lives in process memory only.
@@ -16736,13 +16746,14 @@ declare class SessionLiveAdapter implements TSessionAdapter {
      * @param context.strategyName - Strategy identifier
      * @param context.exchangeName - Exchange identifier
      * @param context.frameName - Frame identifier
-     * @returns Current session value, or null if not set
+     * @param when - Logical timestamp at which the read is happening (look-ahead guard)
+     * @returns Current session value, or null if not set / look-ahead
      */
     getData: <Value extends object = object>(symbol: string, context: {
         strategyName: StrategyName;
         exchangeName: ExchangeName;
         frameName: FrameName;
-    }) => Promise<Value | null>;
+    }, when: Date) => Promise<Value | null>;
     /**
      * Update the session value for a live run.
      * @param symbol - Trading pair symbol
@@ -16750,12 +16761,13 @@ declare class SessionLiveAdapter implements TSessionAdapter {
      * @param context.strategyName - Strategy identifier
      * @param context.exchangeName - Exchange identifier
      * @param context.frameName - Frame identifier
+     * @param when - Logical timestamp this value belongs to
      */
     setData: <Value extends object = object>(symbol: string, value: Value | null, context: {
         strategyName: StrategyName;
         exchangeName: ExchangeName;
         frameName: FrameName;
-    }) => Promise<void>;
+    }, when: Date) => Promise<void>;
     /**
      * Switches to in-memory adapter.
      * All data lives in process memory only.
@@ -16797,13 +16809,14 @@ declare class SessionAdapter {
      * @param context.exchangeName - Exchange identifier
      * @param context.frameName - Frame identifier
      * @param backtest - Flag indicating if the context is backtest or live
-     * @returns Current session value, or null if not set
+     * @param when - Logical timestamp at which the read is happening (look-ahead guard)
+     * @returns Current session value, or null if not set / look-ahead
      */
     getData: <Value extends object = object>(symbol: string, context: {
         strategyName: StrategyName;
         exchangeName: ExchangeName;
         frameName: FrameName;
-    }, backtest: boolean) => Promise<Value | null>;
+    }, backtest: boolean, when: Date) => Promise<Value | null>;
     /**
      * Update the session value for a signal.
      * Routes to SessionBacktest or SessionLive based on backtest.
@@ -16813,12 +16826,13 @@ declare class SessionAdapter {
      * @param context.exchangeName - Exchange identifier
      * @param context.frameName - Frame identifier
      * @param backtest - Flag indicating if the context is backtest or live
+     * @param when - Logical timestamp this value belongs to
      */
     setData: <Value extends object = object>(symbol: string, value: Value | null, context: {
         strategyName: StrategyName;
         exchangeName: ExchangeName;
         frameName: FrameName;
-    }, backtest: boolean) => Promise<void>;
+    }, backtest: boolean, when: Date) => Promise<void>;
 }
 /**
  * Global singleton instance of SessionAdapter.

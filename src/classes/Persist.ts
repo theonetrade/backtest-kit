@@ -272,6 +272,7 @@ export type MeasureData = {
 export type IntervalData = {
   id: string;
   data: unknown;
+  when: Date;
   removed: boolean;
 };
 
@@ -4957,6 +4958,7 @@ export const PersistStateAdapter = new PersistStateUtils();
 export type SessionData = {
   id: string;
   data: object | null;
+  when: number;
 };
 
 /**

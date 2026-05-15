@@ -73,14 +73,20 @@ export interface ISessionInstance {
   /**
    * Write a new session value.
    * @param value - New value or null to clear
+   * @param when - Logical timestamp this value belongs to.
+   *               A write with a smaller `when` overwrites an existing record —
+   *               that lets a restarted backtest reset live-written state.
    */
-  setData<Value extends object = object>(value: Value | null): Promise<void>;
+  setData<Value extends object = object>(value: Value | null, when: Date): Promise<void>;
 
   /**
    * Read the current session value.
-   * @returns Current session value, or null if not set
+   * Returns null when the stored `when` is greater than the requested `when`
+   * (look-ahead bias protection).
+   * @param when - Logical timestamp at which the read is happening
+   * @returns Current session value, or null if not set / look-ahead
    */
-  getData<Value extends object = object>(): Promise<Value | null>;
+  getData<Value extends object = object>(when: Date): Promise<Value | null>;
 
   /**
    * Releases any resources held by this instance.
@@ -120,6 +126,7 @@ type TSessionAdapter = {
  */
 export class SessionLocalInstance implements ISessionInstance {
   _data: unknown = null;
+  _when: number = 0;
 
   constructor(
     readonly symbol: string,
@@ -135,32 +142,42 @@ export class SessionLocalInstance implements ISessionInstance {
    */
   public waitForInit = singleshot(async (_initial: boolean) => {
     this._data = null;
+    this._when = 0;
   });
 
   /**
    * Read the current in-memory session value.
-   * @returns Current session value, or null if not set
+   * Returns null if the stored `when` is greater than the requested `when`
+   * (look-ahead bias protection).
+   * @param when - Logical timestamp at which the read is happening
+   * @returns Current session value, or null
    */
-  public getData = async <Value extends object = object>(): Promise<Value | null> => {
+  public getData = async <Value extends object = object>(when: Date): Promise<Value | null> => {
     swarm.loggerService.debug(SESSION_LOCAL_INSTANCE_METHOD_NAME_GET, {
       strategyName: this.strategyName,
       exchangeName: this.exchangeName,
       frameName: this.frameName,
     });
+    if (this._when > when.getTime()) {
+      return null;
+    }
     return <Value>this._data;
   };
 
   /**
    * Update the in-memory session value.
+   * Records `when` so future reads with a smaller `when` see no value.
    * @param value - New value or null to clear
+   * @param when - Logical timestamp this value belongs to
    */
-  public setData = async <Value extends object = object>(value: Value | null): Promise<void> => {
+  public setData = async <Value extends object = object>(value: Value | null, when: Date): Promise<void> => {
     swarm.loggerService.debug(SESSION_LOCAL_INSTANCE_METHOD_NAME_SET, {
       strategyName: this.strategyName,
       exchangeName: this.exchangeName,
       frameName: this.frameName,
     });
     this._data = value;
+    this._when = when.getTime();
   };
 
   /** Releases resources held by this instance. */
@@ -201,14 +218,14 @@ export class SessionDummyInstance implements ISessionInstance {
    * No-op read — always returns null.
    * @returns null
    */
-  public getData = async <Value extends object = object>(): Promise<Value | null> => {
+  public getData = async <Value extends object = object>(_when: Date): Promise<Value | null> => {
     return null;
   };
 
   /**
    * No-op write — discards the value.
    */
-  public setData = async <Value extends object = object>(_value: Value | null): Promise<void> => {
+  public setData = async <Value extends object = object>(_value: Value | null, _when: Date): Promise<void> => {
     void 0;
   };
 
@@ -231,6 +248,7 @@ export class SessionDummyInstance implements ISessionInstance {
  */
 export class SessionPersistInstance implements ISessionInstance {
   _data: unknown = null;
+  _when: number = 0;
 
   constructor(
     readonly symbol: string,
@@ -255,38 +273,50 @@ export class SessionPersistInstance implements ISessionInstance {
     const data = await PersistSessionAdapter.readSessionData(this.strategyName, this.exchangeName, this.frameName);
     if (data) {
       this._data = data.data;
+      this._when = data.when;
       return;
     }
     this._data = null;
+    this._when = 0;
   });
 
   /**
    * Read the current persisted session value.
-   * @returns Current session value, or null if not set
+   * Returns null if the stored `when` is greater than the requested `when`
+   * (look-ahead bias protection).
+   * @param when - Logical timestamp at which the read is happening
+   * @returns Current session value, or null
    */
-  public getData = async <Value extends object = object>(): Promise<Value | null> => {
+  public getData = async <Value extends object = object>(when: Date): Promise<Value | null> => {
     swarm.loggerService.debug(SESSION_PERSIST_INSTANCE_METHOD_NAME_GET, {
       strategyName: this.strategyName,
       exchangeName: this.exchangeName,
       frameName: this.frameName,
     });
+    if (this._when > when.getTime()) {
+      return null;
+    }
     return <Value>this._data;
   };
 
   /**
    * Update session value and persist to disk atomically.
+   * A write with a smaller `when` overwrites an existing record — that lets
+   * a restarted backtest reset live-written state without breaking live.
    * @param value - New value or null to clear
+   * @param when - Logical timestamp this value belongs to
    */
-  public setData = async <Value extends object = object>(value: Value | null): Promise<void> => {
+  public setData = async <Value extends object = object>(value: Value | null, when: Date): Promise<void> => {
     swarm.loggerService.debug(SESSION_PERSIST_INSTANCE_METHOD_NAME_SET, {
       strategyName: this.strategyName,
       exchangeName: this.exchangeName,
       frameName: this.frameName,
     });
     this._data = value;
+    this._when = when.getTime();
     const id = CREATE_KEY_FN(this.symbol, this.strategyName, this.exchangeName, this.frameName, this.backtest);
     await PersistSessionAdapter.writeSessionData(
-      { id, data: value },
+      { id, data: value, when: this._when },
       this.strategyName,
       this.exchangeName,
       this.frameName,
@@ -330,9 +360,10 @@ export class SessionBacktestAdapter implements TSessionAdapter {
    * @param context.strategyName - Strategy identifier
    * @param context.exchangeName - Exchange identifier
    * @param context.frameName - Frame identifier
-   * @returns Current session value, or null if not set
+   * @param when - Logical timestamp at which the read is happening (look-ahead guard)
+   * @returns Current session value, or null if not set / look-ahead
    */
-  public getData = async <Value extends object = object>(symbol: string, context: { strategyName: StrategyName; exchangeName: ExchangeName; frameName: FrameName; }): Promise<Value | null> => {
+  public getData = async <Value extends object = object>(symbol: string, context: { strategyName: StrategyName; exchangeName: ExchangeName; frameName: FrameName; }, when: Date): Promise<Value | null> => {
     swarm.loggerService.debug(SESSION_BACKTEST_ADAPTER_METHOD_NAME_GET, {
       strategyName: context.strategyName,
       exchangeName: context.exchangeName,
@@ -342,7 +373,7 @@ export class SessionBacktestAdapter implements TSessionAdapter {
     const isInitial = !this.getInstance.has(key);
     const instance = this.getInstance(symbol, context.strategyName, context.exchangeName, context.frameName, true);
     await instance.waitForInit(isInitial);
-    return await instance.getData<Value>();
+    return await instance.getData<Value>(when);
   };
 
   /**
@@ -352,8 +383,9 @@ export class SessionBacktestAdapter implements TSessionAdapter {
    * @param context.strategyName - Strategy identifier
    * @param context.exchangeName - Exchange identifier
    * @param context.frameName - Frame identifier
+   * @param when - Logical timestamp this value belongs to
    */
-  public setData = async <Value extends object = object>(symbol: string, value: Value | null, context: { strategyName: StrategyName; exchangeName: ExchangeName; frameName: FrameName; }): Promise<void> => {
+  public setData = async <Value extends object = object>(symbol: string, value: Value | null, context: { strategyName: StrategyName; exchangeName: ExchangeName; frameName: FrameName; }, when: Date): Promise<void> => {
     swarm.loggerService.debug(SESSION_BACKTEST_ADAPTER_METHOD_NAME_SET, {
       strategyName: context.strategyName,
       exchangeName: context.exchangeName,
@@ -363,7 +395,7 @@ export class SessionBacktestAdapter implements TSessionAdapter {
     const isInitial = !this.getInstance.has(key);
     const instance = this.getInstance(symbol, context.strategyName, context.exchangeName, context.frameName, true);
     await instance.waitForInit(isInitial);
-    return await instance.setData<Value>(value);
+    return await instance.setData<Value>(value, when);
   };
 
   /**
@@ -438,9 +470,10 @@ export class SessionLiveAdapter implements TSessionAdapter {
    * @param context.strategyName - Strategy identifier
    * @param context.exchangeName - Exchange identifier
    * @param context.frameName - Frame identifier
-   * @returns Current session value, or null if not set
+   * @param when - Logical timestamp at which the read is happening (look-ahead guard)
+   * @returns Current session value, or null if not set / look-ahead
    */
-  public getData = async <Value extends object = object>(symbol: string, context: { strategyName: StrategyName; exchangeName: ExchangeName; frameName: FrameName; }): Promise<Value | null> => {
+  public getData = async <Value extends object = object>(symbol: string, context: { strategyName: StrategyName; exchangeName: ExchangeName; frameName: FrameName; }, when: Date): Promise<Value | null> => {
     swarm.loggerService.debug(SESSION_LIVE_ADAPTER_METHOD_NAME_GET, {
       strategyName: context.strategyName,
       exchangeName: context.exchangeName,
@@ -450,7 +483,7 @@ export class SessionLiveAdapter implements TSessionAdapter {
     const isInitial = !this.getInstance.has(key);
     const instance = this.getInstance(symbol, context.strategyName, context.exchangeName, context.frameName, false);
     await instance.waitForInit(isInitial);
-    return await instance.getData<Value>();
+    return await instance.getData<Value>(when);
   };
 
   /**
@@ -460,8 +493,9 @@ export class SessionLiveAdapter implements TSessionAdapter {
    * @param context.strategyName - Strategy identifier
    * @param context.exchangeName - Exchange identifier
    * @param context.frameName - Frame identifier
+   * @param when - Logical timestamp this value belongs to
    */
-  public setData = async <Value extends object = object>(symbol: string, value: Value | null, context: { strategyName: StrategyName; exchangeName: ExchangeName; frameName: FrameName; }): Promise<void> => {
+  public setData = async <Value extends object = object>(symbol: string, value: Value | null, context: { strategyName: StrategyName; exchangeName: ExchangeName; frameName: FrameName; }, when: Date): Promise<void> => {
     swarm.loggerService.debug(SESSION_LIVE_ADAPTER_METHOD_NAME_SET, {
       strategyName: context.strategyName,
       exchangeName: context.exchangeName,
@@ -471,7 +505,7 @@ export class SessionLiveAdapter implements TSessionAdapter {
     const isInitial = !this.getInstance.has(key);
     const instance = this.getInstance(symbol, context.strategyName, context.exchangeName, context.frameName, false);
     await instance.waitForInit(isInitial);
-    return await instance.setData<Value>(value);
+    return await instance.setData<Value>(value, when);
   };
 
   /**
@@ -535,9 +569,10 @@ export class SessionAdapter {
    * @param context.exchangeName - Exchange identifier
    * @param context.frameName - Frame identifier
    * @param backtest - Flag indicating if the context is backtest or live
-   * @returns Current session value, or null if not set
+   * @param when - Logical timestamp at which the read is happening (look-ahead guard)
+   * @returns Current session value, or null if not set / look-ahead
    */
-  public getData = async <Value extends object = object>(symbol: string, context: { strategyName: StrategyName; exchangeName: ExchangeName; frameName: FrameName; }, backtest: boolean): Promise<Value | null> => {
+  public getData = async <Value extends object = object>(symbol: string, context: { strategyName: StrategyName; exchangeName: ExchangeName; frameName: FrameName; }, backtest: boolean, when: Date): Promise<Value | null> => {
     swarm.loggerService.debug(SESSION_ADAPTER_METHOD_NAME_GET, {
       strategyName: context.strategyName,
       exchangeName: context.exchangeName,
@@ -545,9 +580,9 @@ export class SessionAdapter {
       backtest,
     });
     if (backtest) {
-      return await SessionBacktest.getData<Value>(symbol, context);
+      return await SessionBacktest.getData<Value>(symbol, context, when);
     }
-    return await SessionLive.getData<Value>(symbol, context);
+    return await SessionLive.getData<Value>(symbol, context, when);
   };
 
   /**
@@ -559,8 +594,9 @@ export class SessionAdapter {
    * @param context.exchangeName - Exchange identifier
    * @param context.frameName - Frame identifier
    * @param backtest - Flag indicating if the context is backtest or live
+   * @param when - Logical timestamp this value belongs to
    */
-  public setData = async <Value extends object = object>(symbol: string, value: Value | null, context: { strategyName: StrategyName; exchangeName: ExchangeName; frameName: FrameName; }, backtest: boolean): Promise<void> => {
+  public setData = async <Value extends object = object>(symbol: string, value: Value | null, context: { strategyName: StrategyName; exchangeName: ExchangeName; frameName: FrameName; }, backtest: boolean, when: Date): Promise<void> => {
     swarm.loggerService.debug(SESSION_ADAPTER_METHOD_NAME_SET, {
       strategyName: context.strategyName,
       exchangeName: context.exchangeName,
@@ -568,9 +604,9 @@ export class SessionAdapter {
       backtest,
     });
     if (backtest) {
-      return await SessionBacktest.setData<Value>(symbol, value, context);
+      return await SessionBacktest.setData<Value>(symbol, value, context, when);
     }
-    return await SessionLive.setData<Value>(symbol, value, context);
+    return await SessionLive.setData<Value>(symbol, value, context, when);
   };
 }
 
