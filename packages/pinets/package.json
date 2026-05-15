@@ -74,7 +74,7 @@
   },
   "peerDependencies": {
     "backtest-kit": "^8.5.0",
-    "pinets": "^0.9.15",
+    "pinets": "^0.9.16",
     "typescript": "^5.0.0"
   },
   "dependencies": {
