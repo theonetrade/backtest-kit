@@ -24,6 +24,8 @@ export const main = async () => {
     process.exit(1);
   }
 
+  await cli.configConnectionService.loadConfig("setup.config");
+
   {
     await cli.configService.waitForInit();
     Setup.enable();
@@ -34,7 +36,6 @@ export const main = async () => {
     dotenv.config({ path: path.join(cwd, '.env'), override: true, quiet: true });
   }
 
-  await cli.configConnectionService.loadConfig("setup.config");
   await cli.moduleConnectionService.loadModule("editor.module");
   
   {

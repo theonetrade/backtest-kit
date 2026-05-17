@@ -6,6 +6,7 @@ import ClientLoader from "../../../client/ClientLoader";
 import { isObject, memoize, singleshot } from "functools-kit";
 import ResolveService from "./ResolveService";
 import { IMPORT_ALIAS } from "../../../config/alias";
+import { overrideModule } from "../../../helpers/overrideModule";
 
 const GET_ALIAS_EXPORTS_FN = (self: LoaderService) => {
   const instance = self.getInstance(self.resolveService.OVERRIDE_CONFIG_DIR);
@@ -13,10 +14,8 @@ const GET_ALIAS_EXPORTS_FN = (self: LoaderService) => {
     return null;
   }
   const exports = instance.import("alias.config");
-  return "default" in exports
-    ? exports.default
-    : exports;
-}
+  return "default" in exports ? exports.default : exports;
+};
 
 const INIT_ALIAS_FN = (self: LoaderService) => {
   const alias = GET_ALIAS_EXPORTS_FN(self);
@@ -26,7 +25,12 @@ const INIT_ALIAS_FN = (self: LoaderService) => {
   if (!isObject(alias)) {
     return;
   }
-  Object.assign(IMPORT_ALIAS, alias);
+  {
+    Object.entries(alias).forEach(([name, module]) =>
+      overrideModule(name, module),
+    );
+    Object.assign(IMPORT_ALIAS, alias);
+  }
 };
 
 export class LoaderService {

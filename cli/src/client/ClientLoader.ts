@@ -12,6 +12,8 @@ import * as BacktestKitOllama from "@backtest-kit/ollama";
 import * as BacktestKitPinets from "@backtest-kit/pinets";
 import * as BacktestKitSignals from "@backtest-kit/signals";
 
+import { overrideModule } from "../helpers/overrideModule";
+
 import { IMPORT_ALIAS } from "../config/alias";
 
 declare const __IS_ESM__: boolean;
@@ -281,5 +283,13 @@ globalThis.BacktestKitGraph = BacktestKitGraph;
 globalThis.BacktestKitOllama = BacktestKitOllama;
 globalThis.BacktestKitPinets = BacktestKitPinets;
 globalThis.BacktestKitSignals = BacktestKitSignals;
+
+overrideModule('backtest-kit', BacktestKit);
+overrideModule('@backtest-kit/cli', BacktestKitCli);
+overrideModule('@backtest-kit/ui', BacktestKitUi);
+overrideModule('@backtest-kit/graph', BacktestKitGraph);
+overrideModule('@backtest-kit/ollama', BacktestKitOllama);
+overrideModule('@backtest-kit/pinets', BacktestKitPinets);
+overrideModule('@backtest-kit/signals', BacktestKitSignals);
 
 export default ClientLoader;

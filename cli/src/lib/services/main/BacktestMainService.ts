@@ -89,6 +89,8 @@ export class BacktestMainService {
         payload,
       });
 
+      await this.configConnectionService.loadConfig("setup.config");
+
       {
         await this.configService.waitForInit();
         Setup.enable();
@@ -103,8 +105,6 @@ export class BacktestMainService {
         const cwd = process.cwd();
         dotenv.config({ path: path.join(cwd, '.env'), override: true, quiet: true });
       }
-
-      await this.configConnectionService.loadConfig("setup.config");
 
       {
         await this.resolveService.attachJavascript(payload.entryPoint);

@@ -142,8 +142,12 @@ export const main = async () => {
     await flush(entryPoint);
   }
 
-  await cli.configService.waitForInit();
-  Setup.enable();
+  await cli.configConnectionService.loadConfig("setup.config");
+
+  {
+    await cli.configService.waitForInit();
+    Setup.enable();
+  }
 
   cli.frontendProviderService.connect();
   cli.telegramProviderService.connect();
@@ -153,7 +157,6 @@ export const main = async () => {
     dotenv.config({ path: path.join(cwd, '.env'), override: true, quiet: true });
   }
 
-  await cli.configConnectionService.loadConfig("setup.config");
   await cli.moduleConnectionService.loadModule(MODE_MODULE[mode]);
 
   listenFinish();

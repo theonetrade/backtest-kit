@@ -87,6 +87,8 @@ export class WalkerMainService {
     }) => {
       this.loggerService.log("walkerMainService run", { payload });
 
+      await this.configConnectionService.loadConfig("setup.config");
+
       {
         await this.configService.waitForInit();
         Setup.enable();
@@ -138,7 +140,6 @@ export class WalkerMainService {
         dotenv.config({ path: path.join(cwd, '.env'), override: true, quiet: true });
       }
 
-      await this.configConnectionService.loadConfig("setup.config");
       await this.moduleConnectionService.loadModule("walker.module");
 
       {
