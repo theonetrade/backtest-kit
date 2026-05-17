@@ -145,7 +145,10 @@ export const main = async () => {
     await flush(entryPoint);
   }
 
-  await cli.configConnectionService.loadConfig("setup.config");
+  {
+    await cli.configConnectionService.loadConfig("setup.config");
+    await cli.configConnectionService.loadConfig("loader.config");
+  }
 
   {
     await cli.configService.waitForInit();

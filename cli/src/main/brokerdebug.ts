@@ -179,7 +179,11 @@ export const main = async () => {
     dotenv.config({ path: path.join(cwd, '.env'), override: true, quiet: true });
   }
 
-  await cli.configConnectionService.loadConfig("setup.config");
+  {
+    await cli.configConnectionService.loadConfig("setup.config");
+    await cli.configConnectionService.loadConfig("loader.config");
+  }
+
   await cli.moduleConnectionService.loadModule("brokerdebug.module");
 
   const [defaultExchangeName = null] = await listExchangeSchema();

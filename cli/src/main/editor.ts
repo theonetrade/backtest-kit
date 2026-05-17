@@ -24,7 +24,10 @@ export const main = async () => {
     process.exit(1);
   }
 
-  await cli.configConnectionService.loadConfig("setup.config");
+  {
+    await cli.configConnectionService.loadConfig("setup.config");
+    await cli.configConnectionService.loadConfig("loader.config");
+  }
 
   {
     await cli.configService.waitForInit();

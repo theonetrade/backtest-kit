@@ -60,7 +60,10 @@ export class LiveMainService {
       payload,
     });
 
-    await this.configConnectionService.loadConfig("setup.config");
+    {
+      await this.configConnectionService.loadConfig("setup.config");
+      await this.configConnectionService.loadConfig("loader.config");
+    }
 
     {
       await this.configService.waitForInit();

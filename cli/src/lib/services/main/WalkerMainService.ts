@@ -87,7 +87,10 @@ export class WalkerMainService {
     }) => {
       this.loggerService.log("walkerMainService run", { payload });
 
-      await this.configConnectionService.loadConfig("setup.config");
+      {
+        await this.configConnectionService.loadConfig("setup.config");
+        await this.configConnectionService.loadConfig("loader.config");
+      }
 
       {
         await this.configService.waitForInit();
