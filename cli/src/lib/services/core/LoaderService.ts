@@ -7,14 +7,55 @@ import { isObject, memoize, singleshot } from "functools-kit";
 import ResolveService from "./ResolveService";
 import { IMPORT_ALIAS } from "../../../config/alias";
 import { overrideModule } from "../../../helpers/overrideModule";
+import path from "path";
+import fs from "fs";
+
+const GET_ALIAS_VARIANTS_FN = (self: LoaderService) => {
+  const result: { filePath: string; baseDir: string }[] = [];
+
+  result.push({
+    filePath: path.join(self.resolveService.OVERRIDE_CONFIG_DIR, "alias.config.cjs"),
+    baseDir: self.resolveService.OVERRIDE_CONFIG_DIR,
+  });
+
+  result.push({
+    filePath: path.join(self.resolveService.OVERRIDE_CONFIG_DIR, "alias.config.mjs"),
+    baseDir: self.resolveService.OVERRIDE_CONFIG_DIR,
+  });
+
+  result.push({
+    filePath: path.join(self.resolveService.OVERRIDE_CONFIG_DIR, "alias.config.ts"),
+    baseDir: self.resolveService.OVERRIDE_CONFIG_DIR,
+  });
+
+  result.push({
+    filePath: path.join(self.resolveService.OVERRIDE_CONFIG_DIR, "alias.config.tsx"),
+    baseDir: self.resolveService.OVERRIDE_CONFIG_DIR,
+  });
+
+  result.push({
+    filePath: path.join(self.resolveService.OVERRIDE_CONFIG_DIR, "alias.config.js"),
+    baseDir: self.resolveService.OVERRIDE_CONFIG_DIR,
+  });
+
+  result.push({
+    filePath: path.join(self.resolveService.OVERRIDE_CONFIG_DIR, "alias.config.json"),
+    baseDir: self.resolveService.OVERRIDE_CONFIG_DIR,
+  });
+
+  return result;
+};
 
 const GET_ALIAS_EXPORTS_FN = (self: LoaderService) => {
-  const instance = self.getInstance(self.resolveService.OVERRIDE_CONFIG_DIR);
-  if (!instance.check("alias.config")) {
-    return null;
+  for (const { filePath, baseDir } of GET_ALIAS_VARIANTS_FN(self)) {
+    if (!fs.existsSync(filePath)) {
+      continue;
+    }
+    const instance = self.getInstance(baseDir);
+    const exports = instance.import(filePath);
+    return "default" in exports ? exports.default : exports;
   }
-  const exports = instance.import("alias.config");
-  return "default" in exports ? exports.default : exports;
+  return null;
 };
 
 const INIT_ALIAS_FN = (self: LoaderService) => {
