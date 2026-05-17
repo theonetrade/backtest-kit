@@ -80,7 +80,7 @@ export class PaperMainService {
 
       {
         await this.resolveService.attachJavascript(payload.entryPoint);
-        await this.moduleConnectionService.loadModule("./paper.module");
+        await this.moduleConnectionService.loadModule("paper.module");
       }
 
       {

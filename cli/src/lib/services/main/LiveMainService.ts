@@ -79,7 +79,7 @@ export class LiveMainService {
 
     {
       await this.resolveService.attachJavascript(payload.entryPoint);
-      await this.moduleConnectionService.loadModule("./live.module");
+      await this.moduleConnectionService.loadModule("live.module");
     }
 
     {

@@ -180,7 +180,7 @@ export const main = async () => {
   }
 
   await cli.configConnectionService.loadConfig("setup.config");
-  await cli.moduleConnectionService.loadModule("./brokerdebug.module");
+  await cli.moduleConnectionService.loadModule("brokerdebug.module");
 
   const [defaultExchangeName = null] = await listExchangeSchema();
 

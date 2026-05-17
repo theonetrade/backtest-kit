@@ -108,7 +108,7 @@ export class BacktestMainService {
 
       {
         await this.resolveService.attachJavascript(payload.entryPoint);
-        await this.moduleConnectionService.loadModule("./backtest.module")
+        await this.moduleConnectionService.loadModule("backtest.module")
       }
 
       {

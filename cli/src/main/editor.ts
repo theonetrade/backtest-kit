@@ -35,7 +35,7 @@ export const main = async () => {
   }
 
   await cli.configConnectionService.loadConfig("setup.config");
-  await cli.moduleConnectionService.loadModule("./editor.module");
+  await cli.moduleConnectionService.loadModule("editor.module");
   
   {
     await cli.exchangeSchemaService.addSchema();

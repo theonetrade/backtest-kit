@@ -139,7 +139,7 @@ export class WalkerMainService {
       }
 
       await this.configConnectionService.loadConfig("setup.config");
-      await this.moduleConnectionService.loadModule("./walker.module");
+      await this.moduleConnectionService.loadModule("walker.module");
 
       {
         this.exchangeSchemaService.addSchema();

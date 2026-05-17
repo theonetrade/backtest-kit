@@ -20,10 +20,10 @@ import dotenv from "dotenv";
 type Mode = "backtest" | "live" | "paper" | "walker";
 
 const MODE_MODULE: Record<Mode, string> = {
-  backtest: "./backtest.module",
-  live: "./live.module",
-  paper: "./paper.module",
-  walker: "./walker.module",
+  backtest: "backtest.module",
+  live: "live.module",
+  paper: "paper.module",
+  walker: "walker.module",
 };
 
 const resolveMode = (values: Record<string, unknown>): Mode | null => {
