@@ -1,4 +1,4 @@
-import { fetchApi, inject, randomString } from "react-declarative";
+import { fetchApi, inject, randomString, singleshot } from "react-declarative";
 import LoggerService from "../base/LoggerService";
 import TYPES from "../../core/TYPES";
 import {
@@ -32,6 +32,11 @@ export class ReplGlobalService {
         console.log(data);
         return data;
     };
+
+    protected init = singleshot(() => {
+        this.loggerService.log("replGlobalService init");
+        Object.assign(globalThis, { replEval: this.eval });
+    });
 }
 
 export default ReplGlobalService;
