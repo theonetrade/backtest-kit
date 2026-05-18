@@ -25,13 +25,12 @@ export class IntervalDbService extends BaseCRUD(IntervalModel) {
 
   public findByKey = async (bucket: string, entryKey: string): Promise<IIntervalRow | null> => {
     this.loggerService.log("intervalDbService findByKey", { bucket, entryKey });
-    try {
-      const cachedId = await this.intervalCacheService.getIntervalId(bucket, entryKey);
-      if (cachedId) {
-        return await super.findById(cachedId) as IIntervalRow;
+    const cachedId = await this.intervalCacheService.getIntervalId(bucket, entryKey);
+    if (cachedId) {
+      const cached = await super.findById(cachedId) as IIntervalRow | null;
+      if (cached) {
+        return cached;
       }
-    } catch {
-      void 0;
     }
     const result = await super.findByFilter({ bucket, entryKey }) as IIntervalRow | null;
     if (result) {

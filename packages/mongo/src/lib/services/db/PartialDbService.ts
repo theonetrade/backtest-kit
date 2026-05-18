@@ -37,13 +37,12 @@ export class PartialDbService extends BaseCRUD(PartialModel) {
     signalId: string,
   ): Promise<IPartialRow | null> => {
     this.loggerService.log("partialDbService findByContext", { symbol, strategyName, exchangeName, signalId });
-    try {
-      const cachedId = await this.partialCacheService.getPartialId(symbol, strategyName, exchangeName, signalId);
-      if (cachedId) {
-        return await super.findById(cachedId) as IPartialRow;
+    const cachedId = await this.partialCacheService.getPartialId(symbol, strategyName, exchangeName, signalId);
+    if (cachedId) {
+      const cached = await super.findById(cachedId) as IPartialRow | null;
+      if (cached) {
+        return cached;
       }
-    } catch {
-      void 0;
     }
     const result = await super.findByFilter({ symbol, strategyName, exchangeName, signalId }) as IPartialRow | null;
     if (result) {

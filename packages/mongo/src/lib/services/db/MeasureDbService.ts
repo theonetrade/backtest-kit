@@ -25,13 +25,12 @@ export class MeasureDbService extends BaseCRUD(MeasureModel) {
 
   public findByKey = async (bucket: string, entryKey: string): Promise<IMeasureRow | null> => {
     this.loggerService.log("measureDbService findByKey", { bucket, entryKey });
-    try {
-      const cachedId = await this.measureCacheService.getMeasureId(bucket, entryKey);
-      if (cachedId) {
-        return await super.findById(cachedId) as IMeasureRow;
+    const cachedId = await this.measureCacheService.getMeasureId(bucket, entryKey);
+    if (cachedId) {
+      const cached = await super.findById(cachedId) as IMeasureRow | null;
+      if (cached) {
+        return cached;
       }
-    } catch {
-      void 0;
     }
     const result = await super.findByFilter({ bucket, entryKey }) as IMeasureRow | null;
     if (result) {

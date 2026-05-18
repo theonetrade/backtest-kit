@@ -34,13 +34,12 @@ export class ScheduleDbService extends BaseCRUD(ScheduleModel) {
     exchangeName: string,
   ): Promise<IScheduleRow | null> => {
     this.loggerService.log("scheduleDbService findByContext", { symbol, strategyName, exchangeName });
-    try {
-      const cachedId = await this.scheduleCacheService.getScheduleId(symbol, strategyName, exchangeName);
-      if (cachedId) {
-        return await super.findById(cachedId) as IScheduleRow;
+    const cachedId = await this.scheduleCacheService.getScheduleId(symbol, strategyName, exchangeName);
+    if (cachedId) {
+      const cached = await super.findById(cachedId) as IScheduleRow | null;
+      if (cached) {
+        return cached;
       }
-    } catch {
-      void 0;
     }
     const result = await super.findByFilter({ symbol, strategyName, exchangeName }) as IScheduleRow | null;
     if (result) {

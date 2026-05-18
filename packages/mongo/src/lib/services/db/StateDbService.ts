@@ -25,13 +25,12 @@ export class StateDbService extends BaseCRUD(StateModel) {
 
   public findByContext = async (signalId: string, bucketName: string): Promise<IStateRow | null> => {
     this.loggerService.log("stateDbService findByContext", { signalId, bucketName });
-    try {
-      const cachedId = await this.stateCacheService.getStateId(signalId, bucketName);
-      if (cachedId) {
-        return await super.findById(cachedId) as IStateRow;
+    const cachedId = await this.stateCacheService.getStateId(signalId, bucketName);
+    if (cachedId) {
+      const cached = await super.findById(cachedId) as IStateRow | null;
+      if (cached) {
+        return cached;
       }
-    } catch {
-      void 0;
     }
     const result = await super.findByFilter({ signalId, bucketName }) as IStateRow | null;
     if (result) {

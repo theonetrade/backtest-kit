@@ -35,13 +35,12 @@ export class SessionDbService extends BaseCRUD(SessionModel) {
     frameName: string,
   ): Promise<ISessionRow | null> => {
     this.loggerService.log("sessionDbService findByContext", { strategyName, exchangeName, frameName });
-    try {
-      const cachedId = await this.sessionCacheService.getSessionId(strategyName, exchangeName, frameName);
-      if (cachedId) {
-        return await super.findById(cachedId) as ISessionRow;
+    const cachedId = await this.sessionCacheService.getSessionId(strategyName, exchangeName, frameName);
+    if (cachedId) {
+      const cached = await super.findById(cachedId) as ISessionRow | null;
+      if (cached) {
+        return cached;
       }
-    } catch {
-      void 0;
     }
     const result = await super.findByFilter({ strategyName, exchangeName, frameName }) as ISessionRow | null;
     if (result) {

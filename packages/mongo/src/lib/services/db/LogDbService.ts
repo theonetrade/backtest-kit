@@ -27,13 +27,12 @@ export class LogDbService extends BaseCRUD(LogModel) {
 
   public findByEntryId = async (entryId: string): Promise<ILogRow | null> => {
     this.loggerService.log("logDbService findByEntryId", { entryId });
-    try {
-      const cachedId = await this.logCacheService.getLogId(entryId);
-      if (cachedId) {
-        return await super.findById(cachedId) as ILogRow;
+    const cachedId = await this.logCacheService.getLogId(entryId);
+    if (cachedId) {
+      const cached = await super.findById(cachedId) as ILogRow | null;
+      if (cached) {
+        return cached;
       }
-    } catch {
-      void 0;
     }
     const result = await super.findByFilter({ entryId }) as ILogRow | null;
     if (result) {

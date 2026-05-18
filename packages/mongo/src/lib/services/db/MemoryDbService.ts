@@ -35,13 +35,12 @@ export class MemoryDbService extends BaseCRUD(MemoryModel) {
     memoryId: string,
   ): Promise<IMemoryRow | null> => {
     this.loggerService.log("memoryDbService findByMemoryId", { signalId, bucketName, memoryId });
-    try {
-      const cachedId = await this.memoryCacheService.getMemoryEntryId(signalId, bucketName, memoryId);
-      if (cachedId) {
-        return await super.findById(cachedId) as IMemoryRow;
+    const cachedId = await this.memoryCacheService.getMemoryEntryId(signalId, bucketName, memoryId);
+    if (cachedId) {
+      const cached = await super.findById(cachedId) as IMemoryRow | null;
+      if (cached) {
+        return cached;
       }
-    } catch {
-      void 0;
     }
     const result = await super.findByFilter({ signalId, bucketName, memoryId }) as IMemoryRow | null;
     if (result) {

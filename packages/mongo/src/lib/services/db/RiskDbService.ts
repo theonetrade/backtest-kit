@@ -33,13 +33,12 @@ export class RiskDbService extends BaseCRUD(RiskModel) {
     exchangeName: string,
   ): Promise<IRiskRow | null> => {
     this.loggerService.log("riskDbService findByContext", { riskName, exchangeName });
-    try {
-      const cachedId = await this.riskCacheService.getRiskId(riskName, exchangeName);
-      if (cachedId) {
-        return await super.findById(cachedId) as IRiskRow;
+    const cachedId = await this.riskCacheService.getRiskId(riskName, exchangeName);
+    if (cachedId) {
+      const cached = await super.findById(cachedId) as IRiskRow | null;
+      if (cached) {
+        return cached;
       }
-    } catch {
-      void 0;
     }
     const result = await super.findByFilter({ riskName, exchangeName }) as IRiskRow | null;
     if (result) {

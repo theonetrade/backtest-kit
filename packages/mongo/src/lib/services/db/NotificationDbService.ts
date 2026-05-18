@@ -34,13 +34,12 @@ export class NotificationDbService extends BaseCRUD(NotificationModel) {
     notificationId: string,
   ): Promise<INotificationRow | null> => {
     this.loggerService.log("notificationDbService findByNotificationId", { backtest, notificationId });
-    try {
-      const cachedId = await this.notificationCacheService.getNotificationId(backtest, notificationId);
-      if (cachedId) {
-        return await super.findById(cachedId) as INotificationRow;
+    const cachedId = await this.notificationCacheService.getNotificationId(backtest, notificationId);
+    if (cachedId) {
+      const cached = await super.findById(cachedId) as INotificationRow | null;
+      if (cached) {
+        return cached;
       }
-    } catch {
-      void 0;
     }
     const result = await super.findByFilter({ backtest, notificationId }) as INotificationRow | null;
     if (result) {

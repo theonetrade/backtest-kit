@@ -37,13 +37,12 @@ export class BreakevenDbService extends BaseCRUD(BreakevenModel) {
     signalId: string,
   ): Promise<IBreakevenRow | null> => {
     this.loggerService.log("breakevenDbService findByContext", { symbol, strategyName, exchangeName, signalId });
-    try {
-      const cachedId = await this.breakevenCacheService.getBreakevenId(symbol, strategyName, exchangeName, signalId);
-      if (cachedId) {
-        return await super.findById(cachedId) as IBreakevenRow;
+    const cachedId = await this.breakevenCacheService.getBreakevenId(symbol, strategyName, exchangeName, signalId);
+    if (cachedId) {
+      const cached = await super.findById(cachedId) as IBreakevenRow | null;
+      if (cached) {
+        return cached;
       }
-    } catch {
-      void 0;
     }
     const result = await super.findByFilter({ symbol, strategyName, exchangeName, signalId }) as IBreakevenRow | null;
     if (result) {

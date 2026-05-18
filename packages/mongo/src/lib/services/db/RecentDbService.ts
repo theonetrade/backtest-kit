@@ -39,13 +39,12 @@ export class RecentDbService extends BaseCRUD(RecentModel) {
     backtest: boolean,
   ): Promise<IRecentRow | null> => {
     this.loggerService.log("recentDbService findByContext", { symbol, strategyName, exchangeName, frameName, backtest });
-    try {
-      const cachedId = await this.recentCacheService.getRecentId(symbol, strategyName, exchangeName, frameName, backtest);
-      if (cachedId) {
-        return await super.findById(cachedId) as IRecentRow;
+    const cachedId = await this.recentCacheService.getRecentId(symbol, strategyName, exchangeName, frameName, backtest);
+    if (cachedId) {
+      const cached = await super.findById(cachedId) as IRecentRow | null;
+      if (cached) {
+        return cached;
       }
-    } catch {
-      void 0;
     }
     const result = await super.findByFilter({ symbol, strategyName, exchangeName, frameName, backtest }) as IRecentRow | null;
     if (result) {

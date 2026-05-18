@@ -34,13 +34,12 @@ export class SignalDbService extends BaseCRUD(SignalModel) {
     exchangeName: string,
   ): Promise<ISignalRowDoc | null> => {
     this.loggerService.log("signalDbService findByContext", { symbol, strategyName, exchangeName });
-    try {
-      const cachedId = await this.signalCacheService.getSignalId(symbol, strategyName, exchangeName);
-      if (cachedId) {
-        return await super.findById(cachedId) as ISignalRowDoc;
+    const cachedId = await this.signalCacheService.getSignalId(symbol, strategyName, exchangeName);
+    if (cachedId) {
+      const cached = await super.findById(cachedId) as ISignalRowDoc | null;
+      if (cached) {
+        return cached;
       }
-    } catch {
-      void 0;
     }
     const result = await super.findByFilter({ symbol, strategyName, exchangeName }) as ISignalRowDoc | null;
     if (result) {

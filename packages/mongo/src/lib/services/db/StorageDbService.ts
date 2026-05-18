@@ -32,13 +32,12 @@ export class StorageDbService extends BaseCRUD(StorageModel) {
     signalId: string,
   ): Promise<IStorageRow | null> => {
     this.loggerService.log("storageDbService findBySignalId", { backtest, signalId });
-    try {
-      const cachedId = await this.storageCacheService.getStorageId(backtest, signalId);
-      if (cachedId) {
-        return await super.findById(cachedId) as IStorageRow;
+    const cachedId = await this.storageCacheService.getStorageId(backtest, signalId);
+    if (cachedId) {
+      const cached = await super.findById(cachedId) as IStorageRow | null;
+      if (cached) {
+        return cached;
       }
-    } catch {
-      void 0;
     }
     const result = await super.findByFilter({ backtest, signalId }) as IStorageRow | null;
     if (result) {
