@@ -772,6 +772,68 @@ setup({
 
 No changes to strategy code are needed — `setup()` wires up the adapters transparently before `backtest-kit` makes its first persistence call.
 
+## 🧩 Module Loader (`config/loader.config`)
+
+`@backtest-kit/cli` loads a `{projectRoot}/config/loader.config` file **after** `setup.config` but **before** any strategy or module code runs. Unlike `setup.config` (which is loaded for its side effects), `loader.config` exports a function that the CLI explicitly `await`s. Use it whenever you need to **wait for an async dependency** to be ready before the backtest starts.
+
+**When to use it:**
+
+- **Wire microfrontends in a monorepo** — resolve and pre-load sibling packages, register cross-package services, or hydrate a shared DI container before strategies import from neighboring workspaces.
+- **Wait for a database connection** — open a Mongo/Postgres/Redis connection and verify it's reachable before the first persistence call, so the backtest fails fast instead of mid-run.
+- **Warm up caches or external APIs** — pre-fetch reference data (instruments list, calendar, fee tables) so the strategy's first tick doesn't pay the round-trip cost.
+- **Run schema migrations** — apply any pending migrations to the persistence backend before signals start flowing.
+
+`loader.config` supports exactly one of two export styles — **never both at once**. If both are present, the `default` export wins and the named `loader` is ignored.
+
+```ts
+// config/loader.config.ts — default export (preferred, ESM style)
+export default async () => {
+  await mongoose.connect(process.env.CC_MONGO_CONNECTION_STRING!);
+  await redis.ping();
+};
+```
+
+```ts
+// config/loader.config.ts — named export
+export const loader = async () => {
+  await mongoose.connect(process.env.CC_MONGO_CONNECTION_STRING!);
+  await redis.ping();
+};
+```
+
+### Example: wait for MongoDB before running a backtest
+
+`@backtest-kit/mongo`'s `setup()` registers the adapters synchronously but doesn't block until the connection is established. If your backtest depends on data that must be present in Mongo before the first signal fires, use `loader.config` to gate the run on a real connection:
+
+```ts
+// config/setup.config.ts
+import { setup } from '@backtest-kit/mongo';
+
+setup();
+```
+
+```ts
+// config/loader.config.ts
+import mongoose from 'mongoose';
+
+export default async () => {
+  await mongoose.connect(process.env.CC_MONGO_CONNECTION_STRING!);
+  console.log('mongo connection verified, starting backtest');
+};
+```
+
+### Example: stitch microfrontends in a monorepo
+
+When `backtest-kit` strategies live in one workspace and shared services (broker adapters, signal feeds, dashboards) live in sibling workspaces, `loader.config` is the place to wire them together before the runner starts:
+
+```ts
+// config/loader.config.ts
+import "@my-org/brokers";
+import "@my-org/signals";
+```
+
+The `@my-org` alias should be declared in `config/alias.config`.
+
 ## 🔀 Import Aliases (`config/alias.config`)
 
 `@backtest-kit/cli` lets you override any nodejs module import — without touching the strategy code. Drop a `config/alias.config` file in your project root and export a mapping from module name to replacement module.
