@@ -29,6 +29,7 @@ import SymbolGlobalService from "./services/global/SymbolGlobalService";
 import PriceGlobalService from "./services/global/PriceGlobalService";
 import BacktestGlobalService from "./services/global/BacktestGlobalService";
 import LiveGlobalService from "./services/global/LiveGlobalService";
+import ReplGlobalService from "./services/global/ReplGlobalService";
 
 import ExplorerHelperService from "./services/helpers/ExplorerHelperService";
 import MarkdownHelperService from "./services/helpers/MarkdownHelperService";
@@ -59,6 +60,7 @@ const globalServices = {
   priceGlobalService: inject<PriceGlobalService>(TYPES.priceGlobalService),
   backtestGlobalService: inject<BacktestGlobalService>(TYPES.backtestGlobalService),
   liveGlobalService: inject<LiveGlobalService>(TYPES.liveGlobalService),
+  replGlobalService: inject<ReplGlobalService>(TYPES.replGlobalService),
 }
 
 const helperServices = {

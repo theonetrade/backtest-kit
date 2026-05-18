@@ -8,6 +8,7 @@ import mock from "../routes/mock";
 import view from "../routes/view";
 import icon from "../routes/icon";
 import dict from "../routes/dict";
+import repl from "../routes/repl";
 import markdown_mock from "../routes/markdown_mock";
 import markdown_view from "../routes/markdown_view";
 import explorer_mock from "../routes/explorer_mock";
@@ -56,6 +57,10 @@ router.all("/icon/*", (req, res) => {
 
 router.all("/api/v1/dict/*", (req, res) => {
   return dict(req, res, finalhandler(req, res));
+});
+
+router.all("/api/v1/repl/*", (req, res) => {
+  return repl(req, res, finalhandler(req, res));
 });
 
 router.all("/api/v1/global/*", (req, res) => {

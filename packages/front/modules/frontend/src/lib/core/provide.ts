@@ -37,6 +37,7 @@ import SymbolGlobalService from "../services/global/SymbolGlobalService";
 import PriceGlobalService from "../services/global/PriceGlobalService";
 import BacktestGlobalService from "../services/global/BacktestGlobalService";
 import LiveGlobalService from "../services/global/LiveGlobalService";
+import ReplGlobalService from "../services/global/ReplGlobalService";
 import MarkdownHelperService from "../services/helpers/MarkdownHelperService";
 import ExplorerHelperService from "../services/helpers/ExplorerHelperService";
 
@@ -54,6 +55,7 @@ import ExplorerHelperService from "../services/helpers/ExplorerHelperService";
     provide(TYPES.priceGlobalService, () => new PriceGlobalService());
     provide(TYPES.backtestGlobalService, () => new BacktestGlobalService());
     provide(TYPES.liveGlobalService, () => new LiveGlobalService());
+    provide(TYPES.replGlobalService, () => new ReplGlobalService());
 }
 
 {

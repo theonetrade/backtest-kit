@@ -12,6 +12,7 @@ const globalServices = {
   priceGlobalService: Symbol("priceGlobalService"),
   backtestGlobalService: Symbol("backtestGlobalService"),
   liveGlobalService: Symbol("liveGlobalService"),
+  replGlobalService: Symbol("replGlobalService"),
 }
 
 const helperServices = {
