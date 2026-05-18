@@ -33,8 +33,8 @@ export class ReplGlobalService {
         return data;
     };
 
-    protected init = singleshot(() => {
-        this.loggerService.log("replGlobalService init");
+    protected prefetch = singleshot(() => {
+        this.loggerService.log("replGlobalService prefetch");
         Object.assign(globalThis, { replEval: this.eval });
     });
 }

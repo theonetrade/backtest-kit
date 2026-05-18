@@ -1,22 +1,29 @@
 import micro from "micro";
 import Router from "router";
 import { createRequire } from "node:module";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { createContext, runInContext } from "vm";
-import { errorData, getErrorMessage, isObject } from "functools-kit";
+import { errorData, getErrorMessage, isObject, singleshot } from "functools-kit";
 import * as BacktestKit from "backtest-kit";
 
 import { ioc } from "../lib";
 
-const require = createRequire(import.meta.url);
+const makeContext = singleshot(() => {
+  const require = createRequire(pathToFileURL(join(process.cwd(), "noop.js")));
+
+  const context = createContext({
+    BacktestKitUi: ioc,
+    BacktestKit,
+    require,
+    console,
+  });
+
+  return context;
+})
 
 const router = Router({
   params: true,
-});
-
-const context = createContext({
-  BacktestKitUi: ioc,
-  BacktestKit,
-  require,
 });
 
 interface EvalRequest {
@@ -33,6 +40,7 @@ router.post("/api/v1/repl/eval", async (req, res) => {
   const request = <EvalRequest>await micro.json(req);
   const { requestId, serviceName } = request;
   try {
+    const context = makeContext();
     const output = await runInContext(request.data.command, context);
     const data = isObject(output) ? JSON.stringify(output, null, 2) : output;
     const result = {
