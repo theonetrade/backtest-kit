@@ -16,6 +16,24 @@ Point the CLI at your strategy file, choose a mode, and it handles exchange conn
 
 > **New to backtest-kit?** The fastest way to get a real, production-ready setup is to clone the [reference implementation](https://github.com/tripolskypetr/backtest-kit/tree/master/example) — a fully working news-sentiment AI trading system with LLM forecasting, multi-timeframe data, and a documented February 2026 backtest. Start there instead of from scratch.
 
+## 🤔 Philosophy
+
+`@backtest-kit/cli` is designed to do **two things well** — and the same tool covers both.
+
+**1. The lightest possible runner for a solo quant on day one.**
+You write a strategy file, point the CLI at it, and you're trading. No DI container to learn, no project scaffold to fight, no infrastructure code to copy-paste. One developer, one strategy, one command:
+
+```bash
+npx @backtest-kit/cli --backtest ./strategy.ts
+```
+
+That's the whole onboarding. The first day you have an idea, you can backtest it. The first week you have an edge, you can paper-trade it. The first month you have a P&L, you can run it live — same CLI, different flag.
+
+**2. Built-in monorepo tooling for when the business takes off.**
+The moment you start making money is the worst possible moment to rewrite your stack in another language. So the CLI is also a monorepo-grade runner from day one — even if you don't use it that way at first.
+
+As a result: you used to backtest your first idea is the same tool you use to run a desk of strategies in production. No rewrite, no language switch, no framework migration when the business scales — only more files in the monorepo.
+
 ## ✨ Features
 
 - 🚀 **Zero Config**: Run `npx @backtest-kit/cli --backtest ./strategy.mjs` — no boilerplate needed
