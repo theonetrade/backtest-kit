@@ -1,6 +1,6 @@
 import { IScheduledSignalRow, IPersistScheduleInstance } from "backtest-kit";
 import ioc from "../lib";
-import { waitForInfra } from "../utils/waitForInfra";
+import { waitForInit } from "../utils/waitForInit";
 
 export class PersistScheduleInstance implements IPersistScheduleInstance {
   constructor(
@@ -12,7 +12,7 @@ export class PersistScheduleInstance implements IPersistScheduleInstance {
     if (!initial) {
       return;
     }
-    await waitForInfra();
+    await waitForInit();
   }
   async readScheduleData(): Promise<IScheduledSignalRow | null> {
     const row = await ioc.scheduleDbService.findByContext(this.symbol, this.strategyName, this.exchangeName);

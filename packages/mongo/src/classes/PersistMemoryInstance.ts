@@ -1,6 +1,6 @@
 import { MemoryData, IPersistMemoryInstance } from "backtest-kit";
 import ioc from "../lib";
-import { waitForInfra } from "../utils/waitForInfra";
+import { waitForInit } from "../utils/waitForInit";
 
 export class PersistMemoryInstance implements IPersistMemoryInstance {
   constructor(
@@ -11,7 +11,7 @@ export class PersistMemoryInstance implements IPersistMemoryInstance {
     if (!initial) {
       return;
     }
-    await waitForInfra();
+    await waitForInit();
   }
   async readMemoryData(memoryId: string): Promise<MemoryData | null> {
     const row = await ioc.memoryDbService.findByMemoryId(this.signalId, this.bucketName, memoryId);

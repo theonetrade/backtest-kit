@@ -1,6 +1,6 @@
 import { SessionData, IPersistSessionInstance } from "backtest-kit";
 import ioc from "../lib";
-import { waitForInfra } from "../utils/waitForInfra";
+import { waitForInit } from "../utils/waitForInit";
 
 export class PersistSessionInstance implements IPersistSessionInstance {
   constructor(
@@ -12,7 +12,7 @@ export class PersistSessionInstance implements IPersistSessionInstance {
     if (!initial) {
       return;
     }
-    await waitForInfra();
+    await waitForInit();
   }
   async readSessionData(): Promise<SessionData | null> {
     const row = await ioc.sessionDbService.findByContext(this.strategyName, this.exchangeName, this.frameName);

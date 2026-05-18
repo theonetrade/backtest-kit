@@ -1,6 +1,6 @@
 import { CandleData, CandleInterval, IPersistCandleInstance, intervalStepMs } from "backtest-kit";
 import ioc from "../lib";
-import { waitForInfra } from "../utils/waitForInfra";
+import { waitForInit } from "../utils/waitForInit";
 
 export class PersistCandleInstance implements IPersistCandleInstance {
   constructor(
@@ -12,7 +12,7 @@ export class PersistCandleInstance implements IPersistCandleInstance {
     if (!initial) {
       return;
     }
-    await waitForInfra();
+    await waitForInit();
   }
   async writeCandlesData(candles: CandleData[]): Promise<void> {
     for (const candle of candles) {

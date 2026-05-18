@@ -1,6 +1,6 @@
 import { ISignalRow, IPersistSignalInstance } from "backtest-kit";
 import ioc from "../lib";
-import { waitForInfra } from "../utils/waitForInfra";
+import { waitForInit } from "../utils/waitForInit";
 
 export class PersistSignalInstance implements IPersistSignalInstance {
   constructor(
@@ -12,7 +12,7 @@ export class PersistSignalInstance implements IPersistSignalInstance {
     if (!initial) {
       return;
     }
-    await waitForInfra();
+    await waitForInit();
   }
   async readSignalData(): Promise<ISignalRow | null> {
     const row = await ioc.signalDbService.findByContext(this.symbol, this.strategyName, this.exchangeName);

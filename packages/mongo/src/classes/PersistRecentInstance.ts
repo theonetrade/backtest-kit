@@ -1,6 +1,6 @@
 import { RecentData, IPersistRecentInstance } from "backtest-kit";
 import ioc from "../lib";
-import { waitForInfra } from "../utils/waitForInfra";
+import { waitForInit } from "../utils/waitForInit";
 
 export class PersistRecentInstance implements IPersistRecentInstance {
   constructor(
@@ -14,7 +14,7 @@ export class PersistRecentInstance implements IPersistRecentInstance {
     if (!initial) {
       return;
     }
-    await waitForInfra();
+    await waitForInit();
   }
   async readRecentData(): Promise<RecentData> {
     const row = await ioc.recentDbService.findByContext(

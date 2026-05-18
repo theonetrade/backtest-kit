@@ -1,6 +1,6 @@
 import { MeasureData, IPersistMeasureInstance } from "backtest-kit";
 import ioc from "../lib";
-import { waitForInfra } from "../utils/waitForInfra";
+import { waitForInit } from "../utils/waitForInit";
 
 export class PersistMeasureInstance implements IPersistMeasureInstance {
   constructor(readonly bucket: string) {}
@@ -8,7 +8,7 @@ export class PersistMeasureInstance implements IPersistMeasureInstance {
     if (!initial) {
       return;
     }
-    await waitForInfra();
+    await waitForInit();
   }
   async readMeasureData(key: string): Promise<MeasureData | null> {
     const row = await ioc.measureDbService.findByKey(this.bucket, key);

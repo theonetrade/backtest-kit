@@ -1,13 +1,13 @@
 import { LogData, IPersistLogInstance } from "backtest-kit";
 import ioc from "../lib";
-import { waitForInfra } from "../utils/waitForInfra";
+import { waitForInit } from "../utils/waitForInit";
 
 export class PersistLogInstance implements IPersistLogInstance {
   async waitForInit(initial: boolean) {
     if (!initial) {
       return;
     }
-    await waitForInfra();
+    await waitForInit();
   }
   async readLogData(): Promise<LogData> {
     const rows = await ioc.logDbService.listAll();

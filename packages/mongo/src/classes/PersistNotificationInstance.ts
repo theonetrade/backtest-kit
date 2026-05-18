@@ -1,6 +1,6 @@
 import { NotificationData, IPersistNotificationInstance } from "backtest-kit";
 import ioc from "../lib";
-import { waitForInfra } from "../utils/waitForInfra";
+import { waitForInit } from "../utils/waitForInit";
 
 export class PersistNotificationInstance implements IPersistNotificationInstance {
   constructor(readonly backtest: boolean) {}
@@ -8,7 +8,7 @@ export class PersistNotificationInstance implements IPersistNotificationInstance
     if (!initial) {
       return;
     }
-    await waitForInfra();
+    await waitForInit();
   }
   async readNotificationData(): Promise<NotificationData> {
     const rows = await ioc.notificationDbService.listByMode(this.backtest);

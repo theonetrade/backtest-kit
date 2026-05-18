@@ -1,6 +1,6 @@
 import { IntervalData, IPersistIntervalInstance } from "backtest-kit";
 import ioc from "../lib";
-import { waitForInfra } from "../utils/waitForInfra";
+import { waitForInit } from "../utils/waitForInit";
 
 export class PersistIntervalInstance implements IPersistIntervalInstance {
   constructor(readonly bucket: string) {}
@@ -8,7 +8,7 @@ export class PersistIntervalInstance implements IPersistIntervalInstance {
     if (!initial) {
       return;
     }
-    await waitForInfra();
+    await waitForInit();
   }
   async readIntervalData(key: string): Promise<IntervalData | null> {
     const row = await ioc.intervalDbService.findByKey(this.bucket, key);

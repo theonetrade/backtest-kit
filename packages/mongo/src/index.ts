@@ -24,3 +24,7 @@ export {
 export {
     BaseMap,
 } from "./lib/common/BaseMap";
+
+export {
+    waitForInit,
+} from "./utils/waitForInit";

@@ -1,6 +1,6 @@
 import { RiskData, IPersistRiskInstance } from "backtest-kit";
 import ioc from "../lib";
-import { waitForInfra } from "../utils/waitForInfra";
+import { waitForInit } from "../utils/waitForInit";
 
 export class PersistRiskInstance implements IPersistRiskInstance {
   constructor(
@@ -11,7 +11,7 @@ export class PersistRiskInstance implements IPersistRiskInstance {
     if (!initial) {
       return;
     }
-    await waitForInfra();
+    await waitForInit();
   }
   async readPositionData(_when: Date): Promise<RiskData> {
     const row = await ioc.riskDbService.findByContext(this.riskName, this.exchangeName);

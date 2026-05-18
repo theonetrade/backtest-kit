@@ -1,6 +1,6 @@
 import { StorageData, IPersistStorageInstance } from "backtest-kit";
 import ioc from "../lib";
-import { waitForInfra } from "../utils/waitForInfra";
+import { waitForInit } from "../utils/waitForInit";
 
 export class PersistStorageInstance implements IPersistStorageInstance {
   constructor(readonly backtest: boolean) {}
@@ -8,7 +8,7 @@ export class PersistStorageInstance implements IPersistStorageInstance {
     if (!initial) {
       return;
     }
-    await waitForInfra();
+    await waitForInit();
   }
   async readStorageData(): Promise<StorageData> {
     const rows = await ioc.storageDbService.listByMode(this.backtest);

@@ -190,4 +190,6 @@ declare const BaseMap: (connectionKey: string, ttlExpireSeconds?: number) => (ne
     };
 }, "prototype">;
 
-export { BaseCRUD, BaseMap, getConfig, getMongo, getRedis, install, setConfig, setLogger, setup };
+declare const waitForInit: (() => Promise<void>) & functools_kit.ISingleshotClearable<() => Promise<void>>;
+
+export { BaseCRUD, BaseMap, getConfig, getMongo, getRedis, install, setConfig, setLogger, setup, waitForInit };

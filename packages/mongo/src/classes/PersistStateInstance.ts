@@ -1,6 +1,6 @@
 import { StateData, IPersistStateInstance } from "backtest-kit";
 import ioc from "../lib";
-import { waitForInfra } from "../utils/waitForInfra";
+import { waitForInit } from "../utils/waitForInit";
 
 export class PersistStateInstance implements IPersistStateInstance {
   constructor(
@@ -11,7 +11,7 @@ export class PersistStateInstance implements IPersistStateInstance {
     if (!initial) {
       return;
     }
-    await waitForInfra();
+    await waitForInit();
   }
   async readStateData(): Promise<StateData | null> {
     const row = await ioc.stateDbService.findByContext(this.signalId, this.bucketName);
