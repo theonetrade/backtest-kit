@@ -22,6 +22,7 @@ import {
   SessionBacktest,
   Recent,
   Log,
+  Broker,
   MarkdownWriter,
   ReportWriter,
 } from "backtest-kit";
@@ -189,6 +190,10 @@ export class SetupUtils {
     {
       RecentLive.clear();
       RecentBacktest.clear();
+    }
+
+    {
+      Broker.clear();
     }
   };
 

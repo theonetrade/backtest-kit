@@ -618,8 +618,18 @@ export class LogDummyUtils implements ILog {
  * - Convenience methods: usePersist(), useMemory(), useDummy()
  */
 export class LogAdapter implements ILog {
-  /** Internal log utils instance */
-  private _log: Partial<ILog> = new LogMemoryUtils();
+  /** Factory producing the active log utils instance */
+  private _logFactory: () => Partial<ILog> = () => new LogMemoryUtils();
+
+  /**
+   * Lazily constructs the log utils from the registered factory and memoizes
+   * the result via `singleshot`.
+   *
+   * The instance is built on the first call and cached for all subsequent calls.
+   * Reset via `clear()` so the next call rebuilds from the current factory
+   * (e.g. when `process.cwd()` changes between strategy iterations).
+   */
+  private getInstance = singleshot((): Partial<ILog> => this._logFactory());
 
   /**
    * Lists all stored log entries.
@@ -627,8 +637,9 @@ export class LogAdapter implements ILog {
    * @returns Array of all log entries
    */
   public getList = async () => {
-    if (this._log.getList) {
-      return await this._log.getList();
+    const log = this.getInstance();
+    if (log.getList) {
+      return await log.getList();
     }
     return [];
   };
@@ -640,8 +651,9 @@ export class LogAdapter implements ILog {
    * @param args - Additional arguments
    */
   public log = (topic: string, ...args: any[]) => {
-    if (this._log.log) {
-      this._log.log(topic, ...args);
+    const log = this.getInstance();
+    if (log.log) {
+      log.log(topic, ...args);
     }
   };
 
@@ -652,8 +664,9 @@ export class LogAdapter implements ILog {
    * @param args - Additional arguments
    */
   public debug = (topic: string, ...args: any[]) => {
-    if (this._log.debug) {
-      this._log.debug(topic, ...args);
+    const log = this.getInstance();
+    if (log.debug) {
+      log.debug(topic, ...args);
     }
   };
 
@@ -664,8 +677,9 @@ export class LogAdapter implements ILog {
    * @param args - Additional arguments
    */
   public info = (topic: string, ...args: any[]) => {
-    if (this._log.info) {
-      this._log.info(topic, ...args);
+    const log = this.getInstance();
+    if (log.info) {
+      log.info(topic, ...args);
     }
   };
 
@@ -676,8 +690,9 @@ export class LogAdapter implements ILog {
    * @param args - Additional arguments
    */
   public warn = (topic: string, ...args: any[]) => {
-    if (this._log.warn) {
-      this._log.warn(topic, ...args);
+    const log = this.getInstance();
+    if (log.warn) {
+      log.warn(topic, ...args);
     }
   };
 
@@ -688,7 +703,8 @@ export class LogAdapter implements ILog {
    */
   public useLogger = (Ctor: TLogCtor) => {
     backtest.loggerService.info(LOG_ADAPTER_METHOD_NAME_USE_LOGGER);
-    this._log = Reflect.construct(Ctor, []);
+    this._logFactory = () => Reflect.construct(Ctor, []);
+    this.getInstance.clear();
   };
 
   /**
@@ -697,7 +713,8 @@ export class LogAdapter implements ILog {
    */
   public usePersist = () => {
     backtest.loggerService.info(LOG_ADAPTER_METHOD_NAME_USE_PERSIST);
-    this._log = new LogPersistUtils();
+    this._logFactory = () => new LogPersistUtils();
+    this.getInstance.clear();
   };
 
   /**
@@ -706,7 +723,8 @@ export class LogAdapter implements ILog {
    */
   public useMemory = () => {
     backtest.loggerService.info(LOG_ADAPTER_METHOD_NAME_USE_MEMORY);
-    this._log = new LogMemoryUtils();
+    this._logFactory = () => new LogMemoryUtils();
+    this.getInstance.clear();
   };
 
   /**
@@ -715,7 +733,8 @@ export class LogAdapter implements ILog {
    */
   public useDummy = () => {
     backtest.loggerService.info(LOG_ADAPTER_METHOD_NAME_USE_DUMMY);
-    this._log = new LogDummyUtils();
+    this._logFactory = () => new LogDummyUtils();
+    this.getInstance.clear();
   };
 
   /**
@@ -731,17 +750,18 @@ export class LogAdapter implements ILog {
     dirName = join(process.cwd(), "./dump/log"),
   ) => {
     backtest.loggerService.info(LOG_ADAPTER_METHOD_NAME_USE_JSONL);
-    this._log = new LogJsonlUtils(fileName, dirName);
+    this._logFactory = () => new LogJsonlUtils(fileName, dirName);
+    this.getInstance.clear();
   };
 
   /**
-   * Clears the cached log instance by resetting to the default in-memory adapter.
+   * Clears the memoized log instance.
    * Call this when process.cwd() changes between strategy iterations
    * so a new adapter instance is created with the updated base path.
    */
   public clear = (): void => {
     backtest.loggerService.info(LOG_ADAPTER_METHOD_NAME_CLEAR);
-    this._log = new LogMemoryUtils();
+    this.getInstance.clear();
   };
 }
 

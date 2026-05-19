@@ -513,8 +513,17 @@ export class RecentMemoryLiveUtils implements IRecentUtils {
  * - Convenience methods: usePersist(), useMemory()
  */
 export class RecentBacktestAdapter implements IRecentUtils {
-  /** Internal storage utils instance */
-  private _recentBacktestUtils: IRecentUtils = new RecentMemoryBacktestUtils();
+  /** Factory producing the active storage utils instance */
+  private _recentBacktestFactory: () => IRecentUtils = () => new RecentMemoryBacktestUtils();
+
+  /**
+   * Lazily constructs the storage utils from the registered factory and memoizes
+   * the result via `singleshot`.
+   *
+   * The instance is built on the first call and cached for all subsequent calls.
+   * Reset via `clear()` so the next call rebuilds from the current factory.
+   */
+  private getInstance = singleshot((): IRecentUtils => this._recentBacktestFactory());
 
   /**
    * Handles active ping event.
@@ -525,7 +534,7 @@ export class RecentBacktestAdapter implements IRecentUtils {
     lib.loggerService.info(RECENT_BACKTEST_ADAPTER_METHOD_NAME_HANDLE_ACTIVE_PING, {
       signalId: event.data.id,
     });
-    return await this._recentBacktestUtils.handleActivePing(event);
+    return await this.getInstance().handleActivePing(event);
   };
 
   /**
@@ -554,7 +563,7 @@ export class RecentBacktestAdapter implements IRecentUtils {
       frameName,
       backtest,
     });
-    return await this._recentBacktestUtils.getLatestSignal(
+    return await this.getInstance().getLatestSignal(
       symbol,
       strategyName,
       exchangeName,
@@ -593,7 +602,7 @@ export class RecentBacktestAdapter implements IRecentUtils {
       backtest,
       timestamp,
     });
-    const signal = await this._recentBacktestUtils.getLatestSignal(symbol, strategyName, exchangeName, frameName, backtest, new Date(timestamp));
+    const signal = await this.getInstance().getLatestSignal(symbol, strategyName, exchangeName, frameName, backtest, new Date(timestamp));
     if (!signal) {
       return null;
     }
@@ -607,7 +616,8 @@ export class RecentBacktestAdapter implements IRecentUtils {
    */
   public useRecentAdapter = (Ctor: TRecentUtilsCtor): void => {
     lib.loggerService.info(RECENT_BACKTEST_ADAPTER_METHOD_NAME_USE_ADAPTER);
-    this._recentBacktestUtils = Reflect.construct(Ctor, []);
+    this._recentBacktestFactory = () => Reflect.construct(Ctor, []);
+    this.getInstance.clear();
   };
 
   /**
@@ -616,7 +626,8 @@ export class RecentBacktestAdapter implements IRecentUtils {
    */
   public usePersist = (): void => {
     lib.loggerService.info(RECENT_BACKTEST_ADAPTER_METHOD_NAME_USE_PERSIST);
-    this._recentBacktestUtils = new RecentPersistBacktestUtils();
+    this._recentBacktestFactory = () => new RecentPersistBacktestUtils();
+    this.getInstance.clear();
   };
 
   /**
@@ -625,15 +636,18 @@ export class RecentBacktestAdapter implements IRecentUtils {
    */
   public useMemory = (): void => {
     lib.loggerService.info(RECENT_BACKTEST_ADAPTER_METHOD_NAME_USE_MEMORY);
-    this._recentBacktestUtils = new RecentMemoryBacktestUtils();
+    this._recentBacktestFactory = () => new RecentMemoryBacktestUtils();
+    this.getInstance.clear();
   };
 
   /**
-   * Clears the cached utils instance by resetting to the default in-memory adapter.
+   * Clears the memoized utils instance.
+   * Call this when process.cwd() changes between strategy iterations
+   * so a new instance is created with the updated base path.
    */
   public clear = (): void => {
     lib.loggerService.info(RECENT_BACKTEST_ADAPTER_METHOD_NAME_CLEAR);
-    this._recentBacktestUtils = new RecentMemoryBacktestUtils();
+    this.getInstance.clear();
   };
 }
 
@@ -647,8 +661,17 @@ export class RecentBacktestAdapter implements IRecentUtils {
  * - Convenience methods: usePersist(), useMemory()
  */
 export class RecentLiveAdapter implements IRecentUtils {
-  /** Internal storage utils instance */
-  private _recentLiveUtils: IRecentUtils = new RecentPersistLiveUtils();
+  /** Factory producing the active storage utils instance */
+  private _recentLiveFactory: () => IRecentUtils = () => new RecentPersistLiveUtils();
+
+  /**
+   * Lazily constructs the storage utils from the registered factory and memoizes
+   * the result via `singleshot`.
+   *
+   * The instance is built on the first call and cached for all subsequent calls.
+   * Reset via `clear()` so the next call rebuilds from the current factory.
+   */
+  private getInstance = singleshot((): IRecentUtils => this._recentLiveFactory());
 
   /**
    * Handles active ping event.
@@ -659,7 +682,7 @@ export class RecentLiveAdapter implements IRecentUtils {
     lib.loggerService.info(RECENT_LIVE_ADAPTER_METHOD_NAME_HANDLE_ACTIVE_PING, {
       signalId: event.data.id,
     });
-    return await this._recentLiveUtils.handleActivePing(event);
+    return await this.getInstance().handleActivePing(event);
   };
 
   /**
@@ -688,7 +711,7 @@ export class RecentLiveAdapter implements IRecentUtils {
       frameName,
       backtest,
     });
-    return await this._recentLiveUtils.getLatestSignal(
+    return await this.getInstance().getLatestSignal(
       symbol,
       strategyName,
       exchangeName,
@@ -727,7 +750,7 @@ export class RecentLiveAdapter implements IRecentUtils {
       backtest,
       timestamp,
     });
-    const signal = await this._recentLiveUtils.getLatestSignal(symbol, strategyName, exchangeName, frameName, backtest, new Date(timestamp));
+    const signal = await this.getInstance().getLatestSignal(symbol, strategyName, exchangeName, frameName, backtest, new Date(timestamp));
     if (!signal) {
       return null;
     }
@@ -741,7 +764,8 @@ export class RecentLiveAdapter implements IRecentUtils {
    */
   public useRecentAdapter = (Ctor: TRecentUtilsCtor): void => {
     lib.loggerService.info(RECENT_LIVE_ADAPTER_METHOD_NAME_USE_ADAPTER);
-    this._recentLiveUtils = Reflect.construct(Ctor, []);
+    this._recentLiveFactory = () => Reflect.construct(Ctor, []);
+    this.getInstance.clear();
   };
 
   /**
@@ -750,7 +774,8 @@ export class RecentLiveAdapter implements IRecentUtils {
    */
   public usePersist = (): void => {
     lib.loggerService.info(RECENT_LIVE_ADAPTER_METHOD_NAME_USE_PERSIST);
-    this._recentLiveUtils = new RecentPersistLiveUtils();
+    this._recentLiveFactory = () => new RecentPersistLiveUtils();
+    this.getInstance.clear();
   };
 
   /**
@@ -759,15 +784,18 @@ export class RecentLiveAdapter implements IRecentUtils {
    */
   public useMemory = (): void => {
     lib.loggerService.info(RECENT_LIVE_ADAPTER_METHOD_NAME_USE_MEMORY);
-    this._recentLiveUtils = new RecentMemoryLiveUtils();
+    this._recentLiveFactory = () => new RecentMemoryLiveUtils();
+    this.getInstance.clear();
   };
 
   /**
-   * Clears the cached utils instance by resetting to the default persistent adapter.
+   * Clears the memoized utils instance.
+   * Call this when process.cwd() changes between strategy iterations
+   * so a new instance is created with the updated base path.
    */
   public clear = (): void => {
     lib.loggerService.info(RECENT_LIVE_ADAPTER_METHOD_NAME_CLEAR);
-    this._recentLiveUtils = new RecentPersistLiveUtils();
+    this.getInstance.clear();
   };
 }
 

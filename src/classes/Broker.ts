@@ -663,7 +663,20 @@ export class BrokerProxy implements IBroker {
  * ```
  */
 export class BrokerAdapter {
-  private _brokerInstance: BrokerProxy | null = null;
+  /** Factory producing the active `BrokerProxy` instance */
+  private _brokerFactory: () => BrokerProxy | null = () => null;
+
+  /**
+   * Lazily constructs the `BrokerProxy` from the registered factory and
+   * memoizes the result via `singleshot`.
+   *
+   * The proxy is built on the first call and cached for all subsequent calls.
+   * Returns `null` when no adapter has been registered via `useBrokerAdapter()`.
+   *
+   * Reset via `clear()` so the next call rebuilds from the current factory
+   * (e.g. when `process.cwd()` changes between strategy iterations).
+   */
+  private getInstance = singleshot((): BrokerProxy | null => this._brokerFactory());
 
   /**
    * Forwards a signal-open event to the registered broker adapter.
@@ -698,7 +711,10 @@ export class BrokerAdapter {
     if (payload.backtest) {
       return;
     }
-    await this._brokerInstance?.onSignalOpenCommit(payload);
+    const instance = this.getInstance();
+    if (instance) {
+      await instance.onSignalOpenCommit(payload);
+    }
   };
 
   /**
@@ -737,7 +753,10 @@ export class BrokerAdapter {
     if (payload.backtest) {
       return;
     }
-    await this._brokerInstance?.onSignalCloseCommit(payload);
+    const instance = this.getInstance();
+    if (instance) {
+      await instance.onSignalCloseCommit(payload);
+    }
   };
 
   /**
@@ -774,7 +793,10 @@ export class BrokerAdapter {
     if (payload.backtest) {
       return;
     }
-    await this._brokerInstance?.onPartialProfitCommit(payload);
+    const instance = this.getInstance();
+    if (instance) {
+      await instance.onPartialProfitCommit(payload);
+    }
   };
 
   /**
@@ -811,7 +833,10 @@ export class BrokerAdapter {
     if (payload.backtest) {
       return;
     }
-    await this._brokerInstance?.onPartialLossCommit(payload);
+    const instance = this.getInstance();
+    if (instance) {
+      await instance.onPartialLossCommit(payload);
+    }
   };
 
   /**
@@ -848,7 +873,10 @@ export class BrokerAdapter {
     if (payload.backtest) {
       return;
     }
-    await this._brokerInstance?.onTrailingStopCommit(payload);
+    const instance = this.getInstance();
+    if (instance) {
+      await instance.onTrailingStopCommit(payload);
+    }
   };
 
   /**
@@ -885,7 +913,10 @@ export class BrokerAdapter {
     if (payload.backtest) {
       return;
     }
-    await this._brokerInstance?.onTrailingTakeCommit(payload);
+    const instance = this.getInstance();
+    if (instance) {
+      await instance.onTrailingTakeCommit(payload);
+    }
   };
 
   /**
@@ -923,7 +954,10 @@ export class BrokerAdapter {
     if (payload.backtest) {
       return;
     }
-    await this._brokerInstance?.onBreakevenCommit(payload);
+    const instance = this.getInstance();
+    if (instance) {
+      await instance.onBreakevenCommit(payload);
+    }
   };
 
   /**
@@ -960,7 +994,10 @@ export class BrokerAdapter {
     if (payload.backtest) {
       return;
     }
-    await this._brokerInstance?.onAverageBuyCommit(payload);
+    const instance = this.getInstance();
+    if (instance) {
+      await instance.onAverageBuyCommit(payload);
+    }
   };
 
   /**
@@ -985,11 +1022,11 @@ export class BrokerAdapter {
   public useBrokerAdapter = (broker: TBrokerCtor | Partial<IBroker>) => {
     bt.loggerService.info(BROKER_METHOD_NAME_USE_BROKER_ADAPTER, {});
     if (typeof broker === "function") {
-      const instance = Reflect.construct(broker, []);
-      this._brokerInstance = new BrokerProxy(instance);
-      return;
+      this._brokerFactory = () => new BrokerProxy(Reflect.construct(broker, []));
+    } else {
+      this._brokerFactory = () => new BrokerProxy(broker);
     }
-    this._brokerInstance = new BrokerProxy(broker);
+    this.getInstance.clear();
   };
 
   /**
@@ -1017,7 +1054,8 @@ export class BrokerAdapter {
    */
   public enable = singleshot(() => {
     bt.loggerService.info(BROKER_METHOD_NAME_ENABLE, {});
-    if (!this._brokerInstance) {
+    const instance = this.getInstance();
+    if (!instance) {
       this.enable.clear();
       throw new Error("No broker instance provided. Call Broker.useBrokerAdapter first.");
     }
@@ -1114,7 +1152,7 @@ export class BrokerAdapter {
    */
   public clear = (): void => {
     bt.loggerService.info(BROKER_METHOD_NAME_CLEAR, {});
-    this._brokerInstance = null;
+    this.getInstance.clear();
     this.enable.clear();
   };
 }

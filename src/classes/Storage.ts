@@ -1178,8 +1178,17 @@ export class StorageDummyLiveUtils implements IStorageUtils {
  * - Convenience methods: usePersist(), useMemory(), useDummy()
  */
 export class StorageBacktestAdapter implements IStorageUtils {
-  /** Internal storage utils instance */
-  private _signalBacktestUtils: IStorageUtils = new StorageMemoryBacktestUtils();
+  /** Factory producing the active storage utils instance */
+  private _signalBacktestFactory: () => IStorageUtils = () => new StorageMemoryBacktestUtils();
+
+  /**
+   * Lazily constructs the storage utils from the registered factory and memoizes
+   * the result via `singleshot`.
+   *
+   * The instance is built on the first call and cached for all subsequent calls.
+   * Reset via `clear()` so the next call rebuilds from the current factory.
+   */
+  private getInstance = singleshot((): IStorageUtils => this._signalBacktestFactory());
 
   /**
    * Handles signal opened event.
@@ -1187,7 +1196,7 @@ export class StorageBacktestAdapter implements IStorageUtils {
    * @param tick - The opened signal tick data
    */
   handleOpened = async (tick: IStrategyTickResultOpened): Promise<void> => {
-    return await this._signalBacktestUtils.handleOpened(tick);
+    return await this.getInstance().handleOpened(tick);
   };
 
   /**
@@ -1196,7 +1205,7 @@ export class StorageBacktestAdapter implements IStorageUtils {
    * @param tick - The closed signal tick data
    */
   handleClosed = async (tick: IStrategyTickResultClosed): Promise<void> => {
-    return await this._signalBacktestUtils.handleClosed(tick);
+    return await this.getInstance().handleClosed(tick);
   };
 
   /**
@@ -1205,7 +1214,7 @@ export class StorageBacktestAdapter implements IStorageUtils {
    * @param tick - The scheduled signal tick data
    */
   handleScheduled = async (tick: IStrategyTickResultScheduled): Promise<void> => {
-    return await this._signalBacktestUtils.handleScheduled(tick);
+    return await this.getInstance().handleScheduled(tick);
   };
 
   /**
@@ -1214,7 +1223,7 @@ export class StorageBacktestAdapter implements IStorageUtils {
    * @param tick - The cancelled signal tick data
    */
   handleCancelled = async (tick: IStrategyTickResultCancelled): Promise<void> => {
-    return await this._signalBacktestUtils.handleCancelled(tick);
+    return await this.getInstance().handleCancelled(tick);
   };
 
   /**
@@ -1224,7 +1233,7 @@ export class StorageBacktestAdapter implements IStorageUtils {
    * @returns The signal row or null if not found
    */
   findById = async (id: StorageId): Promise<IStorageSignalRow | null> => {
-    return await this._signalBacktestUtils.findById(id);
+    return await this.getInstance().findById(id);
   };
 
   /**
@@ -1233,15 +1242,15 @@ export class StorageBacktestAdapter implements IStorageUtils {
    * @returns Array of all signal rows
    */
   list = async (): Promise<IStorageSignalRow[]> => {
-    return await this._signalBacktestUtils.list();
+    return await this.getInstance().list();
   };
 
   handleActivePing = async (event: ActivePingContract): Promise<void> => {
-    return await this._signalBacktestUtils.handleActivePing(event);
+    return await this.getInstance().handleActivePing(event);
   };
 
   handleSchedulePing = async (event: SchedulePingContract): Promise<void> => {
-    return await this._signalBacktestUtils.handleSchedulePing(event);
+    return await this.getInstance().handleSchedulePing(event);
   };
 
   /**
@@ -1252,7 +1261,8 @@ export class StorageBacktestAdapter implements IStorageUtils {
    */
   useStorageAdapter = (Ctor: TStorageUtilsCtor): void => {
     backtest.loggerService.info(STORAGE_BACKTEST_ADAPTER_METHOD_NAME_USE_ADAPTER);
-    this._signalBacktestUtils = Reflect.construct(Ctor, []);
+    this._signalBacktestFactory = () => Reflect.construct(Ctor, []);
+    this.getInstance.clear();
   };
 
   /**
@@ -1261,7 +1271,8 @@ export class StorageBacktestAdapter implements IStorageUtils {
    */
   useDummy = (): void => {
     backtest.loggerService.info(STORAGE_BACKTEST_ADAPTER_METHOD_NAME_USE_DUMMY);
-    this._signalBacktestUtils = new StorageDummyBacktestUtils();
+    this._signalBacktestFactory = () => new StorageDummyBacktestUtils();
+    this.getInstance.clear();
   };
 
   /**
@@ -1270,7 +1281,8 @@ export class StorageBacktestAdapter implements IStorageUtils {
    */
   usePersist = (): void => {
     backtest.loggerService.info(STORAGE_BACKTEST_ADAPTER_METHOD_NAME_USE_PERSIST);
-    this._signalBacktestUtils = new StoragePersistBacktestUtils();
+    this._signalBacktestFactory = () => new StoragePersistBacktestUtils();
+    this.getInstance.clear();
   };
 
   /**
@@ -1279,17 +1291,18 @@ export class StorageBacktestAdapter implements IStorageUtils {
    */
   useMemory = (): void => {
     backtest.loggerService.info(STORAGE_BACKTEST_ADAPTER_METHOD_NAME_USE_MEMORY);
-    this._signalBacktestUtils = new StorageMemoryBacktestUtils();
+    this._signalBacktestFactory = () => new StorageMemoryBacktestUtils();
+    this.getInstance.clear();
   };
 
   /**
-   * Clears the cached utils instance by resetting to the default in-memory adapter.
+   * Clears the memoized utils instance.
    * Call this when process.cwd() changes between strategy iterations
    * so a new instance is created with the updated base path.
    */
   public clear = (): void => {
     backtest.loggerService.info(STORAGE_BACKTEST_ADAPTER_METHOD_NAME_CLEAR);
-    this._signalBacktestUtils = new StorageMemoryBacktestUtils();
+    this.getInstance.clear();
   };
 }
 
@@ -1303,8 +1316,17 @@ export class StorageBacktestAdapter implements IStorageUtils {
  * - Convenience methods: usePersist(), useMemory(), useDummy()
  */
 export class StorageLiveAdapter implements IStorageUtils {
-  /** Internal storage utils instance */
-  private _signalLiveUtils: IStorageUtils = new StoragePersistLiveUtils();
+  /** Factory producing the active storage utils instance */
+  private _signalLiveFactory: () => IStorageUtils = () => new StoragePersistLiveUtils();
+
+  /**
+   * Lazily constructs the storage utils from the registered factory and memoizes
+   * the result via `singleshot`.
+   *
+   * The instance is built on the first call and cached for all subsequent calls.
+   * Reset via `clear()` so the next call rebuilds from the current factory.
+   */
+  private getInstance = singleshot((): IStorageUtils => this._signalLiveFactory());
 
   /**
    * Handles signal opened event.
@@ -1312,7 +1334,7 @@ export class StorageLiveAdapter implements IStorageUtils {
    * @param tick - The opened signal tick data
    */
   handleOpened = async (tick: IStrategyTickResultOpened): Promise<void> => {
-    return await this._signalLiveUtils.handleOpened(tick);
+    return await this.getInstance().handleOpened(tick);
   };
 
   /**
@@ -1321,7 +1343,7 @@ export class StorageLiveAdapter implements IStorageUtils {
    * @param tick - The closed signal tick data
    */
   handleClosed = async (tick: IStrategyTickResultClosed): Promise<void> => {
-    return await this._signalLiveUtils.handleClosed(tick);
+    return await this.getInstance().handleClosed(tick);
   };
 
   /**
@@ -1330,7 +1352,7 @@ export class StorageLiveAdapter implements IStorageUtils {
    * @param tick - The scheduled signal tick data
    */
   handleScheduled = async (tick: IStrategyTickResultScheduled): Promise<void> => {
-    return await this._signalLiveUtils.handleScheduled(tick);
+    return await this.getInstance().handleScheduled(tick);
   };
 
   /**
@@ -1339,7 +1361,7 @@ export class StorageLiveAdapter implements IStorageUtils {
    * @param tick - The cancelled signal tick data
    */
   handleCancelled = async (tick: IStrategyTickResultCancelled): Promise<void> => {
-    return await this._signalLiveUtils.handleCancelled(tick);
+    return await this.getInstance().handleCancelled(tick);
   };
 
   /**
@@ -1349,7 +1371,7 @@ export class StorageLiveAdapter implements IStorageUtils {
    * @returns The signal row or null if not found
    */
   findById = async (id: StorageId): Promise<IStorageSignalRow | null> => {
-    return await this._signalLiveUtils.findById(id);
+    return await this.getInstance().findById(id);
   };
 
   /**
@@ -1358,15 +1380,15 @@ export class StorageLiveAdapter implements IStorageUtils {
    * @returns Array of all signal rows
    */
   list = async (): Promise<IStorageSignalRow[]> => {
-    return await this._signalLiveUtils.list();
+    return await this.getInstance().list();
   };
 
   handleActivePing = async (event: ActivePingContract): Promise<void> => {
-    return await this._signalLiveUtils.handleActivePing(event);
+    return await this.getInstance().handleActivePing(event);
   };
 
   handleSchedulePing = async (event: SchedulePingContract): Promise<void> => {
-    return await this._signalLiveUtils.handleSchedulePing(event);
+    return await this.getInstance().handleSchedulePing(event);
   };
 
   /**
@@ -1377,7 +1399,8 @@ export class StorageLiveAdapter implements IStorageUtils {
    */
   useStorageAdapter = (Ctor: TStorageUtilsCtor): void => {
     backtest.loggerService.info(STORAGE_LIVE_ADAPTER_METHOD_NAME_USE_ADAPTER);
-    this._signalLiveUtils = Reflect.construct(Ctor, []);
+    this._signalLiveFactory = () => Reflect.construct(Ctor, []);
+    this.getInstance.clear();
   };
 
   /**
@@ -1386,7 +1409,8 @@ export class StorageLiveAdapter implements IStorageUtils {
    */
   useDummy = (): void => {
     backtest.loggerService.info(STORAGE_LIVE_ADAPTER_METHOD_NAME_USE_DUMMY);
-    this._signalLiveUtils = new StorageDummyLiveUtils();
+    this._signalLiveFactory = () => new StorageDummyLiveUtils();
+    this.getInstance.clear();
   };
 
   /**
@@ -1395,7 +1419,8 @@ export class StorageLiveAdapter implements IStorageUtils {
    */
   usePersist = (): void => {
     backtest.loggerService.info(STORAGE_LIVE_ADAPTER_METHOD_NAME_USE_PERSIST);
-    this._signalLiveUtils = new StoragePersistLiveUtils();
+    this._signalLiveFactory = () => new StoragePersistLiveUtils();
+    this.getInstance.clear();
   };
 
   /**
@@ -1404,17 +1429,18 @@ export class StorageLiveAdapter implements IStorageUtils {
    */
   useMemory = (): void => {
     backtest.loggerService.info(STORAGE_LIVE_ADAPTER_METHOD_NAME_USE_MEMORY);
-    this._signalLiveUtils = new StorageMemoryLiveUtils();
+    this._signalLiveFactory = () => new StorageMemoryLiveUtils();
+    this.getInstance.clear();
   };
 
   /**
-   * Clears the cached utils instance by resetting to the default persistent adapter.
+   * Clears the memoized utils instance.
    * Call this when process.cwd() changes between strategy iterations
    * so a new instance is created with the updated base path.
    */
   public clear = (): void => {
     backtest.loggerService.info(STORAGE_LIVE_ADAPTER_METHOD_NAME_CLEAR);
-    this._signalLiveUtils = new StoragePersistLiveUtils();
+    this.getInstance.clear();
   };
 }
 

@@ -2306,8 +2306,17 @@ export class NotificationPersistLiveUtils implements INotificationUtils {
  * - Convenience methods: usePersist(), useMemory(), useDummy()
  */
 export class NotificationBacktestAdapter implements INotificationUtils {
-  /** Internal notification utils instance */
-  private _notificationBacktestUtils: INotificationUtils = new NotificationMemoryBacktestUtils();
+  /** Factory producing the active notification utils instance */
+  private _notificationBacktestFactory: () => INotificationUtils = () => new NotificationMemoryBacktestUtils();
+
+  /**
+   * Lazily constructs the notification utils from the registered factory and
+   * memoizes the result via `singleshot`.
+   *
+   * The instance is built on the first call and cached for all subsequent calls.
+   * Reset via `clear()` so the next call rebuilds from the current factory.
+   */
+  private getInstance = singleshot((): INotificationUtils => this._notificationBacktestFactory());
 
   /**
    * Handles signal events.
@@ -2315,11 +2324,11 @@ export class NotificationBacktestAdapter implements INotificationUtils {
    * @param data - The strategy tick result data
    */
   handleSignal = async (data: IStrategyTickResult): Promise<void> => {
-    return await this._notificationBacktestUtils.handleSignal(data);
+    return await this.getInstance().handleSignal(data);
   };
 
   handleSignalNotify = async (data: SignalInfoContract): Promise<void> => {
-    return await this._notificationBacktestUtils.handleSignalNotify(data);
+    return await this.getInstance().handleSignalNotify(data);
   };
 
   /**
@@ -2328,7 +2337,7 @@ export class NotificationBacktestAdapter implements INotificationUtils {
    * @param data - The partial profit contract data
    */
   handlePartialProfit = async (data: PartialProfitContract): Promise<void> => {
-    return await this._notificationBacktestUtils.handlePartialProfit(data);
+    return await this.getInstance().handlePartialProfit(data);
   };
 
   /**
@@ -2337,7 +2346,7 @@ export class NotificationBacktestAdapter implements INotificationUtils {
    * @param data - The partial loss contract data
    */
   handlePartialLoss = async (data: PartialLossContract): Promise<void> => {
-    return await this._notificationBacktestUtils.handlePartialLoss(data);
+    return await this.getInstance().handlePartialLoss(data);
   };
 
   /**
@@ -2346,7 +2355,7 @@ export class NotificationBacktestAdapter implements INotificationUtils {
    * @param data - The breakeven contract data
    */
   handleBreakeven = async (data: BreakevenContract): Promise<void> => {
-    return await this._notificationBacktestUtils.handleBreakeven(data);
+    return await this.getInstance().handleBreakeven(data);
   };
 
   /**
@@ -2355,7 +2364,7 @@ export class NotificationBacktestAdapter implements INotificationUtils {
    * @param data - The strategy commit contract data
    */
   handleStrategyCommit = async (data: StrategyCommitContract): Promise<void> => {
-    return await this._notificationBacktestUtils.handleStrategyCommit(data);
+    return await this.getInstance().handleStrategyCommit(data);
   };
 
   /**
@@ -2364,7 +2373,7 @@ export class NotificationBacktestAdapter implements INotificationUtils {
    * @param data - The signal sync contract data
    */
   handleSync = trycatch(async (data: SignalSyncContract): Promise<void> => {
-    return await this._notificationBacktestUtils.handleSync(data);
+    return await this.getInstance().handleSync(data);
   }, {
     defaultValue: null,
   });
@@ -2375,7 +2384,7 @@ export class NotificationBacktestAdapter implements INotificationUtils {
    * @param data - The risk contract data
    */
   handleRisk = async (data: RiskContract): Promise<void> => {
-    return await this._notificationBacktestUtils.handleRisk(data);
+    return await this.getInstance().handleRisk(data);
   };
 
   /**
@@ -2384,7 +2393,7 @@ export class NotificationBacktestAdapter implements INotificationUtils {
    * @param error - The error object
    */
   handleError = async (error: Error): Promise<void> => {
-    return await this._notificationBacktestUtils.handleError(error);
+    return await this.getInstance().handleError(error);
   };
 
   /**
@@ -2393,7 +2402,7 @@ export class NotificationBacktestAdapter implements INotificationUtils {
    * @param error - The error object
    */
   handleCriticalError = async (error: Error): Promise<void> => {
-    return await this._notificationBacktestUtils.handleCriticalError(error);
+    return await this.getInstance().handleCriticalError(error);
   };
 
   /**
@@ -2402,7 +2411,7 @@ export class NotificationBacktestAdapter implements INotificationUtils {
    * @param error - The error object
    */
   handleValidationError = async (error: Error): Promise<void> => {
-    return await this._notificationBacktestUtils.handleValidationError(error);
+    return await this.getInstance().handleValidationError(error);
   };
 
   /**
@@ -2411,7 +2420,7 @@ export class NotificationBacktestAdapter implements INotificationUtils {
    * @returns Array of all notification models
    */
   getData = async (): Promise<NotificationModel[]> => {
-    return await this._notificationBacktestUtils.getData();
+    return await this.getInstance().getData();
   };
 
   /**
@@ -2419,7 +2428,7 @@ export class NotificationBacktestAdapter implements INotificationUtils {
    * Proxies call to the underlying notification adapter.
    */
   dispose = async (): Promise<void> => {
-    return await this._notificationBacktestUtils.dispose();
+    return await this.getInstance().dispose();
   };
 
   /**
@@ -2430,7 +2439,8 @@ export class NotificationBacktestAdapter implements INotificationUtils {
    */
   useNotificationAdapter = (Ctor: TNotificationUtilsCtor): void => {
     backtest.loggerService.info(NOTIFICATION_BACKTEST_ADAPTER_METHOD_NAME_USE_ADAPTER);
-    this._notificationBacktestUtils = Reflect.construct(Ctor, []);
+    this._notificationBacktestFactory = () => Reflect.construct(Ctor, []);
+    this.getInstance.clear();
   };
 
   /**
@@ -2439,7 +2449,8 @@ export class NotificationBacktestAdapter implements INotificationUtils {
    */
   useDummy = (): void => {
     backtest.loggerService.info(NOTIFICATION_BACKTEST_ADAPTER_METHOD_NAME_USE_DUMMY);
-    this._notificationBacktestUtils = new NotificationDummyBacktestUtils();
+    this._notificationBacktestFactory = () => new NotificationDummyBacktestUtils();
+    this.getInstance.clear();
   };
 
   /**
@@ -2448,7 +2459,8 @@ export class NotificationBacktestAdapter implements INotificationUtils {
    */
   useMemory = (): void => {
     backtest.loggerService.info(NOTIFICATION_BACKTEST_ADAPTER_METHOD_NAME_USE_MEMORY);
-    this._notificationBacktestUtils = new NotificationMemoryBacktestUtils();
+    this._notificationBacktestFactory = () => new NotificationMemoryBacktestUtils();
+    this.getInstance.clear();
   };
 
   /**
@@ -2457,17 +2469,18 @@ export class NotificationBacktestAdapter implements INotificationUtils {
    */
   usePersist = (): void => {
     backtest.loggerService.info(NOTIFICATION_BACKTEST_ADAPTER_METHOD_NAME_USE_PERSIST);
-    this._notificationBacktestUtils = new NotificationPersistBacktestUtils();
+    this._notificationBacktestFactory = () => new NotificationPersistBacktestUtils();
+    this.getInstance.clear();
   };
 
   /**
-   * Resets the cached utils instance to the default in-memory adapter.
+   * Clears the memoized utils instance.
    * Call this when process.cwd() changes between strategy iterations
    * so a new instance is created with the updated base path.
    */
   public clear = (): void => {
     backtest.loggerService.info(NOTIFICATION_BACKTEST_ADAPTER_METHOD_NAME_CLEAR);
-    this._notificationBacktestUtils = new NotificationMemoryBacktestUtils();
+    this.getInstance.clear();
   };
 }
 
@@ -2481,8 +2494,17 @@ export class NotificationBacktestAdapter implements INotificationUtils {
  * - Convenience methods: usePersist(), useMemory(), useDummy()
  */
 export class NotificationLiveAdapter implements INotificationUtils {
-  /** Internal notification utils instance */
-  private _notificationLiveUtils: INotificationUtils = new NotificationMemoryLiveUtils();
+  /** Factory producing the active notification utils instance */
+  private _notificationLiveFactory: () => INotificationUtils = () => new NotificationMemoryLiveUtils();
+
+  /**
+   * Lazily constructs the notification utils from the registered factory and
+   * memoizes the result via `singleshot`.
+   *
+   * The instance is built on the first call and cached for all subsequent calls.
+   * Reset via `clear()` so the next call rebuilds from the current factory.
+   */
+  private getInstance = singleshot((): INotificationUtils => this._notificationLiveFactory());
 
   /**
    * Handles signal events.
@@ -2490,11 +2512,11 @@ export class NotificationLiveAdapter implements INotificationUtils {
    * @param data - The strategy tick result data
    */
   handleSignal = async (data: IStrategyTickResult): Promise<void> => {
-    return await this._notificationLiveUtils.handleSignal(data);
+    return await this.getInstance().handleSignal(data);
   };
 
   handleSignalNotify = async (data: SignalInfoContract): Promise<void> => {
-    return await this._notificationLiveUtils.handleSignalNotify(data);
+    return await this.getInstance().handleSignalNotify(data);
   };
 
   /**
@@ -2503,7 +2525,7 @@ export class NotificationLiveAdapter implements INotificationUtils {
    * @param data - The partial profit contract data
    */
   handlePartialProfit = async (data: PartialProfitContract): Promise<void> => {
-    return await this._notificationLiveUtils.handlePartialProfit(data);
+    return await this.getInstance().handlePartialProfit(data);
   };
 
   /**
@@ -2512,7 +2534,7 @@ export class NotificationLiveAdapter implements INotificationUtils {
    * @param data - The partial loss contract data
    */
   handlePartialLoss = async (data: PartialLossContract): Promise<void> => {
-    return await this._notificationLiveUtils.handlePartialLoss(data);
+    return await this.getInstance().handlePartialLoss(data);
   };
 
   /**
@@ -2521,7 +2543,7 @@ export class NotificationLiveAdapter implements INotificationUtils {
    * @param data - The breakeven contract data
    */
   handleBreakeven = async (data: BreakevenContract): Promise<void> => {
-    return await this._notificationLiveUtils.handleBreakeven(data);
+    return await this.getInstance().handleBreakeven(data);
   };
 
   /**
@@ -2530,7 +2552,7 @@ export class NotificationLiveAdapter implements INotificationUtils {
    * @param data - The strategy commit contract data
    */
   handleStrategyCommit = async (data: StrategyCommitContract): Promise<void> => {
-    return await this._notificationLiveUtils.handleStrategyCommit(data);
+    return await this.getInstance().handleStrategyCommit(data);
   };
 
   /**
@@ -2539,7 +2561,7 @@ export class NotificationLiveAdapter implements INotificationUtils {
    * @param data - The signal sync contract data
    */
   handleSync = trycatch(async (data: SignalSyncContract): Promise<void> => {
-    return await this._notificationLiveUtils.handleSync(data);
+    return await this.getInstance().handleSync(data);
   }, {
     defaultValue: null,
   });
@@ -2550,7 +2572,7 @@ export class NotificationLiveAdapter implements INotificationUtils {
    * @param data - The risk contract data
    */
   handleRisk = async (data: RiskContract): Promise<void> => {
-    return await this._notificationLiveUtils.handleRisk(data);
+    return await this.getInstance().handleRisk(data);
   };
 
   /**
@@ -2559,7 +2581,7 @@ export class NotificationLiveAdapter implements INotificationUtils {
    * @param error - The error object
    */
   handleError = async (error: Error): Promise<void> => {
-    return await this._notificationLiveUtils.handleError(error);
+    return await this.getInstance().handleError(error);
   };
 
   /**
@@ -2568,7 +2590,7 @@ export class NotificationLiveAdapter implements INotificationUtils {
    * @param error - The error object
    */
   handleCriticalError = async (error: Error): Promise<void> => {
-    return await this._notificationLiveUtils.handleCriticalError(error);
+    return await this.getInstance().handleCriticalError(error);
   };
 
   /**
@@ -2577,7 +2599,7 @@ export class NotificationLiveAdapter implements INotificationUtils {
    * @param error - The error object
    */
   handleValidationError = async (error: Error): Promise<void> => {
-    return await this._notificationLiveUtils.handleValidationError(error);
+    return await this.getInstance().handleValidationError(error);
   };
 
   /**
@@ -2586,7 +2608,7 @@ export class NotificationLiveAdapter implements INotificationUtils {
    * @returns Array of all notification models
    */
   getData = async (): Promise<NotificationModel[]> => {
-    return await this._notificationLiveUtils.getData();
+    return await this.getInstance().getData();
   };
 
   /**
@@ -2594,7 +2616,7 @@ export class NotificationLiveAdapter implements INotificationUtils {
    * Proxies call to the underlying notification adapter.
    */
   dispose = async (): Promise<void> => {
-    return await this._notificationLiveUtils.dispose();
+    return await this.getInstance().dispose();
   };
 
   /**
@@ -2605,7 +2627,8 @@ export class NotificationLiveAdapter implements INotificationUtils {
    */
   useNotificationAdapter = (Ctor: TNotificationUtilsCtor): void => {
     backtest.loggerService.info(NOTIFICATION_LIVE_ADAPTER_METHOD_NAME_USE_ADAPTER);
-    this._notificationLiveUtils = Reflect.construct(Ctor, []);
+    this._notificationLiveFactory = () => Reflect.construct(Ctor, []);
+    this.getInstance.clear();
   };
 
   /**
@@ -2614,7 +2637,8 @@ export class NotificationLiveAdapter implements INotificationUtils {
    */
   useDummy = (): void => {
     backtest.loggerService.info(NOTIFICATION_LIVE_ADAPTER_METHOD_NAME_USE_DUMMY);
-    this._notificationLiveUtils = new NotificationDummyLiveUtils();
+    this._notificationLiveFactory = () => new NotificationDummyLiveUtils();
+    this.getInstance.clear();
   };
 
   /**
@@ -2623,7 +2647,8 @@ export class NotificationLiveAdapter implements INotificationUtils {
    */
   useMemory = (): void => {
     backtest.loggerService.info(NOTIFICATION_LIVE_ADAPTER_METHOD_NAME_USE_MEMORY);
-    this._notificationLiveUtils = new NotificationMemoryLiveUtils();
+    this._notificationLiveFactory = () => new NotificationMemoryLiveUtils();
+    this.getInstance.clear();
   };
 
   /**
@@ -2632,17 +2657,18 @@ export class NotificationLiveAdapter implements INotificationUtils {
    */
   usePersist = (): void => {
     backtest.loggerService.info(NOTIFICATION_LIVE_ADAPTER_METHOD_NAME_USE_PERSIST);
-    this._notificationLiveUtils = new NotificationPersistLiveUtils();
+    this._notificationLiveFactory = () => new NotificationPersistLiveUtils();
+    this.getInstance.clear();
   };
 
   /**
-   * Resets the cached utils instance to the default in-memory adapter.
+   * Clears the memoized utils instance.
    * Call this when process.cwd() changes between strategy iterations
    * so a new instance is created with the updated base path.
    */
   public clear = (): void => {
     backtest.loggerService.info(NOTIFICATION_LIVE_ADAPTER_METHOD_NAME_CLEAR);
-    this._notificationLiveUtils = new NotificationMemoryLiveUtils();
+    this.getInstance.clear();
   };
 }
 
