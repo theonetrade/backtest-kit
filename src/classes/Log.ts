@@ -745,12 +745,12 @@ export class LogAdapter implements ILog {
    * @param fileName - Base file name without extension (default: "log")
    * @param dirName - Directory for the JSONL file (default: ./dump/log)
    */
-  public useJsonl = (
-    fileName = "log.jsonl",
-    dirName = join(process.cwd(), "./dump/log"),
-  ) => {
+  public useJsonl = (fileName = "log.jsonl", dirName?: string) => {
     backtest.loggerService.info(LOG_ADAPTER_METHOD_NAME_USE_JSONL);
-    this._logFactory = () => new LogJsonlUtils(fileName, dirName);
+    this._logFactory = () => {
+      const dir = dirName || join(process.cwd(), "./dump/log");
+      return new LogJsonlUtils(fileName, dir);
+    }
     this.getInstance.clear();
   };
 

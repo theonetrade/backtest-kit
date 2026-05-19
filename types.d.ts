@@ -16682,8 +16682,17 @@ type TLogCtor = new () => Partial<ILog>;
  * - Convenience methods: usePersist(), useMemory(), useDummy()
  */
 declare class LogAdapter implements ILog {
-    /** Internal log utils instance */
-    private _log;
+    /** Factory producing the active log utils instance */
+    private _logFactory;
+    /**
+     * Lazily constructs the log utils from the registered factory and memoizes
+     * the result via `singleshot`.
+     *
+     * The instance is built on the first call and cached for all subsequent calls.
+     * Reset via `clear()` so the next call rebuilds from the current factory
+     * (e.g. when `process.cwd()` changes between strategy iterations).
+     */
+    private getInstance;
     /**
      * Lists all stored log entries.
      * Proxies call to the underlying log adapter.
@@ -16749,7 +16758,7 @@ declare class LogAdapter implements ILog {
      */
     useJsonl: (fileName?: string, dirName?: string) => void;
     /**
-     * Clears the cached log instance by resetting to the default in-memory adapter.
+     * Clears the memoized log instance.
      * Call this when process.cwd() changes between strategy iterations
      * so a new adapter instance is created with the updated base path.
      */
@@ -23668,8 +23677,16 @@ type TStorageUtilsCtor = new () => IStorageUtils;
  * - Convenience methods: usePersist(), useMemory(), useDummy()
  */
 declare class StorageBacktestAdapter implements IStorageUtils {
-    /** Internal storage utils instance */
-    private _signalBacktestUtils;
+    /** Factory producing the active storage utils instance */
+    private _signalBacktestFactory;
+    /**
+     * Lazily constructs the storage utils from the registered factory and memoizes
+     * the result via `singleshot`.
+     *
+     * The instance is built on the first call and cached for all subsequent calls.
+     * Reset via `clear()` so the next call rebuilds from the current factory.
+     */
+    private getInstance;
     /**
      * Handles signal opened event.
      * Proxies call to the underlying storage adapter.
@@ -23732,7 +23749,7 @@ declare class StorageBacktestAdapter implements IStorageUtils {
      */
     useMemory: () => void;
     /**
-     * Clears the cached utils instance by resetting to the default in-memory adapter.
+     * Clears the memoized utils instance.
      * Call this when process.cwd() changes between strategy iterations
      * so a new instance is created with the updated base path.
      */
@@ -23748,8 +23765,16 @@ declare class StorageBacktestAdapter implements IStorageUtils {
  * - Convenience methods: usePersist(), useMemory(), useDummy()
  */
 declare class StorageLiveAdapter implements IStorageUtils {
-    /** Internal storage utils instance */
-    private _signalLiveUtils;
+    /** Factory producing the active storage utils instance */
+    private _signalLiveFactory;
+    /**
+     * Lazily constructs the storage utils from the registered factory and memoizes
+     * the result via `singleshot`.
+     *
+     * The instance is built on the first call and cached for all subsequent calls.
+     * Reset via `clear()` so the next call rebuilds from the current factory.
+     */
+    private getInstance;
     /**
      * Handles signal opened event.
      * Proxies call to the underlying storage adapter.
@@ -23812,7 +23837,7 @@ declare class StorageLiveAdapter implements IStorageUtils {
      */
     useMemory: () => void;
     /**
-     * Clears the cached utils instance by resetting to the default persistent adapter.
+     * Clears the memoized utils instance.
      * Call this when process.cwd() changes between strategy iterations
      * so a new instance is created with the updated base path.
      */
@@ -23930,8 +23955,16 @@ type TRecentUtilsCtor = new () => IRecentUtils;
  * - Convenience methods: usePersist(), useMemory()
  */
 declare class RecentBacktestAdapter implements IRecentUtils {
-    /** Internal storage utils instance */
-    private _recentBacktestUtils;
+    /** Factory producing the active storage utils instance */
+    private _recentBacktestFactory;
+    /**
+     * Lazily constructs the storage utils from the registered factory and memoizes
+     * the result via `singleshot`.
+     *
+     * The instance is built on the first call and cached for all subsequent calls.
+     * Reset via `clear()` so the next call rebuilds from the current factory.
+     */
+    private getInstance;
     /**
      * Handles active ping event.
      * Proxies call to the underlying storage adapter.
@@ -23981,7 +24014,9 @@ declare class RecentBacktestAdapter implements IRecentUtils {
      */
     useMemory: () => void;
     /**
-     * Clears the cached utils instance by resetting to the default in-memory adapter.
+     * Clears the memoized utils instance.
+     * Call this when process.cwd() changes between strategy iterations
+     * so a new instance is created with the updated base path.
      */
     clear: () => void;
 }
@@ -23995,8 +24030,16 @@ declare class RecentBacktestAdapter implements IRecentUtils {
  * - Convenience methods: usePersist(), useMemory()
  */
 declare class RecentLiveAdapter implements IRecentUtils {
-    /** Internal storage utils instance */
-    private _recentLiveUtils;
+    /** Factory producing the active storage utils instance */
+    private _recentLiveFactory;
+    /**
+     * Lazily constructs the storage utils from the registered factory and memoizes
+     * the result via `singleshot`.
+     *
+     * The instance is built on the first call and cached for all subsequent calls.
+     * Reset via `clear()` so the next call rebuilds from the current factory.
+     */
+    private getInstance;
     /**
      * Handles active ping event.
      * Proxies call to the underlying storage adapter.
@@ -24046,7 +24089,9 @@ declare class RecentLiveAdapter implements IRecentUtils {
      */
     useMemory: () => void;
     /**
-     * Clears the cached utils instance by resetting to the default persistent adapter.
+     * Clears the memoized utils instance.
+     * Call this when process.cwd() changes between strategy iterations
+     * so a new instance is created with the updated base path.
      */
     clear: () => void;
 }
@@ -24292,8 +24337,16 @@ type TNotificationUtilsCtor = new () => INotificationUtils;
  * - Convenience methods: usePersist(), useMemory(), useDummy()
  */
 declare class NotificationBacktestAdapter implements INotificationUtils {
-    /** Internal notification utils instance */
-    private _notificationBacktestUtils;
+    /** Factory producing the active notification utils instance */
+    private _notificationBacktestFactory;
+    /**
+     * Lazily constructs the notification utils from the registered factory and
+     * memoizes the result via `singleshot`.
+     *
+     * The instance is built on the first call and cached for all subsequent calls.
+     * Reset via `clear()` so the next call rebuilds from the current factory.
+     */
+    private getInstance;
     /**
      * Handles signal events.
      * Proxies call to the underlying notification adapter.
@@ -24389,7 +24442,7 @@ declare class NotificationBacktestAdapter implements INotificationUtils {
      */
     usePersist: () => void;
     /**
-     * Resets the cached utils instance to the default in-memory adapter.
+     * Clears the memoized utils instance.
      * Call this when process.cwd() changes between strategy iterations
      * so a new instance is created with the updated base path.
      */
@@ -24405,8 +24458,16 @@ declare class NotificationBacktestAdapter implements INotificationUtils {
  * - Convenience methods: usePersist(), useMemory(), useDummy()
  */
 declare class NotificationLiveAdapter implements INotificationUtils {
-    /** Internal notification utils instance */
-    private _notificationLiveUtils;
+    /** Factory producing the active notification utils instance */
+    private _notificationLiveFactory;
+    /**
+     * Lazily constructs the notification utils from the registered factory and
+     * memoizes the result via `singleshot`.
+     *
+     * The instance is built on the first call and cached for all subsequent calls.
+     * Reset via `clear()` so the next call rebuilds from the current factory.
+     */
+    private getInstance;
     /**
      * Handles signal events.
      * Proxies call to the underlying notification adapter.
@@ -24502,7 +24563,7 @@ declare class NotificationLiveAdapter implements INotificationUtils {
      */
     usePersist: () => void;
     /**
-     * Resets the cached utils instance to the default in-memory adapter.
+     * Clears the memoized utils instance.
      * Call this when process.cwd() changes between strategy iterations
      * so a new instance is created with the updated base path.
      */
@@ -27476,7 +27537,19 @@ type TBrokerCtor = new () => Partial<IBroker>;
  * ```
  */
 declare class BrokerAdapter {
-    private _brokerInstance;
+    /** Factory producing the active `BrokerProxy` instance */
+    private _brokerFactory;
+    /**
+     * Lazily constructs the `BrokerProxy` from the registered factory and
+     * memoizes the result via `singleshot`.
+     *
+     * The proxy is built on the first call and cached for all subsequent calls.
+     * Returns `null` when no adapter has been registered via `useBrokerAdapter()`.
+     *
+     * Reset via `clear()` so the next call rebuilds from the current factory
+     * (e.g. when `process.cwd()` changes between strategy iterations).
+     */
+    private getInstance;
     /**
      * Forwards a signal-open event to the registered broker adapter.
      *
