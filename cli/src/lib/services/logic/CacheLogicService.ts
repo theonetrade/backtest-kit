@@ -24,7 +24,6 @@ const GET_TIMEFRAME_RANGE_FN = async (frameName: string) => {
   return { startDate, endDate };
 };
 
-
 const CHECK_CANDLES_FN = async (
   interval: CandleInterval,
   dto: {
@@ -58,6 +57,8 @@ const CHECK_CANDLES_FN = async (
   }
 };
 
+void CHECK_CANDLES_FN;
+
 const CACHE_CANDLES_FN = retry(
   async (
     interval: string,
@@ -72,15 +73,13 @@ const CACHE_CANDLES_FN = retry(
       console.log(
         `Checking candles cache for ${dto.symbol} ${interval} from ${dto.from} to ${dto.to}`,
       );
-      await CHECK_CANDLES_FN(
-        <CandleInterval>interval,
-        {
-          exchangeName: dto.exchangeName,
-          from: dto.from,
-          to: dto.to,
-          symbol: dto.symbol,
-        }
-      );
+      await checkCandles({
+        exchangeName: dto.exchangeName,
+        from: dto.from,
+        to: dto.to,
+        symbol: dto.symbol,
+        interval: <CandleInterval>interval,
+      });
     } catch (error) {
       console.log(
         `Caching candles for ${dto.symbol} ${interval} from ${dto.from} to ${dto.to}`,

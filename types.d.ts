@@ -4406,8 +4406,8 @@ interface ICacheCandlesParams {
     to: Date;
 }
 /**
- * Parameters for validating cached candle timestamps.
- * Reads JSON files directly from persist storage directory.
+ * Parameters for validating cached candle presence.
+ * Queries persist storage adapter without scanning files.
  */
 interface ICheckCandlesParams {
     /** Trading pair symbol (e.g., "BTCUSDT") */
@@ -4420,12 +4420,11 @@ interface ICheckCandlesParams {
     from: Date;
     /** End date of the validation range (inclusive) */
     to: Date;
-    /** Base directory of candle persist storage (default: "./dump/data/candle") */
-    baseDir?: string;
 }
 /**
- * Checks cached candle timestamps for correct interval alignment.
- * Reads JSON files directly from persist storage without using abstractions.
+ * Checks cached candle presence via the persist adapter.
+ * Issues one ranged read; adapter-side `hasValue` covers each expected timestamp,
+ * so a single missing or unaligned candle yields a miss without loading the whole dataset.
  *
  * @param params - Validation parameters
  */

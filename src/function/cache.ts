@@ -4,6 +4,7 @@ import backtest from "../lib";
 import { ExchangeInstance } from "../classes/Exchange";
 import { GLOBAL_CONFIG } from "../config/params";
 import { ExchangeName, CandleInterval } from "../interfaces/Exchange.interface";
+import { PersistCandleAdapter } from "../classes/Persist";
 
 const WARM_CANDLES_METHOD_NAME = "cache.warmCandles";
 const CHECK_CANDLES_METHOD_NAME = "cache.checkCandles";
@@ -72,8 +73,8 @@ export interface ICacheCandlesParams {
 }
 
 /**
- * Parameters for validating cached candle timestamps.
- * Reads JSON files directly from persist storage directory.
+ * Parameters for validating cached candle presence.
+ * Queries persist storage adapter without scanning files.
  */
 export interface ICheckCandlesParams {
   /** Trading pair symbol (e.g., "BTCUSDT") */
@@ -86,8 +87,6 @@ export interface ICheckCandlesParams {
   from: Date;
   /** End date of the validation range (inclusive) */
   to: Date;
-  /** Base directory of candle persist storage (default: "./dump/data/candle") */
-  baseDir?: string;
 }
 
 /**
@@ -95,9 +94,13 @@ export interface ICheckCandlesParams {
  * Reads JSON files directly from persist storage without using abstractions.
  *
  * @param params - Validation parameters
+ * @param baseDir - Base directory of candle persist storage (default: "./dump/data/candle")
  */
-export async function checkCandles(params: ICheckCandlesParams): Promise<void> {
-  const { symbol, exchangeName, interval, from, to, baseDir = "./dump/data/candle" } = params;
+export async function _checkFsCandles(
+  params: ICheckCandlesParams, 
+  baseDir = join(process.cwd(), "/dump/data/candle")
+): Promise<void> {
+  const { symbol, exchangeName, interval, from, to } = params;
 
   backtest.loggerService.info(CHECK_CANDLES_METHOD_NAME, params);
 
@@ -185,6 +188,72 @@ export async function checkCandles(params: ICheckCandlesParams): Promise<void> {
 
   console.log(
     `checkCandles: OK ${files.length} candles ${symbol} ${interval}`,
+  );
+}
+
+/**
+ * Checks cached candle presence via the persist adapter.
+ * Issues one ranged read; adapter-side `hasValue` covers each expected timestamp,
+ * so a single missing or unaligned candle yields a miss without loading the whole dataset.
+ *
+ * @param params - Validation parameters
+ */
+export async function checkCandles(params: ICheckCandlesParams): Promise<void> {
+  const { symbol, exchangeName, interval, from, to } = params;
+
+  backtest.loggerService.info(CHECK_CANDLES_METHOD_NAME, params);
+
+  const step = INTERVAL_MINUTES[interval];
+
+  if (!step) {
+    throw new Error(
+      `checkCandles: unsupported interval=${interval}`,
+    );
+  }
+
+  const stepMs = step * MS_PER_MINUTE;
+
+  const fromTs = ALIGN_TO_INTERVAL_FN(from.getTime(), step);
+  const toTs = ALIGN_TO_INTERVAL_FN(to.getTime(), step);
+  const totalCandles = Math.floor((toTs - fromTs) / stepMs);
+
+  if (totalCandles <= 0) {
+    throw new Error(
+      `checkCandles: empty range [${fromTs}, ${toTs}) for ${symbol} ${interval}`,
+    );
+  }
+
+  let checked = 0;
+  let currentSince = fromTs;
+
+  PRINT_PROGRESS_FN(checked, totalCandles, symbol, interval);
+
+  while (checked < totalCandles) {
+    const chunkLimit = Math.min(
+      totalCandles - checked,
+      GLOBAL_CONFIG.CC_MAX_CANDLES_PER_REQUEST,
+    );
+    const chunkUntil = currentSince + chunkLimit * stepMs;
+    const candles = await PersistCandleAdapter.readCandlesData(
+      symbol,
+      interval,
+      exchangeName,
+      chunkLimit,
+      currentSince,
+      chunkUntil,
+    );
+    if (!candles) {
+      throw new Error(
+        `checkCandles: cache miss for ${symbol} ${interval} [${currentSince}, ${chunkUntil})`,
+      );
+    }
+    checked += chunkLimit;
+    currentSince = chunkUntil;
+    PRINT_PROGRESS_FN(checked, totalCandles, symbol, interval);
+  }
+
+  console.log(
+    `checkCandles: OK ${totalCandles} candles ${symbol} ${interval}`,
   );
 }
 
