@@ -121,7 +121,7 @@ const CACHE_CANDLES_FN = retry(
     onCheckStart: (symbol: string, interval: CandleInterval, from: Date, to: Date) => void,
   ) => {
     try {
-      onWarmStart && onWarmStart(dto.symbol, interval, dto.from, dto.to);
+      onCheckStart && onCheckStart(dto.symbol, interval, dto.from, dto.to);
       await checkCandles({
         exchangeName: dto.exchangeName,
         from: dto.from,
@@ -130,7 +130,7 @@ const CACHE_CANDLES_FN = retry(
         interval: <CandleInterval>interval,
       });
     } catch (error) {
-      onCheckStart && onCheckStart(dto.symbol, interval, dto.from, dto.to);
+      onWarmStart && onWarmStart(dto.symbol, interval, dto.from, dto.to);
       await warmCandles({
         symbol: dto.symbol,
         exchangeName: dto.exchangeName,
