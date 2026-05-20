@@ -98,9 +98,9 @@ export interface ICheckCandlesParams {
  */
 export interface ICacheCandlesParams extends IWarmCandlesParams, ICheckCandlesParams {
   /** Invoked before the cache validation phase starts */
-  onWarmStart: (symbol: string, interval: CandleInterval, from: Date, to: Date) => void;
+  onWarmStart?: (symbol: string, interval: CandleInterval, from: Date, to: Date) => void;
   /** Invoked before the cache warm-up phase starts (after a validation miss) */
-  onCheckStart: (symbol: string, interval: CandleInterval, from: Date, to: Date) => void;
+  onCheckStart?: (symbol: string, interval: CandleInterval, from: Date, to: Date) => void;
 }
 
 /**

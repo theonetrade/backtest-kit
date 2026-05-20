@@ -4428,9 +4428,9 @@ interface ICheckCandlesParams {
  */
 interface ICacheCandlesParams extends IWarmCandlesParams, ICheckCandlesParams {
     /** Invoked before the cache validation phase starts */
-    onWarmStart: (symbol: string, interval: CandleInterval, from: Date, to: Date) => void;
+    onWarmStart?: (symbol: string, interval: CandleInterval, from: Date, to: Date) => void;
     /** Invoked before the cache warm-up phase starts (after a validation miss) */
-    onCheckStart: (symbol: string, interval: CandleInterval, from: Date, to: Date) => void;
+    onCheckStart?: (symbol: string, interval: CandleInterval, from: Date, to: Date) => void;
 }
 /**
  * Checks cached candle presence via the persist adapter.

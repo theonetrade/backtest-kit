@@ -28,11 +28,16 @@ export const main = async () => {
 
   {
     const loader = await cli.configConnectionService.loadConfig("loader.config");
-    if (typeof loader === "function") {
-      await loader();
-    }
-    if (typeof loader?.loader === "function") {
-      await loader.loader();
+    try {
+      if (typeof loader === "function") {
+        await loader();
+      }
+      if (typeof loader?.loader === "function") {
+        await loader.loader();
+      }
+    } catch (error) {
+      console.error("Module loader failed", error);
+      process.exit(-1);
     }
   }
 
