@@ -6653,13 +6653,19 @@ declare const GLOBAL_CONFIG: {
      */
     CC_ENABLE_CANDLE_FETCH_MUTEX: boolean;
     /**
-     * Enables parallel backtest interleaving by yielding the event loop after each candle fetch.
-     * Inserts `await sleep(0)` after `getNextCandles` so that other concurrently running backtests
-     * (waiting on the candle fetch mutex) get a chance to make progress between iterations.
-     * Without this flag, a single backtest monopolizes the event loop and processes its timeframes
-     * sequentially until completion, defeating the purpose of running backtests in parallel.
+     * Enables cooperative interleaving of concurrently running backtests after each candle fetch.
      *
-     * Default: true (event loop is yielded to emulate parallel backtest execution)
+     * Mechanism (implemented in `Candle.spinLock`):
+     * - After `getNextCandles` resolves, the current backtest awaits
+     *   `Promise.race([_spin.toPromise(), sleep(50)])`, where `_spin` is emitted whenever
+     *   another caller acquires the candle-fetch mutex.
+     * - This hands the event loop to a peer backtest waiting on the same mutex, so multiple
+     *   parallel `Backtest.run` / `Walker` workloads progress in round-robin fashion instead
+     *   of one monopolizing the event loop until completion.
+     * - The spin is skipped entirely when `Lookup.isParallel` is `false` (single active workload —
+     *   no peer to yield to) or when `CC_ENABLE_CANDLE_FETCH_MUTEX` is disabled.
+     *
+     * Default: true (parallel backtests are interleaved on each candle fetch boundary)
      */
     CC_ENABLE_BACKTEST_PARALLEL_SPIN: boolean;
     /**
@@ -20321,22 +20327,87 @@ declare class ScheduleUtils {
  */
 declare const Schedule: ScheduleUtils;
 
+/**
+ * Single entry tracking one in-flight backtest or live run.
+ *
+ * Registered into the lookup map on activity start (e.g. `INSTANCE_TASK_FN` in
+ * `Backtest`/`Live`, or per-strategy loop in `WalkerLogicPrivateService`) and
+ * removed on completion or failure.
+ *
+ * Used by `Candle.spinLock` to detect parallel workloads via {@link LookupUtils.isParallel}.
+ */
 interface IActivityEntry {
+    /** Trading pair symbol (e.g. `"BTCUSDT"`). */
     symbol: string;
+    /** Execution context identifying the running strategy. */
     context: {
+        /** Strategy schema name driving the activity. */
         strategyName: StrategyName;
+        /** Exchange schema name providing market data. */
         exchangeName: ExchangeName;
+        /** Frame schema name (backtest only — live runs leave this `undefined`). */
         frameName?: FrameName;
     };
+    /** `true` for backtest activities, `false` for live activities. */
     backtest: boolean;
 }
+/**
+ * In-memory registry of currently running backtest and live activities.
+ *
+ * Purpose:
+ * - Each `Backtest.run` / `Live.run` / per-strategy walker iteration registers an
+ *   {@link IActivityEntry} on start and removes it on completion.
+ * - `Candle.spinLock` consults {@link isParallel} to decide whether the event-loop
+ *   hand-off (post-candle-fetch spin) is worth performing. With a single active
+ *   workload there is no peer to yield to, so the spin is skipped entirely.
+ *
+ * Exposed as the `Lookup` singleton; no constructor parameters.
+ *
+ * @example
+ * ```typescript
+ * Lookup.addActivity({ symbol: "BTCUSDT", context, backtest: true });
+ * try {
+ *   for await (const _ of run(symbol, context)) { ... }
+ * } finally {
+ *   Lookup.removeActivity({ symbol: "BTCUSDT", context, backtest: true });
+ * }
+ * ```
+ */
 declare class LookupUtils {
+    /** Active entries keyed by their composite {@link Key}. */
     private readonly _lookupMap;
+    /**
+     * `true` when more than one activity is currently registered.
+     * Used by `Candle.spinLock` to decide whether yielding the event loop is useful.
+     */
     get isParallel(): boolean;
+    /**
+     * Registers a backtest or live activity in the lookup map.
+     * Idempotent for identical keys — duplicate calls overwrite the existing entry.
+     *
+     * @param activity - Activity descriptor identifying the running workload.
+     */
     addActivity: (activity: IActivityEntry) => void;
+    /**
+     * Removes a previously registered activity from the lookup map.
+     * Must be paired with a prior {@link addActivity}, typically in a `finally` block,
+     * so a thrown error in the underlying run does not leave a stale entry behind.
+     *
+     * @param activity - Activity descriptor matching the one passed to {@link addActivity}.
+     */
     removeActivity: (activity: IActivityEntry) => void;
+    /**
+     * Returns a snapshot of currently active entries.
+     *
+     * @returns Array of all activities present in the lookup map at call time.
+     */
     listActivity: () => IActivityEntry[];
 }
+/**
+ * Process-wide singleton instance of {@link LookupUtils}.
+ * Imported by `Backtest`, `Live`, `WalkerLogicPrivateService` (registration sites)
+ * and by `Candle` (read-only consumer via `isParallel`).
+ */
 declare const Lookup: LookupUtils;
 
 /**
