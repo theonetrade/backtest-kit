@@ -6,7 +6,7 @@ group: docs
 # warmCandles
 
 ```ts
-declare function warmCandles(params: ICacheCandlesParams): Promise<void>;
+declare function warmCandles(params: IWarmCandlesParams): Promise<void>;
 ```
 
 Pre-caches candles for a date range into persist storage.

@@ -5,47 +5,24 @@ group: docs
 
 # ICacheCandlesParams
 
-Parameters for pre-caching candles into persist storage.
-Used to download historical candle data before running a backtest.
+Parameters for the combined check-then-warm caching flow.
+Extends both validation and pre-cache parameter sets and adds
+lifecycle callbacks invoked before each phase of the flow.
 
 ## Properties
 
-### symbol
+### onWarmStart
 
 ```ts
-symbol: string
+onWarmStart: (symbol: string, interval: CandleInterval, from: Date, to: Date) => void
 ```
 
-Trading pair symbol (e.g., "BTCUSDT")
+Invoked before the cache validation phase starts
 
-### exchangeName
+### onCheckStart
 
 ```ts
-exchangeName: string
+onCheckStart: (symbol: string, interval: CandleInterval, from: Date, to: Date) => void
 ```
 
-Name of the registered exchange schema
-
-### interval
-
-```ts
-interval: CandleInterval
-```
-
-Candle time interval (e.g., "1m", "4h")
-
-### from
-
-```ts
-from: Date
-```
-
-Start date of the caching range (inclusive)
-
-### to
-
-```ts
-to: Date
-```
-
-End date of the caching range (inclusive)
+Invoked before the cache warm-up phase starts (after a validation miss)
