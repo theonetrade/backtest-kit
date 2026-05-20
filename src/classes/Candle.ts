@@ -2,6 +2,7 @@ import LoggerService from "../lib/services/base/LoggerService";
 import { GLOBAL_CONFIG } from "../config/params";
 import { Lock } from "./Lock";
 import { sleep, Subject } from "functools-kit";
+import { Lookup } from "./Lookup";
 
 const METHOD_NAME_ACQUIRE_LOCK = "CandleUtils.acquireLock";
 const METHOD_NAME_RELEASE_LOCK = "CandleUtils.releaseLock";
@@ -57,6 +58,9 @@ export class CandleUtils {
       return;
     }
     if (!GLOBAL_CONFIG.CC_ENABLE_BACKTEST_PARALLEL_SPIN) {
+      return;
+    }
+    if (!Lookup.isParallel) {
       return;
     }
     await Promise.race([
