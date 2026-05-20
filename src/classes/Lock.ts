@@ -1,6 +1,4 @@
-import { queued, sleep } from "functools-kit";
-
-const BUSY_DELAY = 100;
+import { queued, Subject } from "functools-kit";
 
 const SET_BUSY_SYMBOL = Symbol("setBusy");
 const GET_BUSY_SYMBOL = Symbol("getBusy");
@@ -10,7 +8,8 @@ const RELEASE_LOCK_SYMBOL = Symbol("releaseLock");
 
 const ACQUIRE_LOCK_FN = async (self: Lock) => {
   while (self[GET_BUSY_SYMBOL]()) {
-    await sleep(BUSY_DELAY);
+    // @ts-ignore
+    await self._tick.toPromise();
   }
   self[SET_BUSY_SYMBOL](true);
 };
@@ -40,6 +39,7 @@ const ACQUIRE_LOCK_FN = async (self: Lock) => {
  */
 export class Lock {
   private _isBusy = 0;
+  private _tick = new Subject<void>();
 
   [SET_BUSY_SYMBOL](isBusy: boolean) {
     this._isBusy += isBusy ? 1 : -1;
@@ -84,5 +84,6 @@ export class Lock {
    */
   public releaseLock = async () => {
     await this[RELEASE_LOCK_SYMBOL]();
+    await this._tick.next();
   };
 }

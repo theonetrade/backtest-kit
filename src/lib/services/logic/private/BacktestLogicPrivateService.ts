@@ -18,6 +18,7 @@ import {
 import { GLOBAL_CONFIG } from "../../../../config/params";
 import { and, errorData, getErrorMessage } from "functools-kit";
 import ActionCoreService from "../../core/ActionCoreService";
+import { Candle } from "../../../../classes/Candle";
 
 const ACTIVE_CANDLE_INCLUDED = 1;
 const SCHEDULE_ACTIVATION_CANDLE_SKIP = 1;
@@ -104,7 +105,9 @@ const GET_CANDLES_FN = async (
   logMeta: object
 ): Promise<ICandleData[] | TFnError> => {
   try {
-    return await self.exchangeCoreService.getNextCandles(symbol, "1m", candlesNeeded, bufferStartTime, true);
+    const result = await self.exchangeCoreService.getNextCandles(symbol, "1m", candlesNeeded, bufferStartTime, true);
+    await Candle.spinLock("BacktestLogicPrivateService GET_CANDLES_FN");
+    return result;
   } catch (error) {
     console.error(`backtestLogicPrivateService getNextCandles failed symbol=${symbol} strategyName=${self.methodContextService.context.strategyName} exchangeName=${self.methodContextService.context.exchangeName}`);
     self.loggerService.warn("backtestLogicPrivateService getNextCandles failed", {

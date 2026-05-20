@@ -6653,6 +6653,16 @@ declare const GLOBAL_CONFIG: {
      */
     CC_ENABLE_CANDLE_FETCH_MUTEX: boolean;
     /**
+     * Enables parallel backtest interleaving by yielding the event loop after each candle fetch.
+     * Inserts `await sleep(0)` after `getNextCandles` so that other concurrently running backtests
+     * (waiting on the candle fetch mutex) get a chance to make progress between iterations.
+     * Without this flag, a single backtest monopolizes the event loop and processes its timeframes
+     * sequentially until completion, defeating the purpose of running backtests in parallel.
+     *
+     * Default: true (event loop is yielded to emulate parallel backtest execution)
+     */
+    CC_ENABLE_BACKTEST_PARALLEL_SPIN: boolean;
+    /**
      * Enables DCA (Dollar-Cost Averaging) logic even if antirecord is not broken.
      * Allows to commitAverageBuy if currentPrice is not the lowest price since entry, but still lower than priceOpen.
      * This can help improve average entry price in cases where price has rebounded after entry but is still below priceOpen, without waiting for a new lower price.
@@ -6828,6 +6838,7 @@ declare function getConfig(): {
     CC_MAX_SIGNALS: number;
     CC_MAX_LOG_LINES: number;
     CC_ENABLE_CANDLE_FETCH_MUTEX: boolean;
+    CC_ENABLE_BACKTEST_PARALLEL_SPIN: boolean;
     CC_ENABLE_DCA_EVERYWHERE: boolean;
     CC_ENABLE_PPPL_EVERYWHERE: boolean;
     CC_ENABLE_LONG_SIGNAL: boolean;
@@ -6886,6 +6897,7 @@ declare function getDefaultConfig(): Readonly<{
     CC_MAX_SIGNALS: number;
     CC_MAX_LOG_LINES: number;
     CC_ENABLE_CANDLE_FETCH_MUTEX: boolean;
+    CC_ENABLE_BACKTEST_PARALLEL_SPIN: boolean;
     CC_ENABLE_DCA_EVERYWHERE: boolean;
     CC_ENABLE_PPPL_EVERYWHERE: boolean;
     CC_ENABLE_LONG_SIGNAL: boolean;
