@@ -10,6 +10,8 @@ import { errorData, getErrorMessage, trycatch } from "functools-kit";
 import ExecutionContextService from "../../context/ExecutionContextService";
 import { afterEndSubject, beforeStartSubject, errorEmitter } from "../../../../config/emitters";
 import TimeMetaService from "../../meta/TimeMetaService";
+import FrameSchemaService from "../../schema/FrameSchemaService";
+import alignToInterval from "../../../../utils/alignToInterval";
 
 /**
  * Type definition for public BacktestLogic service.
@@ -74,12 +76,8 @@ const CALL_BEFORE_START_FN = trycatch(
       frameName: FrameName;
     },
   ) => {
-    const timestamp = await self.timeMetaService.getTimestamp(
-      symbol,
-      context,
-      true
-    );
-    const when = new Date(timestamp);
+    const { startDate } = self.frameSchemaService.get(context.frameName);
+    const when = alignToInterval(startDate, "1m");
     await MethodContextService.runInContext(async () => {
       await ExecutionContextService.runInContext(async () => {
         await beforeStartSubject.next({
@@ -196,6 +194,7 @@ export class BacktestLogicPublicService implements TBacktestLogicPrivateService 
   readonly backtestLogicPrivateService =
     inject<BacktestLogicPrivateService>(TYPES.backtestLogicPrivateService);
   readonly timeMetaService = inject<TimeMetaService>(TYPES.timeMetaService);
+  readonly frameSchemaService = inject<FrameSchemaService>(TYPES.frameSchemaService);
 
   /**
    * Runs backtest for a symbol with context propagation.

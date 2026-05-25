@@ -155,6 +155,10 @@ export {
   listenMaxDrawdownOnce,
   listenSignalNotify,
   listenSignalNotifyOnce,
+  listenBeforeStart,
+  listenBeforeStartOnce,
+  listenAfterEnd,
+  listenAfterEndOnce,
 } from "./function/event";
 export {
   getCandles,

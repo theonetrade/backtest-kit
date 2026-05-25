@@ -20,6 +20,7 @@ const METHOD_NAME_RUN = "backtestCommandService run";
  */
 type Keys = Omit<BacktestLogicPublicService, keyof {
   backtestLogicPrivateService: never;
+  frameSchemaService: never;
   timeMetaService: never;
   loggerService: never;
 }>;

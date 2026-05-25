@@ -1,5 +1,5 @@
 import backtest from "../lib";
-import { signalEmitter, signalLiveEmitter, signalBacktestEmitter, errorEmitter, exitEmitter, doneLiveSubject, doneBacktestSubject, doneWalkerSubject, progressBacktestEmitter, progressWalkerEmitter, performanceEmitter, walkerEmitter, walkerCompleteSubject, validationSubject, partialProfitSubject, partialLossSubject, breakevenSubject, riskSubject, schedulePingSubject, activePingSubject, idlePingSubject, strategyCommitSubject, syncSubject, highestProfitSubject, maxDrawdownSubject, signalNotifySubject } from "../config/emitters";
+import { signalEmitter, signalLiveEmitter, signalBacktestEmitter, errorEmitter, exitEmitter, doneLiveSubject, doneBacktestSubject, doneWalkerSubject, progressBacktestEmitter, progressWalkerEmitter, performanceEmitter, walkerEmitter, walkerCompleteSubject, validationSubject, partialProfitSubject, partialLossSubject, breakevenSubject, riskSubject, schedulePingSubject, activePingSubject, idlePingSubject, strategyCommitSubject, syncSubject, highestProfitSubject, maxDrawdownSubject, signalNotifySubject, beforeStartSubject, afterEndSubject } from "../config/emitters";
 import { IStrategyTickResult } from "../interfaces/Strategy.interface";
 import { DoneContract } from "../contract/Done.contract";
 import { ProgressBacktestContract } from "../contract/ProgressBacktest.contract";
@@ -20,6 +20,8 @@ import SignalSyncContract from "../contract/SignalSync.contract";
 import { HighestProfitContract } from "../contract/HighestProfit.contract";
 import { MaxDrawdownContract } from "../contract/MaxDrawdown.contract";
 import { SignalInfoContract } from "../contract/SignalInfo.contract";
+import { BeforeStartContract } from "../contract/BeforeStart.contract";
+import { AfterEndContract } from "../contract/AfterEnd.contract";
 
 const LISTEN_SIGNAL_METHOD_NAME = "event.listenSignal";
 const LISTEN_SIGNAL_ONCE_METHOD_NAME = "event.listenSignalOnce";
@@ -66,6 +68,10 @@ const LISTEN_MAX_DRAWDOWN_METHOD_NAME = "event.listenMaxDrawdown";
 const LISTEN_MAX_DRAWDOWN_ONCE_METHOD_NAME = "event.listenMaxDrawdownOnce";
 const LISTEN_SIGNAL_NOTIFY_METHOD_NAME = "event.listenSignalNotify";
 const LISTEN_SIGNAL_NOTIFY_ONCE_METHOD_NAME = "event.listenSignalNotifyOnce";
+const LISTEN_BEFORE_START_METHOD_NAME = "event.listenBeforeStart";
+const LISTEN_BEFORE_START_ONCE_METHOD_NAME = "event.listenBeforeStartOnce";
+const LISTEN_AFTER_END_METHOD_NAME = "event.listenAfterEnd";
+const LISTEN_AFTER_END_ONCE_METHOD_NAME = "event.listenAfterEndOnce";
 
 /**
  * Subscribes to all signal events with queued async processing.
@@ -1778,4 +1784,80 @@ export function listenSignalNotifyOnce(
   };
 
   return disposeFn = listenSignalNotify(wrappedFn);
+}
+
+/**
+ * Subscribes to before start events with queued async processing.
+ * Emits when the engine is about to start a new strategy execution for a symbol.
+ * Events are processed sequentially in order received, even if callback is async.
+ * Uses queued wrapper to prevent concurrent execution of the callback.
+ * @param fn - Callback function to handle before start events
+ * @return Unsubscribe function to stop listening to events
+ */
+export function listenBeforeStart(fn: (event: BeforeStartContract) => void) {
+  backtest.loggerService.log(LISTEN_BEFORE_START_METHOD_NAME);
+  return beforeStartSubject.subscribe(queued(async (event) => fn(event)));
+}
+
+/**
+ * Subscribes to filtered before start events with one-time execution.
+ * Listens for events matching the filter predicate, then executes callback once
+ * and automatically unsubscribes.
+ * @param filterFn - Predicate to filter which events trigger the callback
+ * @param fn - Callback function to handle the filtered event (called only once)
+ * @return Unsubscribe function to cancel the listener before it fires
+ */
+export function listenBeforeStartOnce(
+  filterFn: (event: BeforeStartContract) => boolean,
+  fn: (event: BeforeStartContract) => void
+) {
+  backtest.loggerService.log(LISTEN_BEFORE_START_ONCE_METHOD_NAME);
+  let disposeFn: Function;
+
+  const wrappedFn = async (event: BeforeStartContract) => {
+    if (filterFn(event)) {
+      await fn(event);
+      disposeFn && disposeFn();
+    }
+  };
+
+  return disposeFn = listenBeforeStart(wrappedFn);
+}
+
+/**
+ * Subscribes to after end events with queued async processing.
+ * Emits when the engine has completed processing a strategy execution for a symbol.
+ * Events are processed sequentially in order received, even if callback is async.
+ * Uses queued wrapper to prevent concurrent execution of the callback.
+ * @param fn - Callback function to handle after end events
+ * @return Unsubscribe function to stop listening to events
+ */
+export function listenAfterEnd(fn: (event: AfterEndContract) => void) {
+  backtest.loggerService.log(LISTEN_AFTER_END_METHOD_NAME);
+  return afterEndSubject.subscribe(queued(async (event) => fn(event)));
+}
+
+/**
+ * Subscribes to filtered after end events with one-time execution.
+ * Listens for events matching the filter predicate, then executes callback once
+ * and automatically unsubscribes.
+ * @param filterFn - Predicate to filter which events trigger the callback
+ * @param fn - Callback function to handle the filtered event (called only once)
+ * @return Unsubscribe function to cancel the listener before it fires
+ */
+export function listenAfterEndOnce(
+  filterFn: (event: AfterEndContract) => boolean,
+  fn: (event: AfterEndContract) => void
+) {
+  backtest.loggerService.log(LISTEN_AFTER_END_ONCE_METHOD_NAME);
+  let disposeFn: Function;
+
+  const wrappedFn = async (event: AfterEndContract) => {
+    if (filterFn(event)) {
+      await fn(event);
+      disposeFn && disposeFn();
+    }
+  };
+
+  return disposeFn = listenAfterEnd(wrappedFn);
 }
