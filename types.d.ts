@@ -9375,80 +9375,6 @@ declare function formatPrice(symbol: string, price: number): Promise<string>;
  */
 declare function formatQuantity(symbol: string, quantity: number): Promise<string>;
 /**
- * Gets the current date from execution context.
- *
- * In backtest mode: returns the current timeframe date being processed
- * In live mode: returns current real-time date
- *
- * @returns Promise resolving to current execution context date
- *
- * @example
- * ```typescript
- * const date = await getDate();
- * console.log(date); // 2024-01-01T12:00:00.000Z
- * ```
- */
-declare function getDate(): Promise<Date>;
-/**
- * Gets the current timestamp from execution context.
- *
- * In backtest mode: returns the current timeframe timestamp being processed
- * In live mode: returns current real-time timestamp
- *
- * @returns Promise resolving to current execution context timestamp in milliseconds
- * @example
- * ```typescript
- * const timestamp = await getTimestamp();
- * console.log(timestamp); // 1700000000000
- * ```
- */
-declare function getTimestamp(): Promise<number>;
-/**
- * Gets the current execution mode.
- *
- * @returns Promise resolving to "backtest" or "live"
- *
- * @example
- * ```typescript
- * const mode = await getMode();
- * if (mode === "backtest") {
- *   console.log("Running in backtest mode");
- * } else {
- *   console.log("Running in live mode");
- * }
- * ```
- */
-declare function getMode(): Promise<"backtest" | "live">;
-/**
- * Gets the current trading symbol from execution context.
- *
- * @returns Promise resolving to the current trading symbol (e.g., "BTCUSDT")
- * @throws Error if execution context is not active
- *
- * @example
- * ```typescript
- * const symbol = await getSymbol();
- * console.log(symbol); // "BTCUSDT"
- * ```
- */
-declare function getSymbol(): Promise<string>;
-/**
- * Gets the current method context.
- *
- * Returns the context object from the method context service, which contains
- * information about the current method execution environment.
- *
- * @returns Promise resolving to the current method context object
- * @throws Error if method context is not active
- *
- * @example
- * ```typescript
- * const context = await getContext();
- * console.log(context); // { ...method context data... }
- * ```
- */
-declare function getContext(): Promise<IMethodContext>;
-/**
  * Fetches order book for a trading pair from the registered exchange.
  *
  * Uses current execution context to determine timing. The underlying exchange
@@ -9537,6 +9463,81 @@ declare function getNextCandles(symbol: string, interval: CandleInterval, limit:
  * ```
  */
 declare function getAggregatedTrades(symbol: string, limit?: number): Promise<IAggregatedTradeData[]>;
+
+/**
+ * Gets the current date from execution context.
+ *
+ * In backtest mode: returns the current timeframe date being processed
+ * In live mode: returns current real-time date
+ *
+ * @returns Promise resolving to current execution context date
+ *
+ * @example
+ * ```typescript
+ * const date = await getDate();
+ * console.log(date); // 2024-01-01T12:00:00.000Z
+ * ```
+ */
+declare function getDate(): Promise<Date>;
+/**
+ * Gets the current timestamp from execution context.
+ *
+ * In backtest mode: returns the current timeframe timestamp being processed
+ * In live mode: returns current real-time timestamp
+ *
+ * @returns Promise resolving to current execution context timestamp in milliseconds
+ * @example
+ * ```typescript
+ * const timestamp = await getTimestamp();
+ * console.log(timestamp); // 1700000000000
+ * ```
+ */
+declare function getTimestamp(): Promise<number>;
+/**
+ * Gets the current execution mode.
+ *
+ * @returns Promise resolving to "backtest" or "live"
+ *
+ * @example
+ * ```typescript
+ * const mode = await getMode();
+ * if (mode === "backtest") {
+ *   console.log("Running in backtest mode");
+ * } else {
+ *   console.log("Running in live mode");
+ * }
+ * ```
+ */
+declare function getMode(): Promise<"backtest" | "live">;
+/**
+ * Gets the current trading symbol from execution context.
+ *
+ * @returns Promise resolving to the current trading symbol (e.g., "BTCUSDT")
+ * @throws Error if execution context is not active
+ *
+ * @example
+ * ```typescript
+ * const symbol = await getSymbol();
+ * console.log(symbol); // "BTCUSDT"
+ * ```
+ */
+declare function getSymbol(): Promise<string>;
+/**
+ * Gets the current method context.
+ *
+ * Returns the context object from the method context service, which contains
+ * information about the current method execution environment.
+ *
+ * @returns Promise resolving to the current method context object
+ * @throws Error if method context is not active
+ *
+ * @example
+ * ```typescript
+ * const context = await getContext();
+ * console.log(context); // { ...method context data... }
+ * ```
+ */
+declare function getContext(): Promise<IMethodContext>;
 
 type Dispatch$1<Value extends object = object> = (value: Value) => Value | Promise<Value>;
 /**

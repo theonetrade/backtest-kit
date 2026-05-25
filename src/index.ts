@@ -164,15 +164,17 @@ export {
   getClosePrice,
   getAggregatedTrades,
   getOrderBook,
+  formatPrice,
+  formatQuantity,
+  hasTradeContext,
+} from "./function/exchange";
+export {
   getDate,
   getTimestamp,
   getMode,
   getContext,
   getSymbol,
-  formatPrice,
-  formatQuantity,
-  hasTradeContext,
-} from "./function/exchange";
+} from "./function/meta";
 export {
   getLatestSignal,
   getSignalState,
