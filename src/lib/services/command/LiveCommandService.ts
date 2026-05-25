@@ -12,12 +12,17 @@ import { TLoggerService } from "../base/LoggerService";
 
 const METHOD_NAME_RUN = "liveCommandService run";
 
+type Keys = Omit<LiveLogicPublicService, keyof {
+  loggerService: never;
+  liveLogicPrivateService: never;
+}>;
+
 /**
  * Type definition for LiveLogicPublicService.
  * Maps all keys of LiveLogicPublicService to any type.
  */
 type TLiveLogicPublicService = {
-  [key in keyof LiveLogicPublicService]: any;
+  [key in keyof Keys]: any;
 };
 
 /**

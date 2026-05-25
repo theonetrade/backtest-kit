@@ -19,6 +19,8 @@ import SignalSyncContract from "../contract/SignalSync.contract";
 import { HighestProfitContract } from "../contract/HighestProfit.contract";
 import { MaxDrawdownContract } from "../contract/MaxDrawdown.contract";
 import { SignalInfoContract } from "../contract/SignalInfo.contract";
+import { BeforeStartContract } from "../contract/BeforeStart.contract";
+import { AfterEndContract } from "../contract/AfterEnd.contract";
 
 /**
  * Exchange signal synchronization emitter.
@@ -217,3 +219,15 @@ export const maxDrawdownSubject = new Subject<MaxDrawdownContract>();
  * Emits when a strategy calls commitSignalInfo() to broadcast a custom annotation.
  */
 export const signalNotifySubject = new Subject<SignalInfoContract>();
+
+/**
+ * Before start emitter for strategy initialization events.
+ * Emits when the engine is about to start a new strategy execution.
+ */
+export const beforeStartSubject = new Subject<BeforeStartContract>();
+
+/**
+ * After end emitter for strategy completion events.
+ * Emits when the engine has completed processing a signal.
+ */
+export const afterEndSubject = new Subject<AfterEndContract>();

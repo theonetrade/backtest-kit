@@ -5,6 +5,10 @@ import LiveLogicPrivateService from "../private/LiveLogicPrivateService";
 import MethodContextService from "../../context/MethodContextService";
 import { StrategyName } from "../../../../interfaces/Strategy.interface";
 import { ExchangeName } from "../../../../interfaces/Exchange.interface";
+import { beforeStartSubject, afterEndSubject, errorEmitter } from "../../../../config/emitters";
+import { errorData, getErrorMessage, trycatch } from "functools-kit";
+import ExecutionContextService from "../../context/ExecutionContextService";
+import alignToInterval from "../../../../utils/alignToInterval";
 
 /**
  * Type definition for public LiveLogic service.
@@ -23,6 +27,126 @@ type ILiveLogicPrivateService = Omit<LiveLogicPrivateService, keyof {
 type TLiveLogicPrivateService = {
   [key in keyof ILiveLogicPrivateService]: any;
 };
+
+/**
+ * Run iterator function for live logic.
+ *
+ * @param symbol - Trading pair symbol (e.g., "BTCUSDT")
+ * @param context - Execution context with strategy and exchange names
+ * @param self - Instance of LiveLogicPublicService
+ * @returns Async iterator for live trading results
+ */
+const RUN_ITERATOR_FN = (
+  self: LiveLogicPublicService,
+  symbol: string,
+  context: {
+    strategyName: StrategyName;
+    exchangeName: ExchangeName;
+  },
+) => {
+  return MethodContextService.runAsyncIterator(
+    self.liveLogicPrivateService.run(symbol),
+    {
+      exchangeName: context.exchangeName,
+      strategyName: context.strategyName,
+      frameName: "",
+    }
+  );
+}
+
+/**
+ * Call before start execution for live logic.
+ * This function is responsible for triggering the beforeStartSubject
+ * with the appropriate context and symbol information.
+ */
+const CALL_BEFORE_START_FN = trycatch(
+  async (
+    _self: LiveLogicPublicService,
+    symbol: string,
+    context: {
+      strategyName: StrategyName;
+      exchangeName: ExchangeName;
+    },
+  ) => {
+    await MethodContextService.runInContext(async () => {
+      await ExecutionContextService.runInContext(async () => {
+        await beforeStartSubject.next({
+          symbol,
+          exchangeName: context.exchangeName,
+          strategyName: context.strategyName,
+          frameName: "",
+          backtest: false,
+        });
+      }, {
+        symbol,
+        when: alignToInterval(new Date(), "1m"),
+        backtest: false,
+      });
+    }, {
+      exchangeName: context.exchangeName,
+      strategyName: context.strategyName,
+      frameName: "",
+    });
+  }, {
+    fallback: (error, self) => {
+      const message = "LiveLogicPublicService CALL_BEFORE_START_FN thrown";
+      const payload = {
+        error: errorData(error),
+        message: getErrorMessage(error),
+      };
+      self.loggerService.warn(message, payload);
+      console.error(message, payload);
+      errorEmitter.next(error);
+    },
+  }
+);
+
+/**
+ * Call after end execution for live logic.
+ * This function is responsible for triggering the afterEndSubject
+ * with the appropriate context and symbol information.
+ */
+const CALL_AFTER_END_FN = trycatch(
+  async (
+    _self: LiveLogicPublicService,
+    symbol: string,
+    context: {
+      strategyName: StrategyName;
+      exchangeName: ExchangeName;
+    },
+  ) => {
+    await MethodContextService.runInContext(async () => {
+      await ExecutionContextService.runInContext(async () => {
+        await afterEndSubject.next({
+          symbol,
+          exchangeName: context.exchangeName,
+          strategyName: context.strategyName,
+          frameName: "",
+          backtest: false,
+        });
+      }, {
+        symbol,
+        when: alignToInterval(new Date(), "1m"),
+        backtest: false,
+      });
+    }, {
+      exchangeName: context.exchangeName,
+      strategyName: context.strategyName,
+      frameName: "",
+    });
+  }, {
+    fallback: (error, self) => {
+      const message = "LiveLogicPublicService CALL_AFTER_END_FN thrown";
+      const payload = {
+        error: errorData(error),
+        message: getErrorMessage(error),
+      };
+      self.loggerService.warn(message, payload);
+      console.error(message, payload);
+      errorEmitter.next(error);
+    },
+  }
+);
 
 /**
  * Public service for live trading orchestration with context management.
@@ -56,8 +180,8 @@ type TLiveLogicPrivateService = {
  * ```
  */
 export class LiveLogicPublicService implements TLiveLogicPrivateService {
-  private readonly loggerService = inject<TLoggerService>(TYPES.loggerService);
-  private readonly liveLogicPrivateService = inject<LiveLogicPrivateService>(
+  readonly loggerService = inject<TLoggerService>(TYPES.loggerService);
+  readonly liveLogicPrivateService = inject<LiveLogicPrivateService>(
     TYPES.liveLogicPrivateService
   );
 
@@ -72,26 +196,21 @@ export class LiveLogicPublicService implements TLiveLogicPrivateService {
    * @param context - Execution context with strategy and exchange names
    * @returns Infinite async generator yielding opened and closed signals
    */
-  public run = (
+  public async *run(
     symbol: string,
     context: {
       strategyName: StrategyName;
       exchangeName: ExchangeName;
     }
-  ) => {
+  ) {
     this.loggerService.log("liveLogicPublicService run", {
       symbol,
       context,
     });
-    return MethodContextService.runAsyncIterator(
-      this.liveLogicPrivateService.run(symbol),
-      {
-        exchangeName: context.exchangeName,
-        strategyName: context.strategyName,
-        frameName: "",
-      }
-    );
-  };
+    await CALL_BEFORE_START_FN(this, symbol, context);
+    yield* RUN_ITERATOR_FN(this, symbol, context);
+    await CALL_AFTER_END_FN(this, symbol, context);
+  }
 }
 
 export default LiveLogicPublicService;

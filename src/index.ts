@@ -364,6 +364,8 @@ export { HighestProfitContract } from "./contract/HighestProfit.contract";
 export { MaxDrawdownContract } from "./contract/MaxDrawdown.contract";
 export { SignalInfoContract } from "./contract/SignalInfo.contract";
 export { BreakevenContract } from "./contract/Breakeven.contract";
+export { BeforeStartContract } from "./contract/BeforeStart.contract";
+export { AfterEndContract } from "./contract/AfterEnd.contract";
 
 export {
   PerformanceContract,

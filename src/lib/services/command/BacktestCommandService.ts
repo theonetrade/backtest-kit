@@ -15,11 +15,21 @@ import { FrameName } from "../../../interfaces/Frame.interface";
 const METHOD_NAME_RUN = "backtestCommandService run";
 
 /**
+ * Type definition for keys of BacktestLogicPublicService.
+ * Omits private dependencies. Used for creating a public API surface.
+ */
+type Keys = Omit<BacktestLogicPublicService, keyof {
+  backtestLogicPrivateService: never;
+  timeMetaService: never;
+  loggerService: never;
+}>;
+
+/**
  * Type definition for BacktestLogicPublicService.
  * Maps all keys of BacktestLogicPublicService to any type.
  */
 type TBacktestLogicPublicService = {
-  [key in keyof BacktestLogicPublicService]: any;
+  [key in keyof Keys]: any;
 };
 
 /**

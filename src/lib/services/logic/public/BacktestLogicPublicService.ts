@@ -6,6 +6,10 @@ import MethodContextService from "../../context/MethodContextService";
 import { StrategyName } from "../../../../interfaces/Strategy.interface";
 import { ExchangeName } from "../../../../interfaces/Exchange.interface";
 import { FrameName } from "../../../../interfaces/Frame.interface";
+import { errorData, getErrorMessage, trycatch } from "functools-kit";
+import ExecutionContextService from "../../context/ExecutionContextService";
+import { afterEndSubject, beforeStartSubject, errorEmitter } from "../../../../config/emitters";
+import TimeMetaService from "../../meta/TimeMetaService";
 
 /**
  * Type definition for public BacktestLogic service.
@@ -27,6 +31,141 @@ type IBacktestLogicPrivateService = Omit<BacktestLogicPrivateService, keyof {
 type TBacktestLogicPrivateService = {
   [key in keyof IBacktestLogicPrivateService]: any;
 };
+
+/**
+ * Run iterator function for backtest logic.
+ *
+ * @param symbol - Trading pair symbol (e.g., "BTCUSDT")
+ * @param context - Execution context with strategy, exchange, and frame names
+ * @param self - Instance of BacktestLogicPublicService
+ * @returns Async iterator for backtest results
+ */
+const RUN_ITERATOR_FN = (
+  self: BacktestLogicPublicService,
+  symbol: string,
+  context: {
+    strategyName: StrategyName;
+    exchangeName: ExchangeName;
+    frameName: FrameName;
+  },
+) => {
+  return MethodContextService.runAsyncIterator(
+    self.backtestLogicPrivateService.run(symbol),
+    {
+      exchangeName: context.exchangeName,
+      strategyName: context.strategyName,
+      frameName: context.frameName,
+    }
+  );
+}
+
+/**
+ * Call before start execution for backtest logic.
+ * This function is responsible for triggering the beforeStartSubject
+ * with the appropriate context and symbol information.
+ */
+const CALL_BEFORE_START_FN = trycatch(
+  async (
+    self: BacktestLogicPublicService,
+    symbol: string,
+    context: {
+      strategyName: StrategyName;
+      exchangeName: ExchangeName;
+      frameName: FrameName;
+    },
+  ) => {
+    const timestamp = await self.timeMetaService.getTimestamp(
+      symbol,
+      context,
+      true
+    );
+    const when = new Date(timestamp);
+    await MethodContextService.runInContext(async () => {
+      await ExecutionContextService.runInContext(async () => {
+        await beforeStartSubject.next({
+          symbol,
+          exchangeName: context.exchangeName,
+          strategyName: context.strategyName,
+          frameName: context.frameName,
+          backtest: true,
+        });
+      }, {
+        symbol,
+        when,
+        backtest: true,
+      });
+    }, {
+      exchangeName: context.exchangeName,
+      strategyName: context.strategyName,
+      frameName: context.frameName,
+    });
+  }, {
+    fallback: (error, self) => {
+      const message = "BacktestLogicPublicService CALL_BEFORE_START_FN thrown";
+      const payload = {
+        error: errorData(error),
+        message: getErrorMessage(error),
+      };
+      self.loggerService.warn(message, payload);
+      console.error(message, payload);
+      errorEmitter.next(error);
+    },
+  }
+);
+
+/**
+ * Call after end execution for backtest logic.
+ * This function is responsible for triggering the afterEndSubject
+ * with the appropriate context and symbol information.
+ */
+const CALL_AFTER_END_FN = trycatch(
+  async (
+    self: BacktestLogicPublicService,
+    symbol: string,
+    context: {
+      strategyName: StrategyName;
+      exchangeName: ExchangeName;
+      frameName: FrameName;
+    },
+  ) => {
+    const timestamp = await self.timeMetaService.getTimestamp(
+      symbol,
+      context,
+      true
+    );
+    const when = new Date(timestamp);
+    await MethodContextService.runInContext(async () => {
+      await ExecutionContextService.runInContext(async () => {
+        await afterEndSubject.next({
+          symbol,
+          exchangeName: context.exchangeName,
+          strategyName: context.strategyName,
+          frameName: context.frameName,
+          backtest: true,
+        });
+      }, {
+        symbol,
+        when,
+        backtest: true,
+      });
+    }, {
+      exchangeName: context.exchangeName,
+      strategyName: context.strategyName,
+      frameName: context.frameName,
+    });
+  }, {
+    fallback: (error, self) => {
+      const message = "BacktestLogicPublicService CALL_AFTER_END_FN thrown";
+      const payload = {
+        error: errorData(error),
+        message: getErrorMessage(error),
+      };
+      self.loggerService.warn(message, payload);
+      console.error(message, payload);
+      errorEmitter.next(error);
+    },
+  }
+);
 
 /**
  * Public service for backtest orchestration with context management.
@@ -53,9 +192,10 @@ type TBacktestLogicPrivateService = {
  * ```
  */
 export class BacktestLogicPublicService implements TBacktestLogicPrivateService {
-  private readonly loggerService = inject<TLoggerService>(TYPES.loggerService);
-  private readonly backtestLogicPrivateService =
+  readonly loggerService = inject<TLoggerService>(TYPES.loggerService);
+  readonly backtestLogicPrivateService =
     inject<BacktestLogicPrivateService>(TYPES.backtestLogicPrivateService);
+  readonly timeMetaService = inject<TimeMetaService>(TYPES.timeMetaService);
 
   /**
    * Runs backtest for a symbol with context propagation.
@@ -67,27 +207,22 @@ export class BacktestLogicPublicService implements TBacktestLogicPrivateService 
    * @param context - Execution context with strategy, exchange, and frame names
    * @returns Async generator yielding closed signals with PNL
    */
-  public run = (
+  public async *run(
     symbol: string,
     context: {
       strategyName: StrategyName;
       exchangeName: ExchangeName;
       frameName: FrameName;
     }
-  ) => {
+  ) {
     this.loggerService.log("backtestLogicPublicService run", {
       symbol,
       context,
     });
-    return MethodContextService.runAsyncIterator(
-      this.backtestLogicPrivateService.run(symbol),
-      {
-        exchangeName: context.exchangeName,
-        strategyName: context.strategyName,
-        frameName: context.frameName,
-      }
-    );
-  };
+    await CALL_BEFORE_START_FN(this, symbol, context);
+    yield* RUN_ITERATOR_FN(this, symbol, context);
+    await CALL_AFTER_END_FN(this, symbol, context);
+  }
 }
 
 export default BacktestLogicPublicService;
