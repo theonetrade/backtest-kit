@@ -8193,54 +8193,170 @@ interface SignalInfoContract {
 }
 
 /**
- * Contract for beforeStart hook in strategy execution.
+ * Contract for the beforeStart lifecycle event of strategy execution.
  *
- * This interface defines the structure of the context object
- * passed to the beforeStart hook, including the trading symbol,
- * strategy name, exchange name, and frame name.
+ * Emitted by the engine immediately before it begins iterating the strategy
+ * for a given symbol — after validation and context setup, but before the
+ * first candle/tick is processed. Used by subscribers to perform
+ * initialization that should happen exactly once per run: opening log files,
+ * resetting per-run accumulators, sending a "run started" notification,
+ * snapshotting initial state, etc.
+ *
+ * Guarantees:
+ * - Fires exactly once per `run()` invocation, before any signal is yielded.
+ * - Always paired with an `AfterEndContract` event for the same run, even if
+ *   the iterator is interrupted, throws, or is cancelled externally. If
+ *   beforeStart fires, afterEnd is guaranteed to fire afterwards.
+ * - Listener errors are caught and routed to the global errorEmitter; they
+ *   never abort the run.
+ *
+ * Mode differences:
+ * - In backtest mode, `when` is the planned start of the frame (from
+ *   FrameSchemaService.startDate, aligned to 1-minute boundary). It is the
+ *   intended beginning of the historical replay, not wall-clock time.
+ * - In live mode, `when` is the current wall-clock time aligned to the
+ *   1-minute boundary.
+ *
+ * @see AfterEndContract — the paired completion event.
  */
 interface BeforeStartContract {
-    /** Trading symbol (e.g., "BTCUSDT") */
+    /**
+     * Trading symbol the run is for (e.g., "BTCUSDT", "ETHUSDT").
+     * Same value that was passed to `Backtest.run` / `Live.run`.
+     */
     symbol: string;
-    /** Strategy name for context */
+    /**
+     * Name of the strategy being executed. Use this to demultiplex events when
+     * subscribing globally to runs across multiple strategies on the same
+     * symbol.
+     */
     strategyName: StrategyName;
-    /** Exchange name for context */
+    /**
+     * Name of the exchange providing market data for this run.
+     */
     exchangeName: ExchangeName;
-    /** Frame name for context (e.g. "1m", "5m") */
+    /**
+     * Name of the frame (timeframe / date range) for the run. Empty string in
+     * live mode, where frames are not used.
+     */
     frameName: FrameName;
-    /** Backtest flag for context */
+    /**
+     * `true` if this event was emitted from a backtest run, `false` if from a
+     * live trading run. Use this to branch listener logic without inspecting
+     * other fields.
+     */
     backtest: boolean;
-    /** Current price for context */
+    /**
+     * Average symbol price observed at the moment the event was emitted,
+     * fetched from `ExchangeConnectionService.getAveragePrice(symbol)`.
+     * Provided as a convenience so subscribers don't need to query the
+     * exchange themselves.
+     */
     currentPrice: number;
-    /** Date object from context */
+    /**
+     * Event time as a `Date` instance.
+     *
+     * In backtest: the planned start of the frame (aligned to 1-minute
+     * boundary). Represents intended start time, not the moment of emission.
+     *
+     * In live: wall-clock now, aligned to 1-minute boundary.
+     *
+     * Always equal to `new Date(timestamp)`.
+     */
     when: Date;
-    /** Timestamp from context */
+    /**
+     * Same value as `when`, expressed as milliseconds since the Unix epoch.
+     * Provided so subscribers can avoid calling `.getTime()` and to keep the
+     * payload trivially serialisable (e.g., for forwarding over IPC or
+     * writing to a log).
+     */
     timestamp: number;
 }
 
 /**
- * Contract for afterEnd hook in strategy execution.
+ * Contract for the afterEnd lifecycle event of strategy execution.
  *
- * This interface defines the structure of the context object
- * passed to the afterEnd hook, including the trading symbol,
- * strategy name, exchange name, and frame name.
+ * Emitted by the engine after the strategy iterator has finished — whether
+ * by reaching the end of the frame, being stopped via `stopStrategy`,
+ * throwing an error, or being cancelled by the consumer (e.g., breaking out
+ * of `for await`). Used by subscribers to perform teardown that should
+ * happen exactly once per run: flushing buffers, closing files, computing
+ * final aggregates, sending a "run completed" notification, etc.
+ *
+ * Guarantees:
+ * - Fires exactly once per `run()` invocation, paired with the matching
+ *   `BeforeStartContract` event. The pairing holds for every termination
+ *   path including exceptions and external cancellation (delivered via the
+ *   generator's `try/finally` block).
+ * - Listener errors are caught and routed to the global errorEmitter; they
+ *   never propagate to the original caller.
+ *
+ * Mode differences:
+ * - In backtest mode, `when` is the cursor position from `TimeMetaService`
+ *   at the moment of completion — i.e., the historical time of the last
+ *   processed candle. If the run was interrupted before any candle was
+ *   processed (e.g., empty frame, immediate cancellation), `when` falls
+ *   back to the frame's planned start date so it equals
+ *   `BeforeStartContract.when` for the same run. This means
+ *   `afterEnd.when - beforeStart.when` is always the real processed
+ *   duration, never an inflated planned one.
+ * - In live mode, `when` is the current wall-clock time aligned to the
+ *   1-minute boundary at the moment of emission.
+ *
+ * @see BeforeStartContract — the paired initialization event.
  */
 interface AfterEndContract {
-    /** Trading symbol (e.g., "BTCUSDT") */
+    /**
+     * Trading symbol the run was for (e.g., "BTCUSDT", "ETHUSDT").
+     * Matches the symbol from the paired `BeforeStartContract`.
+     */
     symbol: string;
-    /** Strategy name for context */
+    /**
+     * Name of the strategy that was executed. Use this to demultiplex events
+     * when subscribing globally to runs across multiple strategies on the
+     * same symbol.
+     */
     strategyName: StrategyName;
-    /** Exchange name for context */
+    /**
+     * Name of the exchange that provided market data for this run.
+     */
     exchangeName: ExchangeName;
-    /** Frame name for context (e.g. "1m", "5m") */
+    /**
+     * Name of the frame (timeframe / date range) the run used. Empty string
+     * in live mode, where frames are not used.
+     */
     frameName: FrameName;
-    /** Backtest flag for context */
+    /**
+     * `true` if this event was emitted from a backtest run, `false` if from a
+     * live trading run. Use this to branch listener logic without inspecting
+     * other fields.
+     */
     backtest: boolean;
-    /** Current price for context */
+    /**
+     * Average symbol price observed at the moment the event was emitted,
+     * fetched from `ExchangeConnectionService.getAveragePrice(symbol)`.
+     * Provided as a convenience so subscribers don't need to query the
+     * exchange themselves.
+     */
     currentPrice: number;
-    /** Date object from context */
+    /**
+     * Event time as a `Date` instance.
+     *
+     * In backtest: cursor position from `TimeMetaService` at completion (the
+     * time of the last processed candle), with fallback to the frame's
+     * planned start date if no candle was processed.
+     *
+     * In live: wall-clock now, aligned to 1-minute boundary.
+     *
+     * Always equal to `new Date(timestamp)`.
+     */
     when: Date;
-    /** Timestamp from context */
+    /**
+     * Same value as `when`, expressed as milliseconds since the Unix epoch.
+     * Provided so subscribers can avoid calling `.getTime()` and to keep the
+     * payload trivially serialisable (e.g., for forwarding over IPC or
+     * writing to a log).
+     */
     timestamp: number;
 }
 
