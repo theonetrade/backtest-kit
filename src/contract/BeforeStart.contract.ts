@@ -20,4 +20,10 @@ export interface BeforeStartContract {
   frameName: FrameName;
   /** Backtest flag for context */
   backtest: boolean;
+  /** Current price for context */
+  currentPrice: number;
+  /** Date object from context */
+  when: Date;
+  /** Timestamp from context */
+  timestamp: number;
 }

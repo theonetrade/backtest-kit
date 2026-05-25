@@ -12,6 +12,7 @@ import { afterEndSubject, beforeStartSubject, errorEmitter } from "../../../../c
 import TimeMetaService from "../../meta/TimeMetaService";
 import FrameSchemaService from "../../schema/FrameSchemaService";
 import alignToInterval from "../../../../utils/alignToInterval";
+import { ExchangeConnectionService } from "../../connection/ExchangeConnectionService";
 
 /**
  * Type definition for public BacktestLogic service.
@@ -80,12 +81,16 @@ const CALL_BEFORE_START_FN = trycatch(
     const when = alignToInterval(startDate, "1m");
     await MethodContextService.runInContext(async () => {
       await ExecutionContextService.runInContext(async () => {
+        const currentPrice = await self.exchangeConnectionService.getAveragePrice(symbol);
         await beforeStartSubject.next({
           symbol,
           exchangeName: context.exchangeName,
           strategyName: context.strategyName,
           frameName: context.frameName,
           backtest: true,
+          when,
+          timestamp: when.getTime(),
+          currentPrice,
         });
       }, {
         symbol,
@@ -133,12 +138,16 @@ const CALL_AFTER_END_FN = trycatch(
     const when = new Date(timestamp);
     await MethodContextService.runInContext(async () => {
       await ExecutionContextService.runInContext(async () => {
+        const currentPrice = await self.exchangeConnectionService.getAveragePrice(symbol);
         await afterEndSubject.next({
           symbol,
           exchangeName: context.exchangeName,
           strategyName: context.strategyName,
           frameName: context.frameName,
           backtest: true,
+          when,
+          timestamp,
+          currentPrice,
         });
       }, {
         symbol,
@@ -194,6 +203,7 @@ export class BacktestLogicPublicService implements TBacktestLogicPrivateService 
     inject<BacktestLogicPrivateService>(TYPES.backtestLogicPrivateService);
   readonly timeMetaService = inject<TimeMetaService>(TYPES.timeMetaService);
   readonly frameSchemaService = inject<FrameSchemaService>(TYPES.frameSchemaService);
+  readonly exchangeConnectionService = inject<ExchangeConnectionService>(TYPES.exchangeConnectionService);
 
   /**
    * Runs backtest for a symbol with context propagation.

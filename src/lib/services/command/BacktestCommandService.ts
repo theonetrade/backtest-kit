@@ -19,6 +19,7 @@ const METHOD_NAME_RUN = "backtestCommandService run";
  * Omits private dependencies. Used for creating a public API surface.
  */
 type Keys = Omit<BacktestLogicPublicService, keyof {
+  exchangeConnectionService: never;
   backtestLogicPrivateService: never;
   frameSchemaService: never;
   timeMetaService: never;

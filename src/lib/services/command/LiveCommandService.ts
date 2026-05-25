@@ -15,6 +15,7 @@ const METHOD_NAME_RUN = "liveCommandService run";
 type Keys = Omit<LiveLogicPublicService, keyof {
   loggerService: never;
   liveLogicPrivateService: never;
+  exchangeConnectionService: never;
 }>;
 
 /**

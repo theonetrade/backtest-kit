@@ -9,6 +9,7 @@ import { beforeStartSubject, afterEndSubject, errorEmitter } from "../../../../c
 import { errorData, getErrorMessage, trycatch } from "functools-kit";
 import ExecutionContextService from "../../context/ExecutionContextService";
 import alignToInterval from "../../../../utils/alignToInterval";
+import ExchangeConnectionService from "../../connection/ExchangeConnectionService";
 
 /**
  * Type definition for public LiveLogic service.
@@ -61,25 +62,30 @@ const RUN_ITERATOR_FN = (
  */
 const CALL_BEFORE_START_FN = trycatch(
   async (
-    _self: LiveLogicPublicService,
+    self: LiveLogicPublicService,
     symbol: string,
     context: {
       strategyName: StrategyName;
       exchangeName: ExchangeName;
     },
   ) => {
+    const when = alignToInterval(new Date(), "1m");
     await MethodContextService.runInContext(async () => {
       await ExecutionContextService.runInContext(async () => {
+        const currentPrice = await self.exchangeConnectionService.getAveragePrice(symbol);
         await beforeStartSubject.next({
           symbol,
           exchangeName: context.exchangeName,
           strategyName: context.strategyName,
           frameName: "",
           backtest: false,
+          currentPrice,
+          when,
+          timestamp: when.getTime(),
         });
       }, {
         symbol,
-        when: alignToInterval(new Date(), "1m"),
+        when,
         backtest: false,
       });
     }, {
@@ -108,25 +114,30 @@ const CALL_BEFORE_START_FN = trycatch(
  */
 const CALL_AFTER_END_FN = trycatch(
   async (
-    _self: LiveLogicPublicService,
+    self: LiveLogicPublicService,
     symbol: string,
     context: {
       strategyName: StrategyName;
       exchangeName: ExchangeName;
     },
   ) => {
+    const when = alignToInterval(new Date(), "1m");
     await MethodContextService.runInContext(async () => {
       await ExecutionContextService.runInContext(async () => {
+        const currentPrice = await self.exchangeConnectionService.getAveragePrice(symbol);
         await afterEndSubject.next({
           symbol,
           exchangeName: context.exchangeName,
           strategyName: context.strategyName,
           frameName: "",
           backtest: false,
+          currentPrice,
+          when,
+          timestamp: when.getTime(),
         });
       }, {
         symbol,
-        when: alignToInterval(new Date(), "1m"),
+        when,
         backtest: false,
       });
     }, {
@@ -184,6 +195,7 @@ export class LiveLogicPublicService implements TLiveLogicPrivateService {
   readonly liveLogicPrivateService = inject<LiveLogicPrivateService>(
     TYPES.liveLogicPrivateService
   );
+  readonly exchangeConnectionService = inject<ExchangeConnectionService>(TYPES.exchangeConnectionService);
 
   /**
    * Runs live trading for a symbol with context propagation.

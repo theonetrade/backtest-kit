@@ -179,6 +179,19 @@ declare class TimeMetaService {
      */
     private getSource;
     /**
+     * Checks if a timestamp exists for the given symbol and context.
+     *
+     * @param symbol - Trading pair symbol (e.g., "BTCUSDT")
+     * @param context - Strategy, exchange, and frame identifiers
+     * @param backtest - True if backtest mode, false if live mode
+     * @returns True if a timestamp is available, false otherwise
+     */
+    hasTimestamp: (symbol: string, context: {
+        strategyName: string;
+        exchangeName: string;
+        frameName: string;
+    }, backtest: boolean) => boolean;
+    /**
      * Returns the current candle timestamp (in milliseconds) for the given symbol and context.
      *
      * When called inside an execution context (i.e., during a signal handler or action),
@@ -8197,6 +8210,12 @@ interface BeforeStartContract {
     frameName: FrameName;
     /** Backtest flag for context */
     backtest: boolean;
+    /** Current price for context */
+    currentPrice: number;
+    /** Date object from context */
+    when: Date;
+    /** Timestamp from context */
+    timestamp: number;
 }
 
 /**
@@ -8217,6 +8236,12 @@ interface AfterEndContract {
     frameName: FrameName;
     /** Backtest flag for context */
     backtest: boolean;
+    /** Current price for context */
+    currentPrice: number;
+    /** Date object from context */
+    when: Date;
+    /** Timestamp from context */
+    timestamp: number;
 }
 
 /**
@@ -33644,6 +33669,7 @@ declare class BacktestLogicPublicService implements TBacktestLogicPrivateService
     readonly backtestLogicPrivateService: BacktestLogicPrivateService;
     readonly timeMetaService: TimeMetaService;
     readonly frameSchemaService: FrameSchemaService;
+    readonly exchangeConnectionService: ExchangeConnectionService;
     /**
      * Runs backtest for a symbol with context propagation.
      *
@@ -34223,6 +34249,7 @@ declare class LiveLogicPublicService implements TLiveLogicPrivateService {
         setLogger: (logger: ILogger) => void;
     };
     readonly liveLogicPrivateService: LiveLogicPrivateService;
+    readonly exchangeConnectionService: ExchangeConnectionService;
     /**
      * Runs live trading for a symbol with context propagation.
      *
@@ -34243,6 +34270,7 @@ declare class LiveLogicPublicService implements TLiveLogicPrivateService {
 type Keys$1 = Omit<LiveLogicPublicService, keyof {
     loggerService: never;
     liveLogicPrivateService: never;
+    exchangeConnectionService: never;
 }>;
 /**
  * Type definition for LiveLogicPublicService.
@@ -34285,6 +34313,7 @@ declare class LiveCommandService implements TLiveLogicPublicService {
  * Omits private dependencies. Used for creating a public API surface.
  */
 type Keys = Omit<BacktestLogicPublicService, keyof {
+    exchangeConnectionService: never;
     backtestLogicPrivateService: never;
     frameSchemaService: never;
     timeMetaService: never;
