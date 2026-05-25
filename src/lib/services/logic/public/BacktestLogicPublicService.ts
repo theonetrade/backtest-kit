@@ -220,8 +220,11 @@ export class BacktestLogicPublicService implements TBacktestLogicPrivateService 
       context,
     });
     await CALL_BEFORE_START_FN(this, symbol, context);
-    yield* RUN_ITERATOR_FN(this, symbol, context);
-    await CALL_AFTER_END_FN(this, symbol, context);
+    try {
+      yield* RUN_ITERATOR_FN(this, symbol, context);
+    } finally {
+      await CALL_AFTER_END_FN(this, symbol, context);
+    }
   }
 }
 
