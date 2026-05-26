@@ -7,7 +7,7 @@ group: docs
 
 ```ts
 type TBacktestLogicPublicService = {
-    [key in keyof BacktestLogicPublicService]: any;
+    [key in keyof Keys]: any;
 };
 ```
 

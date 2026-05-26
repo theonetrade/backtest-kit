@@ -31,19 +31,30 @@ constructor();
 ### loggerService
 
 ```ts
-loggerService: any
+loggerService: { readonly methodContextService: { readonly context: IMethodContext; }; readonly executionContextService: { readonly context: IExecutionContext; }; ... 7 more ...; setLogger: (logger: ILogger) => void; }
 ```
 
 ### liveLogicPrivateService
 
 ```ts
-liveLogicPrivateService: any
+liveLogicPrivateService: LiveLogicPrivateService
 ```
+
+### exchangeConnectionService
+
+```ts
+exchangeConnectionService: ExchangeConnectionService
+```
+
+## Methods
 
 ### run
 
 ```ts
-run: (symbol: string, context: { strategyName: string; exchangeName: string; }) => AsyncGenerator<IStrategyTickResultOpened | IStrategyTickResultClosed | IStrategyTickResultCancelled, void, unknown>
+run(symbol: string, context: {
+    strategyName: StrategyName;
+    exchangeName: ExchangeName;
+}): AsyncGenerator<IStrategyTickResultOpened | IStrategyTickResultClosed | IStrategyTickResultCancelled, void, unknown>;
 ```
 
 Runs live trading for a symbol with context propagation.

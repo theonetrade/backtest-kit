@@ -26,19 +26,43 @@ constructor();
 ### loggerService
 
 ```ts
-loggerService: any
+loggerService: { readonly methodContextService: { readonly context: IMethodContext; }; readonly executionContextService: { readonly context: IExecutionContext; }; ... 7 more ...; setLogger: (logger: ILogger) => void; }
 ```
 
 ### backtestLogicPrivateService
 
 ```ts
-backtestLogicPrivateService: any
+backtestLogicPrivateService: BacktestLogicPrivateService
 ```
+
+### timeMetaService
+
+```ts
+timeMetaService: TimeMetaService
+```
+
+### frameSchemaService
+
+```ts
+frameSchemaService: FrameSchemaService
+```
+
+### exchangeConnectionService
+
+```ts
+exchangeConnectionService: ExchangeConnectionService
+```
+
+## Methods
 
 ### run
 
 ```ts
-run: (symbol: string, context: { strategyName: string; exchangeName: string; frameName: string; }) => AsyncGenerator<IStrategyTickResultScheduled | IStrategyTickResultOpened | IStrategyTickResultClosed | IStrategyTickResultCancelled, void, any>
+run(symbol: string, context: {
+    strategyName: StrategyName;
+    exchangeName: ExchangeName;
+    frameName: FrameName;
+}): AsyncGenerator<IStrategyTickResultScheduled | IStrategyTickResultOpened | IStrategyTickResultClosed | IStrategyTickResultCancelled, void, any>;
 ```
 
 Runs backtest for a symbol with context propagation.

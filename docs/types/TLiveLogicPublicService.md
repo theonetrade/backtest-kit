@@ -7,7 +7,7 @@ group: docs
 
 ```ts
 type TLiveLogicPublicService = {
-    [key in keyof LiveLogicPublicService]: any;
+    [key in keyof Keys$1]: any;
 };
 ```
 

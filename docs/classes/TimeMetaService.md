@@ -56,6 +56,14 @@ Memoized factory for BehaviorSubject streams keyed by (symbol, strategyName, exc
 Each subject holds the latest createdAt timestamp emitted by the strategy iterator for that key.
 Instances are cached until clear() is called.
 
+### hasTimestamp
+
+```ts
+hasTimestamp: (symbol: string, context: { strategyName: string; exchangeName: string; frameName: string; }, backtest: boolean) => boolean
+```
+
+Checks if a timestamp exists for the given symbol and context.
+
 ### getTimestamp
 
 ```ts
