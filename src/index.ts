@@ -634,6 +634,8 @@ export { intervalStepMs } from "./utils/intervalStepMs";
 export { waitForCandle } from "./utils/waitForCandle";
 export { roundTicks } from "./utils/roundTicks";
 export { parseArgs } from "./utils/parseArgs";
+export { beginContext } from "./utils/beginContext";
+export { beginTime } from "./utils/beginTime";
 export { get } from "./utils/get";
 export { set } from "./utils/set";
 
