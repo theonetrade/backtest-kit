@@ -659,5 +659,6 @@ export { type ColumnConfig } from "./config/columns";
 export { backtest as lib } from "./lib";
 
 export { toProfitLossDto } from "./helpers/toProfitLossDto";
+export { toPlainString } from "./helpers/toPlainString";
 export { getEffectivePriceOpen } from "./helpers/getEffectivePriceOpen";
 export { getTotalClosed } from "./helpers/getTotalClosed";
