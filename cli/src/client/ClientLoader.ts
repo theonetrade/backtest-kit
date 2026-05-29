@@ -39,7 +39,8 @@ const TRANSPILE_FN = memoize(
       console.log(
         `Error during transpilation error=\`${getErrorMessage(error)}\` path=\`${path}\` __filename=\`${__filename}\` __dirname=\`${__dirname}\``,
       );
-      kill();
+      kill(-1);
+      return;
     }
     return {
       require,

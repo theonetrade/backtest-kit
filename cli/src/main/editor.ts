@@ -22,7 +22,8 @@ export const main = async () => {
 
   if (values.pine) {
     console.warn("--editor and --pine are mutually exclusive. Use one at a time.");
-    kill();
+    kill(1);
+    return;
   }
 
   await cli.configConnectionService.loadConfig("setup.config");
@@ -38,7 +39,8 @@ export const main = async () => {
       }
     } catch (error) {
       console.error("Module loader failed", error);
-      kill();
+      kill(-1);
+      return;
     }
   }
 
@@ -75,7 +77,8 @@ export const main = async () => {
   const beforeExit = () => {
     process.off("SIGINT", beforeExit)
     unServer();
-    kill();
+    kill(0);
+    return;
   }
 
   process.on("SIGINT", beforeExit);

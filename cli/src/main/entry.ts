@@ -131,7 +131,7 @@ export const main = async () => {
     console.error(
       "--entry requires exactly one of --backtest, --live, --paper, --walker",
     );
-    kill();
+    kill(1);
     return;
   }
 
@@ -154,7 +154,8 @@ export const main = async () => {
       }
     } catch (error) {
       console.error("Module loader failed", error);
-      kill();
+      kill(-1);
+      return;
     }
   }
 

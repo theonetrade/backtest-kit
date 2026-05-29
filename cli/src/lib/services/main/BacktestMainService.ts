@@ -104,7 +104,8 @@ export class BacktestMainService {
           }
         } catch (error) {
           console.error("Module loader failed", error);
-          kill();
+          kill(-1);
+          return;
         }
       }
 

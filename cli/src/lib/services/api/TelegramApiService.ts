@@ -182,7 +182,7 @@ export class TelegramApiService {
       console.error("Telegram publish failure", {
         error,
       });
-      setTimeout(() => kill(), 5_000);
+      setTimeout(() => kill(-1), 5_000);
     });
 
     const result = await Promise.race([
@@ -199,7 +199,7 @@ export class TelegramApiService {
     }
 
     if (TIMEOUT_COUNTER > MAX_TIMEOUT_COUNT) {
-      setTimeout(() => kill(), 5_000);
+      setTimeout(() => kill(-1), 5_000);
     }
 
     return "Message published successfully";

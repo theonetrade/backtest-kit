@@ -101,7 +101,8 @@ export class WalkerMainService {
           }
         } catch (error) {
           console.error("Module loader failed", error);
-          kill();
+          kill(-1);
+          return;
         }
       }
 
@@ -317,7 +318,7 @@ export class WalkerMainService {
         await mkdir(dumpDir, { recursive: true });
         await writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
         console.log(`Saved: ${filePath}`);
-        kill();
+        kill(0);
         return;
       }
 
@@ -327,13 +328,14 @@ export class WalkerMainService {
         await mkdir(dumpDir, { recursive: true });
         await writeFile(filePath, report, "utf-8");
         console.log(`Saved: ${filePath}`);
-        kill();
+        kill(0);
         return;
       }
 
       const report = await Walker.getReport(symbol, { walkerName: WalkerName.DefaultWalker });
       console.log(report);
-      kill()
+      kill(0);
+      return;
     },
   );
 

@@ -43,7 +43,8 @@ const LOAD_CONFIG_CONFIG_FN = async (
       }
     } catch {
       console.warn(`Module module import failed filePath=${filePath} baseDir=${baseDir}`);
-      kill();
+      kill(-1);
+      return;
     }
   }
   return null;
