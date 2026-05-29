@@ -43,7 +43,7 @@ export const validateSignal = (signal: ISignalDto, currentPrice: number): boolea
   }
 
   if (errors.length > 0) {
-    console.error(`Invalid signal for ${signal.position} position:\n${errors.join("\n")}`);
+    console.error(`Invalid signal for ${signal.position} position (${signal.symbol || "empty symbol"}):\n${errors.join("\n")}`);
     return false;
   }
 
@@ -140,7 +140,7 @@ export const validateSignal = (signal: ISignalDto, currentPrice: number): boolea
   }
 
   if (errors.length > 0) {
-    console.error(`Invalid signal for ${signal.position} position:\n${errors.join("\n")}`);
+    console.error(`Invalid signal for ${signal.position} position (${signal.symbol || "empty symbol"}):\n${errors.join("\n")}`);
   }
 
   return !errors.length;

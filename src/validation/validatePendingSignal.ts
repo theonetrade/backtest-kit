@@ -58,7 +58,7 @@ export const validatePendingSignal = (signal: ISignalRow, currentPrice: number):
 
   if (errors.length > 0) {
     throw new Error(
-      `Invalid signal for ${signal.position} position:\n${errors.join("\n")}`
+      `Invalid signal for ${signal.position} position (${signal.symbol || "empty symbol"}):\n${errors.join("\n")}`
     );
   }
 
@@ -127,7 +127,7 @@ export const validatePendingSignal = (signal: ISignalRow, currentPrice: number):
 
   if (errors.length > 0) {
     throw new Error(
-      `Invalid signal for ${signal.position} position:\n${errors.join("\n")}`
+      `Invalid signal for ${signal.position} position (${signal.symbol || "empty symbol"}):\n${errors.join("\n")}`
     );
   }
 };

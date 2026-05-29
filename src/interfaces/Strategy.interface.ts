@@ -40,6 +40,8 @@ export type SignalInterval =
 export interface ISignalDto {
   /** Optional signal ID (auto-generated if not provided) */
   id?: string;
+  /** Symbol of a ticker on exchange */
+  symbol?: string;
   /** Trade direction: "long" (buy) or "short" (sell) */
   position: "long" | "short";
   /** Human-readable description of signal reason */
