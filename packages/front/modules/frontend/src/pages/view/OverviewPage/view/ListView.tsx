@@ -466,7 +466,7 @@ export const ListView = ({
                     }
 
                     return symbolList.map((symbol) => {
-                        const color = symbolMap[symbol]?.color;
+                        const color = symbolMap[symbol]?.color || "#ccc";
                         const count = signalsBySymbol[symbol]?.length || 0;
                         return (
                             <li key={`section-${symbol}`}>
