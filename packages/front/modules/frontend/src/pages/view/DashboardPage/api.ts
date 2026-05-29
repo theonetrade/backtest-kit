@@ -28,8 +28,12 @@ export const clearSignalCache = () => fetchSignals.clear();
 
 // ── Symbols ───────────────────────────────────────────────────────────────────
 
-export const fetchSymbolList = (): Promise<string[]> =>
-    ioc.symbolGlobalService.getSymbolList();
+export const fetchSymbolList = async (mode: Mode): Promise<string[]> => {
+    const baseList = await ioc.symbolGlobalService.getSymbolList();
+    const signals = await fetchSignals(mode);
+    const activeList = Array.from(new Set(signals.map((s) => s.symbol)));
+    return baseList.concat(activeList);
+};
 
 export const fetchSymbolMap = (): Promise<Record<string, any>> =>
     ioc.symbolGlobalService.getSymbolMap();
