@@ -115,38 +115,6 @@ interface ICronEntryRecord {
   generation: number;
 }
 
-/**
- * Internal bookkeeping for a single in-flight singleshot slot.
- *
- * One `ICronInFlightSlot` lives in `CronUtils._inFlight` per active slot key
- * from the moment the first parallel `tick` opens it until `_runEntry`'s
- * `.finally()` removes it.
- *
- * Not exported — `CronUtils` is the only owner.
- */
-interface ICronInFlightSlot {
-  /**
-   * Shared handler promise. Every parallel `tick` for the same slot
-   * awaits this exact promise (mutex semantics) and is released together
-   * when it settles.
-   */
-  promise: Promise<void>;
-  /**
-   * Symbol of the backtest that first reached the boundary and opened the
-   * slot. Kept for diagnostics/logging — the singleshot promise is shared
-   * across all parallel ticks regardless of who opened it.
-   */
-  initiator: string;
-  /**
-   * Identity token attached to the slot at creation time and matched by
-   * `_runEntry`'s `.finally()` before it deletes the slot. Guards against
-   * a stale `.finally()` deleting a slot that has since been replaced
-   * under the same `slotKey` (a defensive check; with the current `clear`
-   * semantics the only writer to `_inFlight` is `_runEntry` itself, so the
-   * race surface is small).
-   */
-  token: symbol;
-}
 
 /**
  * Utility class for registering periodic tasks that fire on candle-interval
@@ -214,12 +182,14 @@ export class CronUtils {
    * - Fire-once global: `${name}:once:g${generation}`.
    * - Fire-once fan-out: `${name}:once:${symbol}:g${generation}`.
    *
-   * See {@link ICronInFlightSlot} for the slot shape. `_inFlight` is owned
-   * exclusively by `_runEntry` — `clear()` does **not** touch it, so the
-   * singleshot promise survives concurrent `clear` calls and continues to
-   * coordinate parallel ticks until it settles.
+   * Value is the shared in-flight handler promise. Every parallel `tick` for
+   * the same slot key awaits this exact promise (mutex semantics) and is
+   * released together when it settles. `_inFlight` is owned exclusively by
+   * `_runEntry` — `clear()` does **not** touch it, so the singleshot promise
+   * survives concurrent `clear` calls and continues to coordinate parallel
+   * ticks until it settles.
    */
-  private readonly _inFlight = new Map<string, ICronInFlightSlot>();
+  private readonly _inFlight = new Map<string, Promise<void>>();
 
   /**
    * Keys of fire-once entries whose handler has already settled successfully.
@@ -279,8 +249,7 @@ export class CronUtils {
     aligned: Date,
     alignedMs: number,
     slotKey: string,
-    firedKey: string | null,
-    token: symbol
+    firedKey: string | null
   ): Promise<void> {
     let failed = false;
     try {
@@ -292,10 +261,7 @@ export class CronUtils {
         { symbol, alignedMs, err }
       );
     } finally {
-      const current = this._inFlight.get(slotKey);
-      if (current && current.token === token) {
-        this._inFlight.delete(slotKey);
-      }
+      this._inFlight.delete(slotKey);
       if (!failed && firedKey !== null) {
         this._firedOnce.add(firedKey);
       }
@@ -497,16 +463,14 @@ export class CronUtils {
         firedKey = null;
       }
 
-      let slot = this._inFlight.get(slotKey);
+      let pending = this._inFlight.get(slotKey);
 
-      if (!slot) {
-        const token = Symbol(`cron-slot:${slotKey}`);
-        const promise = this._runEntry(entry, symbol, aligned, alignedMs, slotKey, firedKey, token);
-        slot = { promise, initiator: symbol, token };
-        this._inFlight.set(slotKey, slot);
+      if (!pending) {
+        pending = this._runEntry(entry, symbol, aligned, alignedMs, slotKey, firedKey);
+        this._inFlight.set(slotKey, pending);
       }
 
-      taskList.push(slot.promise);
+      taskList.push(pending);
     }
 
     await Promise.all(taskList);
