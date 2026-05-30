@@ -14,15 +14,21 @@ const CRON_METHOD_NAME_TICK = "CronUtils.tick";
 /**
  * Callback signature for a cron entry handler.
  *
- * Invoked once per aligned interval boundary, shared across all parallel
- * backtests for the same `(name, alignedTimestamp)` pair.
+ * Invocation cardinality depends on `entry.symbols` (see {@link CronEntry}):
+ * - **Global mode** (`symbols` empty/undefined): invoked once per aligned
+ *   boundary across all parallel backtests. The first symbol to reach the
+ *   boundary opens the slot and runs the handler; others await the same
+ *   promise.
+ * - **Fan-out mode** (`symbols` non-empty): invoked once per aligned
+ *   boundary **per whitelisted symbol**. Each symbol has its own slot.
  *
- * @param symbol - Symbol of the backtest that first reached the boundary
- *   (the singleshot "winner"). Other parallel backtests that hit the same
- *   boundary do not invoke the handler — they await the same promise.
+ * @param symbol - In global mode: the symbol of the backtest that first
+ *   reached the boundary (the singleshot "winner"). In fan-out mode: the
+ *   whitelisted symbol whose tick produced this invocation.
  * @param when - The aligned virtual time at which the entry fires.
  *   Already aligned to the entry's `interval` boundary (e.g. for `1h`,
- *   minutes/seconds/ms are zero).
+ *   minutes/seconds/ms are zero). In fire-once mode this is the raw tick
+ *   time (no align).
  */
 export type CronCallback = (
   symbol: string,
@@ -51,9 +57,18 @@ export interface CronEntry {
    */
   interval?: CandleInterval;
   /**
-   * Optional symbol whitelist. If empty/undefined the entry fires for every
-   * symbol that ticks. If non-empty, only ticks whose `symbol` is in the list
-   * are considered.
+   * Symbol whitelist that doubles as the fan-out switch.
+   *
+   * - **Empty/undefined → global singleshot**: across all parallel backtests
+   *   the handler runs **once** per boundary. The first symbol to reach the
+   *   boundary opens the slot; others await the same promise.
+   * - **Non-empty → per-symbol fan-out**: ticks whose `symbol` is not in the
+   *   list are skipped, and ticks whose `symbol` *is* in the list each open
+   *   their own slot. The handler runs **once per whitelisted symbol** per
+   *   boundary.
+   *
+   * The same rule applies in fire-once mode: global → handler runs once
+   * total; fan-out → once per whitelisted symbol.
    */
   symbols?: string[];
   /** Handler invoked on the first parallel tick to reach a new boundary. */
@@ -72,6 +87,31 @@ export interface CronEntry {
  */
 export interface CronHandle {
   (): void;
+}
+
+/**
+ * Internal bookkeeping for a single in-flight singleshot slot.
+ *
+ * One `ICronInFlightSlot` lives in `CronUtils._inFlight` per active
+ * `(name, alignedMs)` pair from the moment the first parallel `tick`
+ * opens it until `_runEntry`'s `.finally()` removes it.
+ *
+ * Not exported — `CronUtils` is the only owner.
+ */
+interface ICronInFlightSlot {
+  /**
+   * Shared handler promise. Every parallel `tick` for the same slot
+   * awaits this exact promise (mutex semantics) and is released together
+   * when it settles.
+   */
+  promise: Promise<void>;
+  /**
+   * Symbol of the backtest that first reached the boundary and opened
+   * the slot. Used by `reset(symbol)` to drop only the slots that this
+   * particular backtest started, leaving slots opened by other still-
+   * running backtests intact.
+   */
+  initiator: string;
 }
 
 /**
@@ -119,42 +159,43 @@ export class CronUtils {
   private readonly _entries = new Map<string, CronEntry>();
 
   /**
-   * In-flight handler slots keyed by `${name}:${alignedMs}`.
-   *
-   * The first parallel `tick` to reach a given boundary creates the promise,
-   * records itself as `initiator`, and stores both here; subsequent parallel
-   * ticks for the same boundary await the same promise. The slot is cleared
-   * in `.finally()`.
-   *
-   * `initiator` is the symbol that opened the slot — used by `reset(symbol)`
-   * to drop only the slots a particular backtest started, leaving slots
-   * opened by other still-running backtests intact.
+   * In-flight handler slots keyed by `${name}:${alignedMs}` (periodic) or
+   * `${name}:once` (fire-once). See {@link ICronInFlightSlot} for the slot
+   * shape and how `initiator` is used by `reset(symbol)`.
    */
-  private readonly _inFlight = new Map<
-    string,
-    { promise: Promise<void>; initiator: string }
-  >();
+  private readonly _inFlight = new Map<string, ICronInFlightSlot>();
 
   /**
-   * Names of fire-once entries (registered without `interval`) whose handler
-   * has already settled successfully. Such names are skipped on subsequent
-   * `tick` calls.
+   * Keys of fire-once entries whose handler has already settled successfully.
+   *
+   * Key shape:
+   * - Global fire-once: `${name}` (the entry name as-is).
+   * - Fan-out fire-once: `${name}:${symbol}` — one entry per whitelisted symbol.
+   *
+   * Looked up by `tick` to decide whether to skip; written by `_runEntry`
+   * on successful settle.
    */
   private readonly _firedOnce = new Set<string>();
 
   /**
-   * Build the singleshot promise for a single `(entry, alignedMs)` slot.
+   * Build the singleshot promise for a single in-flight slot.
    *
    * Invokes `entry.handler`, swallows and logs any error via
    * `loggerService.warn`, and clears the `_inFlight` slot in `.finally()`
-   * so the next boundary produces a fresh promise.
+   * so the next boundary produces a fresh promise. For fire-once entries
+   * `firedKey` is added to `_firedOnce` on success so subsequent ticks
+   * skip it.
+   *
+   * @param firedKey - Key to add to `_firedOnce` on success, or `null` for
+   *   periodic entries (which never populate `_firedOnce`).
    */
   private async _runEntry(
     entry: CronEntry,
     symbol: string,
     aligned: Date,
     alignedMs: number,
-    slotKey: string
+    slotKey: string,
+    firedKey: string | null
   ): Promise<void> {
     let failed = false;
     try {
@@ -167,8 +208,8 @@ export class CronUtils {
       );
     } finally {
       this._inFlight.delete(slotKey);
-      if (!failed && entry.interval === undefined) {
-        this._firedOnce.add(entry.name);
+      if (!failed && firedKey !== null) {
+        this._firedOnce.add(firedKey);
       }
     }
   }
@@ -260,20 +301,26 @@ export class CronUtils {
    *
    * Algorithm (per registered entry):
    * 1. If `entry.symbols` is non-empty and does not include `symbol`, skip.
-   * 2. **Fire-once** (`entry.interval === undefined`):
-   *    - If the entry name is already in `_firedOnce`, skip.
-   *    - Use slot key `${name}:once` and the raw `when` (no align).
-   * 3. **Periodic** (`entry.interval` set):
+   * 2. Decide scope from `entry.symbols`:
+   *    - Empty/undefined → **global** (slot key has no symbol component).
+   *    - Non-empty → **fan-out**, slot key carries `:${symbol}` so each
+   *      whitelisted symbol gets its own slot and handler invocation.
+   * 3. **Fire-once** (`entry.interval === undefined`):
+   *    - If the entry's fired-once key (`${name}` global, or `${name}:${symbol}`
+   *      fan-out) is already in `_firedOnce`, skip.
+   *    - Slot key: `${name}:once` (+ scope).
+   *    - Use raw `when` (no align).
+   * 4. **Periodic** (`entry.interval` set):
    *    - Align `when` to the interval boundary via {@link alignToInterval}.
    *    - If `when.getTime() !== alignedMs`, the tick is mid-interval — skip.
    *      (This is the "remainder === 0" boundary check from the spec.)
-   *    - Use slot key `${name}:${alignedMs}`.
-   * 4. Singleshot: look up the slot in `_inFlight`. If a promise already
-   *    exists, `await` the same promise. Otherwise invoke `entry.handler`,
-   *    store the promise, and `await` it. The slot is removed in
-   *    `.finally()` so the next boundary creates a fresh promise; for
-   *    fire-once entries the name is also added to `_firedOnce` on success
-   *    so subsequent ticks skip it.
+   *    - Slot key: `${name}:${alignedMs}` (+ scope).
+   * 5. Singleshot per slot key: look up the slot in `_inFlight`. If a promise
+   *    already exists, `await` the same promise. Otherwise invoke
+   *    `entry.handler`, store the promise, and `await` it. The slot is
+   *    removed in `.finally()` so the next boundary creates a fresh promise;
+   *    for fire-once entries the fired-once key is also added to
+   *    `_firedOnce` on success so subsequent ticks skip it.
    *
    * Errors thrown by `handler` are caught, logged via `loggerService.warn`,
    * and **not** rethrown — a failing handler must not break the per-symbol
@@ -307,30 +354,37 @@ export class CronUtils {
         continue;
       }
 
+      const perSymbol = !!entry.symbols?.length;
+      const scope = perSymbol ? `:${symbol}` : "";
+
       let aligned: Date;
       let alignedMs: number;
       let slotKey: string;
+      let firedKey: string | null;
 
       if (entry.interval === undefined) {
-        if (this._firedOnce.has(entry.name)) {
+        const onceKey = `${entry.name}${scope}`;
+        if (this._firedOnce.has(onceKey)) {
           continue;
         }
         aligned = when;
         alignedMs = ts;
-        slotKey = `${entry.name}:once`;
+        slotKey = `${entry.name}:once${scope}`;
+        firedKey = onceKey;
       } else {
         aligned = alignToInterval(when, entry.interval);
         alignedMs = aligned.getTime();
         if (ts !== alignedMs) {
           continue;
         }
-        slotKey = `${entry.name}:${alignedMs}`;
+        slotKey = `${entry.name}:${alignedMs}${scope}`;
+        firedKey = null;
       }
 
       let slot = this._inFlight.get(slotKey);
 
       if (!slot) {
-        const promise = this._runEntry(entry, symbol, aligned, alignedMs, slotKey);
+        const promise = this._runEntry(entry, symbol, aligned, alignedMs, slotKey, firedKey);
         slot = { promise, initiator: symbol };
         this._inFlight.set(slotKey, slot);
       }
