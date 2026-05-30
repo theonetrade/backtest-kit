@@ -1840,6 +1840,28 @@ git clone https://github.com/backtest-kit/backtest-monorepo-parallel.git
 ```
 
 
+### backtest-ollama-crontab
+
+> **[Explore on GitHub](https://github.com/backtest-kit/backtest-ollama-crontab)** 🧿
+
+The **backtest-ollama-crontab** repository is a TypeScript monorepo template that wires a local **Ollama LLM** (`gpt-oss` quantized) into a trading-signal pipeline as an outline-based risk filter, with a **15-minute crontab** doing Telegram-channel ingestion. The **same code runs in both live and backtest modes** — the crontab re-polls the channel every 15 minutes in live mode and pulls the entire frame at startup in backtest mode. It parses signals from the public `crypto_yoda_channel`, asks the LLM whether each signal is safe to trade, and gates strategy entries on the verdict.
+
+#### Key Features
+- 🤖 **Local LLM Risk Filter**: Per-signal verdict from local Ollama (`gpt-oss` quantized) returning `riskAction: "skip" | "follow"`, with empirical rules embedded in the system prompt and tunable without recompiling packages
+- ⏰ **Crontab-Driven Ingestion**: `Cron.register(..., interval: "15m")` for live re-polling of the Telegram channel, plus a fire-once `Cron.register(...)` (no `interval`) for backtest-time bulk prepare — same code path in both modes
+- 📡 **Telegram MTProto Crawler**: QR-code session auth, `iterMessages` pull into a `parser-items` Mongo collection, regex extraction of `direction / entry / targets / stoploss` into `screen-items`
+- 🧠 **Outline-Based Risk Logic**: Risk outline ingests 1m/15m candles + a pre-computed metrics packet (`avgRangePct`, `momentum24hPct`) and produces a zod-validated verdict consumed by the strategy
+- 📈 **Reproducible Backtest Comparison**: January 2026 historical data, same parsed-signal set, two backtests side-by-side — **+52.22% → +68.90%** total PNL, Sharpe **+0.309 → +0.512**, winrate **68% → 82%**, profit factor **2.73 → 6.37** with the LLM gate enabled
+
+#### Use Case
+Use as a reference for integrating any local LLM into a backtest-kit pipeline as a signal filter, and for combining periodic crontab pulls (live mode) with one-shot bulk prepare (backtest mode) via the same `Cron.register` API. Particularly useful when you want to measure whether an AI risk gate actually improves P&L on historical data before deploying it live.
+
+#### Get Started
+```bash
+git clone https://github.com/backtest-kit/backtest-ollama-crontab.git
+```
+
+
 ### backtest-kit-redis-mongo-docker
 
 > **[Explore on GitHub](https://github.com/backtest-kit/backtest-kit-redis-mongo-docker)** 🐳
