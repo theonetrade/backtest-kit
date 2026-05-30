@@ -7,8 +7,7 @@ import { alignToInterval } from "../utils/alignToInterval";
 
 const CRON_METHOD_NAME_REGISTER = "CronUtils.register";
 const CRON_METHOD_NAME_UNREGISTER = "CronUtils.unregister";
-const CRON_METHOD_NAME_RESET = "CronUtils.reset";
-const CRON_METHOD_NAME_RESET_ALL = "CronUtils.resetAll";
+const CRON_METHOD_NAME_CLEAR = "CronUtils.clear";
 const CRON_METHOD_NAME_TICK = "CronUtils.tick";
 
 /**
@@ -127,18 +126,18 @@ interface ICronInFlightSlot {
    */
   promise: Promise<void>;
   /**
-   * Symbol of the backtest that first reached the boundary and opened
-   * the slot. Used by `reset(symbol)` to drop only the slots that this
-   * particular backtest started, leaving slots opened by other still-
-   * running backtests intact.
+   * Symbol of the backtest that first reached the boundary and opened the
+   * slot. Kept for diagnostics/logging — the singleshot promise is shared
+   * across all parallel ticks regardless of who opened it.
    */
   initiator: string;
   /**
-   * Identity token that lets `_runEntry`'s `.finally()` tell whether the
-   * slot currently sitting under its `slotKey` is still the one it owns.
-   * After `reset(symbol)` drops a slot and a later tick creates a fresh
-   * slot under the same key, the old handler's `.finally()` would otherwise
-   * delete the new slot. The token check prevents that.
+   * Identity token attached to the slot at creation time and matched by
+   * `_runEntry`'s `.finally()` before it deletes the slot. Guards against
+   * a stale `.finally()` deleting a slot that has since been replaced
+   * under the same `slotKey` (a defensive check; with the current `clear`
+   * semantics the only writer to `_inFlight` is `_runEntry` itself, so the
+   * race surface is small).
    */
   token: symbol;
 }
@@ -175,7 +174,7 @@ interface ICronInFlightSlot {
  * });
  *
  * listenDoneBacktest(({ symbol }) => {
- *   Cron.reset(symbol);
+ *   Cron.clear(symbol);
  * });
  *
  * for (const symbol of ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "TRXUSDT"]) {
@@ -209,8 +208,10 @@ export class CronUtils {
    * - Fire-once global: `${name}:once:g${generation}`.
    * - Fire-once fan-out: `${name}:once:${symbol}:g${generation}`.
    *
-   * See {@link ICronInFlightSlot} for the slot shape, and `reset(symbol)`
-   * for how `initiator` is consumed.
+   * See {@link ICronInFlightSlot} for the slot shape. `_inFlight` is owned
+   * exclusively by `_runEntry` — `clear()` does **not** touch it, so the
+   * singleshot promise survives concurrent `clear` calls and continues to
+   * coordinate parallel ticks until it settles.
    */
   private readonly _inFlight = new Map<string, ICronInFlightSlot>();
 
@@ -225,8 +226,8 @@ export class CronUtils {
    * The generation suffix isolates incarnations of the same `name`: writes
    * landing from a still-in-flight handler of a previous `register()` carry
    * the old generation and are never matched by the new entry's lookup.
-   * Stale entries are pruned by `_clearFiredOnceFor` on `unregister` and
-   * wiped by `resetAll`.
+   * Stale entries are pruned by `_clearFiredOnceFor` on `register`/`unregister`
+   * and wiped by `clear()`.
    *
    * Looked up by `tick` to decide whether to skip; written by `_runEntry`
    * on successful settle.
@@ -237,10 +238,10 @@ export class CronUtils {
    * Garbage-collect every `_firedOnce` key that belongs to the entry `name`
    * (any generation, global or fan-out).
    *
-   * Called from `unregister` to free memory; **not** required for
-   * correctness — the generation suffix already isolates re-registrations,
+   * Called from `register`/`unregister` to free memory; **not** required
+   * for correctness — the generation suffix already isolates re-registrations,
    * so leftover keys from old generations can never block a new entry.
-   * They just sit unused until they are GC'd here or by `resetAll`.
+   * They just sit unused until they are GC'd here or wiped by `clear()`.
    */
   private _clearFiredOnceFor(name: string): void {
     if (!name) {
@@ -345,37 +346,39 @@ export class CronUtils {
   };
 
   /**
-   * Clear in-flight singleshot slots that were opened by `symbol`.
+   * Clear fire-once marks so that fire-once entries can fire again.
    *
-   * Each slot records the symbol that opened it (the singleshot "winner" —
-   * the first parallel tick to reach the boundary). This method removes only
-   * those slots whose initiator matches `symbol`, leaving slots opened by
-   * other symbols intact — important when one backtest in a parallel batch
-   * finishes while the others are still running.
+   * Does **not** touch `_inFlight` — that map holds shared in-flight handler
+   * promises through which parallel `tick`s coordinate. Wiping it mid-flight
+   * would let a new `tick` start a second handler for a boundary that's
+   * already running, breaking the singleshot contract.
    *
-   * Note: this only drops bookkeeping entries; the underlying handler
-   * promises are not cancelled and continue to settle in the background.
+   * Two modes:
+   * - **Per-symbol** (`symbol` provided): clears only fan-out fire-once
+   *   marks for that symbol — keys of the shape `${name}:${symbol}:g${gen}`.
+   *   Global fire-once marks (`${name}:g${gen}`, no symbol component) are
+   *   left intact, since they are not attributable to a single symbol.
+   *   Intended for use from a backtest-done listener:
+   *   `listenDoneBacktest(({ symbol }) => Cron.clear(symbol))`.
+   * - **All** (no argument): wipes every fire-once mark across all entries
+   *   and symbols. Registered entries are not removed — use `unregister`
+   *   (or the disposer returned by `register`) for that.
    *
-   * @param symbol - Symbol whose backtest is finishing.
+   * @param symbol - Optional symbol filter; if omitted, clears all fire-once
+   *   marks.
    */
-  public reset = (symbol: string): void => {
-    backtest.loggerService.info(CRON_METHOD_NAME_RESET, { symbol });
-    for (const [slotKey, slot] of this._inFlight) {
-      if (slot.initiator === symbol) {
-        this._inFlight.delete(slotKey);
+  public clear = (symbol?: string): void => {
+    backtest.loggerService.info(CRON_METHOD_NAME_CLEAR, { symbol });
+    if (!symbol) {
+      this._firedOnce.clear();
+      return;
+    }
+    const symbolSegment = `:${symbol}:`;
+    for (const key of this._firedOnce) {
+      if (key.includes(symbolSegment)) {
+        this._firedOnce.delete(key);
       }
     }
-  };
-
-  /**
-   * Clear all in-flight singleshot promises across all entries and symbols.
-   *
-   * Does not remove registered entries — use `unregister` for that.
-   */
-  public resetAll = (): void => {
-    backtest.loggerService.info(CRON_METHOD_NAME_RESET_ALL);
-    this._inFlight.clear();
-    this._firedOnce.clear();
   };
 
   /**
@@ -434,6 +437,7 @@ export class CronUtils {
     }
 
     const ts = when.getTime();
+    const taskList: Promise<void>[] = [];
 
     for (const { entry, generation } of this._entries.values()) {
       if (entry.symbols?.length && !entry.symbols.includes(symbol)) {
@@ -477,8 +481,10 @@ export class CronUtils {
         this._inFlight.set(slotKey, slot);
       }
 
-      await slot.promise;
+      taskList.push(slot.promise);
     }
+
+    await Promise.all(taskList);
   };
 }
 
