@@ -1,5 +1,6 @@
+import LoggerService from "../lib/services/base/LoggerService";
 import { CandleInterval } from "../interfaces/Exchange.interface";
-import backtest, {
+import {
   ExecutionContextService,
   MethodContextService,
 } from "../lib";
@@ -9,6 +10,15 @@ const CRON_METHOD_NAME_REGISTER = "CronUtils.register";
 const CRON_METHOD_NAME_UNREGISTER = "CronUtils.unregister";
 const CRON_METHOD_NAME_CLEAR = "CronUtils.clear";
 const CRON_METHOD_NAME_TICK = "CronUtils.tick";
+
+/**
+ * Local logger instance.
+ *
+ * Created directly rather than resolved from the DI container so that
+ * `CronUtils` has no compile-time dependency on the rest of the framework
+ * being bootstrapped — `Cron` can be imported and used in isolation.
+ */
+const LOGGER_SERVICE = new LoggerService();
 
 /**
  * Callback signature for a cron entry handler.
@@ -28,16 +38,17 @@ const CRON_METHOD_NAME_TICK = "CronUtils.tick";
  *   Already aligned to the entry's `interval` boundary (e.g. for `1h`,
  *   minutes/seconds/ms are zero). In fire-once mode this is the raw tick
  *   time (no align).
- * @param isBacktest - `true` when the firing tick came from a backtest run
- *   (`backtest.executionContextService.context.backtest`), `false` when it
- *   came from live execution. Captured from the **opening** tick that won
- *   the singleshot — all parallel awaiters of the same slot observe the
- *   same value.
+ * @param backtest - The `backtest` flag forwarded by the caller of
+ *   `Cron.tick(symbol, when, backtest)`. `true` for backtest ticks, `false`
+ *   for live ticks. The value reflects the **opening** tick that won the
+ *   singleshot for this slot — all parallel awaiters of the same slot
+ *   observe the same value, even if a later concurrent tick would have
+ *   passed a different one.
  */
 export type CronCallback = (
   symbol: string,
   when: Date,
-  isBacktest: boolean
+  backtest: boolean
 ) => void | Promise<void>;
 
 /**
@@ -92,7 +103,11 @@ export interface CronEntry {
  *
  * @example
  * ```typescript
- * const dispose = Cron.register({ name: "x", interval: "1h", handler });
+ * const dispose = Cron.register({
+ *   name: "x",
+ *   interval: "1h",
+ *   handler: async (symbol, when, backtest) => { ... },
+ * });
  * dispose(); // unregisters
  * ```
  */
@@ -144,13 +159,13 @@ interface ICronEntryRecord {
  * Cron.register({
  *   name: "tg-signal-parser",
  *   interval: "1h",
- *   handler: async (symbol, when) => {
+ *   handler: async (symbol, when, backtest) => {
  *     await parseTelegramSignalsToMongo(when);
  *   },
  * });
  *
  * listenTickBacktest(async ({ symbol, date }) => {
- *   await Cron.tick(symbol, date);
+ *   await Cron.tick(symbol, date, true);
  * });
  *
  * listenDoneBacktest(({ symbol }) => {
@@ -240,14 +255,16 @@ export class CronUtils {
   /**
    * Build the singleshot promise for a single in-flight slot.
    *
-   * Invokes `entry.handler`, swallows and logs any error via
-   * `loggerService.warn`, and clears the `_inFlight` slot in `.finally()`
-   * so the next boundary produces a fresh promise. For fire-once entries
-   * `firedKey` is added to `_firedOnce` on success so subsequent ticks
-   * skip it.
+   * Invokes `entry.handler(symbol, aligned, backtest)`, swallows and logs
+   * any error via `LOGGER_SERVICE.warn`, and clears the `_inFlight` slot
+   * in `.finally()` so the next boundary produces a fresh promise. For
+   * fire-once entries `firedKey` is added to `_firedOnce` on success so
+   * subsequent ticks skip it.
    *
    * @param firedKey - Key to add to `_firedOnce` on success, or `null` for
    *   periodic entries (which never populate `_firedOnce`).
+   * @param backtest - Value forwarded as the third handler argument; the
+   *   "winner" tick's flag is what all parallel awaiters of this slot see.
    */
   private async _runEntry(
     entry: CronEntry,
@@ -256,14 +273,14 @@ export class CronUtils {
     alignedMs: number,
     slotKey: string,
     firedKey: string | null,
-    isBacktest: boolean
+    backtest: boolean
   ): Promise<void> {
     let failed = false;
     try {
-      await entry.handler(symbol, aligned, isBacktest);
+      await entry.handler(symbol, aligned, backtest);
     } catch (err) {
       failed = true;
-      backtest.loggerService.warn(
+      LOGGER_SERVICE.warn(
         `${CRON_METHOD_NAME_TICK} entry "${entry.name}" failed`,
         { symbol, alignedMs, err }
       );
@@ -292,14 +309,14 @@ export class CronUtils {
    *   name: "fetch-funding",
    *   interval: "8h",
    *   symbols: ["BTCUSDT", "ETHUSDT"],
-   *   handler: async (symbol, when) => { ... },
+   *   handler: async (symbol, when, backtest) => { ... },
    * });
    * // Later:
    * dispose();
    * ```
    */
   public register = (entry: CronEntry): CronHandle => {
-    backtest.loggerService.info(CRON_METHOD_NAME_REGISTER, {
+    LOGGER_SERVICE.info(CRON_METHOD_NAME_REGISTER, {
       name: entry.name,
       interval: entry.interval,
       symbols: entry.symbols,
@@ -338,7 +355,7 @@ export class CronUtils {
    * @param name - Name passed to `register`.
    */
   public unregister = (name: string): void => {
-    backtest.loggerService.info(CRON_METHOD_NAME_UNREGISTER, { name });
+    LOGGER_SERVICE.info(CRON_METHOD_NAME_UNREGISTER, { name });
     this._entries.delete(name);
     this._clearFiredOnceFor(name);
   };
@@ -377,7 +394,7 @@ export class CronUtils {
    *   marks.
    */
   public clear = (symbol?: string): void => {
-    backtest.loggerService.info(CRON_METHOD_NAME_CLEAR, { symbol });
+    LOGGER_SERVICE.info(CRON_METHOD_NAME_CLEAR, { symbol });
     if (!symbol) {
       this._firedOnce.clear();
       return;
@@ -420,7 +437,7 @@ export class CronUtils {
    *    for fire-once entries the fired-once key is also added to
    *    `_firedOnce` on success so subsequent ticks skip it.
    *
-   * Errors thrown by `handler` are caught, logged via `loggerService.warn`,
+   * Errors thrown by `handler` are caught, logged via `LOGGER_SERVICE.warn`,
    * and **not** rethrown — a failing handler must not break the per-symbol
    * tick loop or unblock other parallel backtests with an unhandled
    * rejection. A failed fire-once handler is **not** marked as fired and
@@ -428,12 +445,16 @@ export class CronUtils {
    *
    * Requires active method context and execution context.
    *
-   * @param symbol - Trading symbol from the current backtest tick.
-   * @param when - Virtual time of the current backtest tick.
+   * @param symbol - Trading symbol from the current tick.
+   * @param when - Virtual time of the current tick.
+   * @param backtest - `true` for backtest ticks, `false` for live ticks.
+   *   Forwarded as the third argument to `entry.handler`. Only the value
+   *   from the tick that **opens** a given slot is observed by all parallel
+   *   awaiters of that slot.
    * @throws Error if method or execution context is missing.
    */
-  public tick = async (symbol: string, when: Date): Promise<void> => {
-    backtest.loggerService.debug(CRON_METHOD_NAME_TICK, {
+  public tick = async (symbol: string, when: Date, backtest: boolean): Promise<void> => {
+    LOGGER_SERVICE.debug(CRON_METHOD_NAME_TICK, {
       symbol,
       when,
     });
@@ -446,7 +467,6 @@ export class CronUtils {
     }
 
     const ts = when.getTime();
-    const isBacktest = backtest.executionContextService.context.backtest;
     const taskList: Promise<void>[] = [];
 
     for (const { entry, generation } of this._entries.values()) {
@@ -485,7 +505,7 @@ export class CronUtils {
       let pending = this._inFlight.get(slotKey);
 
       if (!pending) {
-        pending = this._runEntry(entry, symbol, aligned, alignedMs, slotKey, firedKey, isBacktest);
+        pending = this._runEntry(entry, symbol, aligned, alignedMs, slotKey, firedKey, backtest);
         this._inFlight.set(slotKey, pending);
       }
 
@@ -507,7 +527,7 @@ export class CronUtils {
  * Cron.register({
  *   name: "tg-parser",
  *   interval: "1h",
- *   handler: async (symbol, when) => { ... },
+ *   handler: async (symbol, when, backtest) => { ... },
  * });
  * ```
  */
