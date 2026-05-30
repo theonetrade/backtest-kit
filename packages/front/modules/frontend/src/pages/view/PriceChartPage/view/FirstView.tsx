@@ -125,7 +125,15 @@ const createButton = (
             }}
             startIcon={<IconPhoto className={ICON_ROOT} symbol={symbol} />}
         >
-            {label}
+            <Box
+                sx={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    width: "75px",
+                }}
+            >
+                {label}
+            </Box>
         </Button>
     ),
 });
