@@ -71,7 +71,7 @@ Install the core library and peer dependencies manually. Use this approach when 
 
 - 🚀 **Production-Ready**: Seamless switch between backtest/live modes; identical code across environments.
 - 💾 **Crash-Safe**: Atomic persistence recovers states after crashes, preventing duplicates or losses.
-- ✅ **Validation**: Checks signals for TP/SL logic, risk/reward ratios, and portfolio limits.
+- ✅ **Validation**: Checks signals for TP/SL logic, risk/reward ratios, whipsaw protection and portfolio limits.
 - 🔄 **Efficient Execution**: Streaming architecture for large datasets; VWAP pricing for realism.
 - 🤖 **AI Integration**: LLM-powered strategy generation (Optimizer) with multi-timeframe analysis.
 - 📊 **Reports & Metrics**: Auto Markdown reports with PNL, Sharpe Ratio, win rate, and more.
