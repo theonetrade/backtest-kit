@@ -99,7 +99,7 @@ export const DashboardPage = ({
 }: IDashboardPageProps) => {
   const [data, { loading, execute }] = useAsyncValue(
     async () => {
-      const symbolList = await fetchSymbolList();
+      const symbolList = await fetchSymbolList(mode);
       const symbolMap = await fetchSymbolMap();
 
       const dailyTradesMap = new Map<
