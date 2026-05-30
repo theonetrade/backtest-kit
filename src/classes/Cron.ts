@@ -42,6 +42,10 @@ export interface CronEntry {
    * Unique name of the entry. Used as the dedup key on `register` (re-registering
    * the same name replaces the previous entry) and as part of the singleshot
    * coordination key.
+   *
+   * Must be non-empty and must not contain `:` — `:` is reserved as the slot-key
+   * segment separator and would otherwise create ambiguity between global and
+   * fan-out fire-once keys.
    */
   name: string;
   /**
@@ -68,6 +72,8 @@ export interface CronEntry {
    *
    * The same rule applies in fire-once mode: global → handler runs once
    * total; fan-out → once per whitelisted symbol.
+   *
+   * Each symbol must not contain `:` (same reason as {@link CronEntry.name}).
    */
   symbols?: string[];
   /** Handler invoked on the first parallel tick to reach a new boundary. */
@@ -325,6 +331,25 @@ export class CronUtils {
       interval: entry.interval,
       symbols: entry.symbols,
     });
+    if (!entry.name) {
+      throw new Error("CronUtils.register requires a non-empty name");
+    }
+    if (entry.name.includes(":")) {
+      throw new Error(
+        `CronUtils.register: name must not contain ':' (got "${entry.name}"). ` +
+        `':' is reserved as the segment separator in slot keys.`
+      );
+    }
+    if (entry.symbols) {
+      for (const symbol of entry.symbols) {
+        if (symbol.includes(":")) {
+          throw new Error(
+            `CronUtils.register: symbols[] entry must not contain ':' (got "${symbol}"). ` +
+            `':' is reserved as the segment separator in slot keys.`
+          );
+        }
+      }
+    }
     this._clearFiredOnceFor(entry.name);
     const generation = ++this._generationCounter;
     this._entries.set(entry.name, { entry, generation });
