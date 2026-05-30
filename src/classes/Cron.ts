@@ -112,6 +112,14 @@ interface ICronInFlightSlot {
    * running backtests intact.
    */
   initiator: string;
+  /**
+   * Identity token that lets `_runEntry`'s `.finally()` tell whether the
+   * slot currently sitting under its `slotKey` is still the one it owns.
+   * After `reset(symbol)` drops a slot and a later tick creates a fresh
+   * slot under the same key, the old handler's `.finally()` would otherwise
+   * delete the new slot. The token check prevents that.
+   */
+  token: symbol;
 }
 
 /**
@@ -178,6 +186,33 @@ export class CronUtils {
   private readonly _firedOnce = new Set<string>();
 
   /**
+   * Drop every `_firedOnce` key that belongs to the entry `name`.
+   *
+   * Covers both the global key (`name`) and all fan-out keys (`name:*`).
+   * Needed on `register`/`unregister` so a re-registration cannot inherit
+   * stale fired-once marks from a previous incarnation that had a
+   * different `symbols` set.
+   *
+   * Note: writes scheduled by an old in-flight `_runEntry.finally()` may
+   * still land after this call. That residue is harmless for global mode
+   * (it sits under `name` while the new entry is fan-out and looks up
+   * `name:symbol`, or vice versa) but would falsely block a new fan-out
+   * tick for the same symbol. The risk is small in practice because
+   * `register` is typically called before backtests start; if it becomes
+   * a real issue, attach the entry generation to the `firedKey` so
+   * stale writes are ignored.
+   */
+  private _clearFiredOnceFor(name: string): void {
+    this._firedOnce.delete(name);
+    const prefix = `${name}:`;
+    for (const key of this._firedOnce) {
+      if (key.startsWith(prefix)) {
+        this._firedOnce.delete(key);
+      }
+    }
+  }
+
+  /**
    * Build the singleshot promise for a single in-flight slot.
    *
    * Invokes `entry.handler`, swallows and logs any error via
@@ -195,7 +230,8 @@ export class CronUtils {
     aligned: Date,
     alignedMs: number,
     slotKey: string,
-    firedKey: string | null
+    firedKey: string | null,
+    token: symbol
   ): Promise<void> {
     let failed = false;
     try {
@@ -207,7 +243,10 @@ export class CronUtils {
         { symbol, alignedMs, err }
       );
     } finally {
-      this._inFlight.delete(slotKey);
+      const current = this._inFlight.get(slotKey);
+      if (current && current.token === token) {
+        this._inFlight.delete(slotKey);
+      }
       if (!failed && firedKey !== null) {
         this._firedOnce.add(firedKey);
       }
@@ -244,7 +283,7 @@ export class CronUtils {
       symbols: entry.symbols,
     });
     this._entries.set(entry.name, entry);
-    this._firedOnce.delete(entry.name);
+    this._clearFiredOnceFor(entry.name);
     return () => this.unregister(entry.name);
   };
 
@@ -259,7 +298,7 @@ export class CronUtils {
   public unregister = (name: string): void => {
     backtest.loggerService.info(CRON_METHOD_NAME_UNREGISTER, { name });
     this._entries.delete(name);
-    this._firedOnce.delete(name);
+    this._clearFiredOnceFor(name);
   };
 
   /**
@@ -384,8 +423,9 @@ export class CronUtils {
       let slot = this._inFlight.get(slotKey);
 
       if (!slot) {
-        const promise = this._runEntry(entry, symbol, aligned, alignedMs, slotKey, firedKey);
-        slot = { promise, initiator: symbol };
+        const token = Symbol();
+        const promise = this._runEntry(entry, symbol, aligned, alignedMs, slotKey, firedKey, token);
+        slot = { promise, initiator: symbol, token };
         this._inFlight.set(slotKey, slot);
       }
 
