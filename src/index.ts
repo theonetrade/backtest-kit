@@ -596,6 +596,12 @@ export {
 export { Exchange } from "./classes/Exchange";
 export { Cache } from "./classes/Cache";
 export { Interval } from "./classes/Interval";
+export {
+  Cron,
+  type CronEntry,
+  type CronHandle,
+  type CronCallback,
+} from "./classes/Cron";
 export { Breakeven } from "./classes/Breakeven";
 export { Strategy } from "./classes/Strategy";
 export { ActionBase } from "./classes/ActionBase";
