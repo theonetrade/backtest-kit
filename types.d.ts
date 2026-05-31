@@ -26529,6 +26529,33 @@ declare class CronUtils {
      * `clear()` for those).
      */
     disable: () => void;
+    /**
+     * Hard-reset the entire `Cron` state.
+     *
+     * Performs in order:
+     * 1. {@link disable} — tears down lifecycle subscriptions and resets the
+     *    `enable` singleshot so a future `enable()` re-subscribes cleanly.
+     * 2. Wipes `_entries` — every {@link register}'ed entry is forgotten.
+     *    Disposers returned by previous `register()` calls become no-ops
+     *    (their `unregister(name)` will not find anything to remove).
+     * 3. Wipes `_firedOnce` — all fire-once marks are dropped, so any future
+     *    re-registration of the same `name` fires again on the next matching
+     *    tick.
+     * 4. Does **not** touch `_inFlight` — in-flight handlers continue to
+     *    settle in the background and clear their own slots via `.finally()`.
+     *    Their final `_firedOnce.add(firedKey)` writes carry old-generation
+     *    keys and are harmless (lookup uses the post-dispose generation).
+     *
+     * Use from a CLI/session teardown when you want to throw away every
+     * registration along with the lifecycle wiring — e.g. between two
+     * independent runner scopes. For "just snap the subscriptions but keep
+     * registrations" use {@link disable} instead; for "just re-arm fire-once
+     * marks" use {@link clear}.
+     *
+     * Idempotent. Safe to call multiple times and safe to call before
+     * `enable()` / without any registrations.
+     */
+    dispose: () => void;
 }
 /**
  * Singleton instance of {@link CronUtils} for registering periodic tasks
