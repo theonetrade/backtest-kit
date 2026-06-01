@@ -120,9 +120,9 @@ const MIN_CALENDAR_SPAN_DAYS = 14;
 /** Hard cap on tradesPerYear — prevents absurd extrapolation from short windows / clustered trades. */
 const MAX_TRADES_PER_YEAR = 365;
 /** Hard cap on |expectedYearlyReturns| percent. Compound interest on high avgPnl × frequency
- *  blows up to mathematically correct but business-unrealistic values. ±500% = 5x equity —
- *  beyond this we suspect a noisy estimate, not a genuine edge. Above the cap → null. */
-const MAX_EXPECTED_YEARLY_RETURNS = 500;
+ *  blows up to mathematically correct but business-unrealistic values. ±100% = 2x equity —
+ *  anything above this we suspect is a noisy estimate, not a genuine edge. Above the cap → null. */
+const MAX_EXPECTED_YEARLY_RETURNS = 100;
 /** Hard cap on |calmarRatio|. Prevents explosion when equityMaxDrawdown is near zero. */
 const MAX_CALMAR_RATIO = 1000;
 
@@ -629,9 +629,10 @@ class HeatmapStorage {
       `*Sortino Ratio: below 1.0 is poor, 1.0-2.0 is acceptable, above 2.0 is strong. Requires 30+ signals.*`,
       `*Certainty Ratio: below 1.0 means average loss exceeds average win. Above 1.5 is considered good.*`,
       `*Profit Factor: below 1.0 means strategy is losing overall. Above 1.5 is considered good.*`,
-      `*Calmar Ratio: below 0.5 is poor, 0.5-1.0 is acceptable, above 1.0 is strong. Denominator is compounded equity-curve max drawdown. N/A unless ≥${MIN_SIGNALS_FOR_ANNUALIZATION} signals per symbol and span ≥${MIN_CALENDAR_SPAN_DAYS} days.*`,
-      `*Recovery Factor: below 1.0 means total profit does not cover max drawdown. Above 3.0 is considered good.*`,
+      `*Calmar Ratio: below 0.5 is poor, 0.5-1.0 is acceptable, above 1.0 is strong. Denominator is compounded equity-curve max drawdown. N/A unless ≥${MIN_SIGNALS_FOR_ANNUALIZATION} signals per symbol and span ≥${MIN_CALENDAR_SPAN_DAYS} days. Capped at ±${MAX_CALMAR_RATIO}.*`,
+      `*Recovery Factor: below 1.0 means total profit does not cover max drawdown. Above 3.0 is considered good. Uses compounded total return as numerator.*`,
       `*All metrics require 100+ signals per symbol to be statistically reliable. Annualized metrics assume the observed trading frequency persists year-round.*`,
+      `*IMPORTANT: Per-symbol equity curve, Expected Yearly Returns, Calmar, Recovery and Max Drawdown all assume **100% capital allocation per trade** (no sizing, no portfolio fraction). If your strategy risks X% of capital per trade, the realized return / drawdown will be roughly X/100 of the reported figures. The framework does not track portfolio-level sizing, so these metrics represent a theoretical upper bound under full allocation.*`,
       `*Negative values for Sharpe / Sortino / Calmar / Recovery indicate a losing symbol (avgPnl < 0 or totalPnl < 0). "Higher is better" still applies — closer to zero is less bad, positive is profitable.*`,
     ].join("\n");
   }

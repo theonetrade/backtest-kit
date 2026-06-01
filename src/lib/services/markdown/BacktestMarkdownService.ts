@@ -125,9 +125,9 @@ const MIN_CALENDAR_SPAN_DAYS = 14;
 /** Hard cap on tradesPerYear — prevents absurd extrapolation from short windows / clustered trades. */
 const MAX_TRADES_PER_YEAR = 365;
 /** Hard cap on |expectedYearlyReturns| percent. Compound interest on high avgPnl × frequency
- *  blows up to mathematically correct but business-unrealistic values. ±500% = 5x equity —
- *  beyond this we suspect a noisy estimate, not a genuine edge. Above the cap → null. */
-const MAX_EXPECTED_YEARLY_RETURNS = 500;
+ *  blows up to mathematically correct but business-unrealistic values. ±100% = 2x equity —
+ *  anything above this we suspect is a noisy estimate, not a genuine edge. Above the cap → null. */
+const MAX_EXPECTED_YEARLY_RETURNS = 100;
 /** Hard cap on |calmarRatio|. Prevents explosion when equityMaxDrawdown is near zero. */
 const MAX_CALMAR_RATIO = 1000;
 
@@ -427,10 +427,11 @@ class ReportStorage {
       `*Annualized Sharpe Ratio: per-trade Sharpe × √tradesPerYear; tradesPerYear = signals × 365 / calendarSpanDays. N/A unless ≥${MIN_SIGNALS_FOR_ANNUALIZATION} signals and span ≥${MIN_CALENDAR_SPAN_DAYS} days. Assumes returns are iid — autocorrelated strategies are overstated.*`,
       `*Sortino Ratio: below 1.0 is poor, 1.0-2.0 is acceptable, above 2.0 is strong. Requires 30+ signals.*`,
       `*Certainty Ratio: below 1.0 means average loss exceeds average win. Above 1.5 is considered good.*`,
-      `*Expected Yearly Returns: compounded — (1 + avgPnl)^tradesPerYear − 1. Same gating as Annualized Sharpe.*`,
-      `*Calmar Ratio: below 0.5 is poor, 0.5-1.0 is acceptable, above 1.0 is strong. Denominator is compounded equity-curve max drawdown.*`,
-      `*Recovery Factor: below 1.0 means total profit does not cover max drawdown. Above 3.0 is considered good.*`,
+      `*Expected Yearly Returns: compounded geometric return from the equity curve, annualized by tradesPerYear. Same gating as Annualized Sharpe. Capped at ±${MAX_EXPECTED_YEARLY_RETURNS}% — values above the cap return N/A.*`,
+      `*Calmar Ratio: below 0.5 is poor, 0.5-1.0 is acceptable, above 1.0 is strong. Denominator is compounded equity-curve max drawdown. Capped at ±${MAX_CALMAR_RATIO}.*`,
+      `*Recovery Factor: below 1.0 means total profit does not cover max drawdown. Above 3.0 is considered good. Uses compounded total return as numerator.*`,
       `*All metrics require 100+ signals to be statistically reliable. Annualized metrics assume the observed trading frequency and market conditions persist year-round.*`,
+      `*IMPORTANT: Equity curve, Expected Yearly Returns, Calmar, Recovery and Max Drawdown all assume **100% capital allocation per trade** (no sizing, no portfolio fraction). Per-trade pnlPercentage is treated as a return on full equity. If your strategy risks X% of capital per trade, the realized portfolio return / drawdown will be roughly X/100 of the reported figures. The framework does not track portfolio-level sizing, so these metrics represent a theoretical upper bound under full allocation.*`,
       `*Negative values for Sharpe / Sortino / Calmar / Recovery / Expected Yearly Returns indicate a losing strategy (avgPnl < 0 or totalPnl < 0). "Higher is better" still applies — closer to zero is less bad, positive is profitable.*`,
     ].join("\n");
   }
