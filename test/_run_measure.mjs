@@ -2,7 +2,10 @@ import "./config/setup.mjs"
 
 import { run } from 'worker-testbed'
 
+import "./spec/measure.test.mjs"
+
 import "./measure/backtest_1.test.mjs";
+import "./measure/backtest_2.test.mjs";
 
 run(import.meta.url, () => {
     console.log("All tests are finished");

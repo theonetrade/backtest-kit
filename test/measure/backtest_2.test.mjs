@@ -2,26 +2,23 @@ import { test } from "worker-testbed";
 
 import { lib } from "../../build/index.mjs";
 
-// Real backtest output: 22 closed signals across 8 symbols, single strategy
+// Real backtest output: 17 closed signals across 8 symbols, single strategy
 // (jan_2026_strategy / ccxt-exchange / jan_2026_frame). Imported as a JSON
 // module via the import-attribute syntax.
 //
-// The dataset is MULTI-SYMBOL: per-symbol buckets are all under
-// MIN_SIGNALS_FOR_RATIOS (max 5 trades), so per-symbol ratios are gated off,
-// while the pooled portfolio (22 trades) computes the full statistical suite.
-import signals from "../data/backtest_1.json" with { type: "json" };
+// Like backtest_1.json this is MULTI-SYMBOL: per-symbol buckets are all under
+// MIN_SIGNALS_FOR_RATIOS (max 4 trades), so per-symbol ratios are gated off,
+// while the pooled portfolio (17 trades) computes the full statistical suite.
+import signals from "../data/backtest_2.json" with { type: "json" };
 
 const STRATEGY = "jan_2026_strategy";
 const EXCHANGE = "ccxt-exchange";
 const FRAME = "jan_2026_frame";
 
-// A synthetic single-bucket symbol used only for the pooled full-suite test.
-// Feeding every row under one symbol gives the portfolio-level series on which
-// Sortino / Calmar / Recovery / drawdown are mathematically meaningful.
-const POOL_SYMBOL = "PORTFOLIO-BT1";
+// Synthetic single-bucket symbol for the pooled full-suite test.
+const POOL_SYMBOL = "PORTFOLIO-BT2";
 
-// Mirror the service constants (BacktestMarkdownService.ts) so the reference
-// implementation gates the same way the production code does.
+// Mirror the service constants so the reference gates identically.
 const MIN_SIGNALS_FOR_ANNUALIZATION = 10;
 const MIN_SIGNALS_FOR_RATIOS = 10;
 const MIN_CALENDAR_SPAN_DAYS = 14;
@@ -31,10 +28,8 @@ const MAX_CALMAR_RATIO = 1000;
 
 /**
  * Maps a persisted ISignalRow into the IStrategyTickResultClosed shape the
- * markdown services consume. `symbolOverride` lets callers route a row into a
- * specific bucket (real per-symbol routing, or the pooled PORTFOLIO bucket).
- * Services read: action, signal, closeTimestamp, pnl, symbol, strategyName,
- * exchangeName, frameName, currentPrice. updatedAt is used as the close time.
+ * markdown services consume. `symbolOverride` routes a row into a specific
+ * bucket (real per-symbol routing, or the pooled PORTFOLIO bucket).
  */
 const toClosedTick = (row, symbolOverride) => ({
   action: "closed",
@@ -71,10 +66,7 @@ const equityMaxDrawdown = (returns) => {
   return { maxDD, blown: false, equityFinal: equity };
 };
 
-/**
- * Independent re-implementation of the full BacktestMarkdownService suite,
- * computed over a pooled series, as a second source of truth.
- */
+/** Independent full BacktestMarkdownService suite over a pooled series. */
 const computePoolReference = (rows) => {
   const valid = rows.filter(
     (r) =>
@@ -189,9 +181,9 @@ const computeHeatReference = (rows) => {
 };
 
 // ---------------------------------------------------------------------------
-// 1. BacktestMarkdownService — pooled full statistical suite (all 22 trades)
+// 1. BacktestMarkdownService — pooled full statistical suite (all 17 trades)
 // ---------------------------------------------------------------------------
-test("backtest_1.json: BacktestMarkdownService computes the full statistical suite over the pooled portfolio", async ({ pass, fail }) => {
+test("backtest_2.json: BacktestMarkdownService computes the full statistical suite over the pooled portfolio", async ({ pass, fail }) => {
   const svc = lib.backtestMarkdownService;
   svc.subscribe();
 
@@ -241,7 +233,7 @@ test("backtest_1.json: BacktestMarkdownService computes the full statistical sui
 // ---------------------------------------------------------------------------
 // 2. LiveMarkdownService — same pooled suite in live mode
 // ---------------------------------------------------------------------------
-test("backtest_1.json: LiveMarkdownService computes the same pooled suite (live mode)", async ({ pass, fail }) => {
+test("backtest_2.json: LiveMarkdownService computes the same pooled suite (live mode)", async ({ pass, fail }) => {
   const svc = lib.liveMarkdownService;
   svc.subscribe();
 
@@ -284,7 +276,7 @@ test("backtest_1.json: LiveMarkdownService computes the same pooled suite (live 
 // ---------------------------------------------------------------------------
 // 3. HeatMarkdownService — real multi-symbol portfolio aggregation (8 symbols)
 // ---------------------------------------------------------------------------
-test("backtest_1.json: HeatMarkdownService aggregates all symbols (per-symbol gated, pooled Sharpe computed)", async ({ pass, fail }) => {
+test("backtest_2.json: HeatMarkdownService aggregates all symbols (per-symbol gated, pooled Sharpe computed)", async ({ pass, fail }) => {
   const svc = lib.heatMarkdownService;
   svc.subscribe();
 
@@ -322,7 +314,6 @@ test("backtest_1.json: HeatMarkdownService aggregates all symbols (per-symbol ga
     }
   }
 
-  // Each symbol has < 10 trades => per-symbol Sharpe gated to null.
   const nonNull = stats.symbols.filter((s) => s.sharpeRatio !== null);
   if (nonNull.length !== 0) {
     fail(`expected all per-symbol Sharpe null (each <10 trades), non-null for: ${nonNull.map((s) => s.symbol).join(", ")}`);

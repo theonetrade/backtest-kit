@@ -49,6 +49,7 @@ import "./spec/config.test.mjs"
 import "./spec/candle_cache.test.mjs"
 import "./spec/columns.test.mjs"
 import "./spec/lookahead.test.mjs";
+import "./spec/measure.test.mjs";
 
 import "./migration/migrate1.test.mjs"
 import "./migration/migrate2.test.mjs"
