@@ -130,8 +130,9 @@ const MIN_CALENDAR_SPAN_DAYS = 14;
 /** Hard cap on tradesPerYear — prevents absurd extrapolation from short windows / clustered trades. */
 const MAX_TRADES_PER_YEAR = 365;
 /** Hard cap on |expectedYearlyReturns| percent. Compound interest on high avgPnl × frequency
- *  blows up to mathematically correct but business-unrealistic values. ±10000% = 100x equity. */
-const MAX_EXPECTED_YEARLY_RETURNS = 10000;
+ *  blows up to mathematically correct but business-unrealistic values. ±500% = 5x equity —
+ *  beyond this we suspect a noisy estimate, not a genuine edge. Above the cap → null. */
+const MAX_EXPECTED_YEARLY_RETURNS = 500;
 /** Hard cap on |calmarRatio|. Prevents explosion when equityMaxDrawdown is near zero. */
 const MAX_CALMAR_RATIO = 1000;
 
@@ -459,11 +460,17 @@ class ReportStorage {
     const winCount = closedEvents.filter((e) => (e.pnl ?? 0) > 0).length;
     const lossCount = closedEvents.filter((e) => (e.pnl ?? 0) < 0).length;
 
-    // Filtered pnl set — exclude events without a numeric pnl. Substituting 0 for missing
-    // values would dilute both the mean and the variance and skew downstream metrics.
-    const returns = closedEvents
-      .map((e) => e.pnl)
-      .filter((v): v is number => typeof v === "number");
+    // Valid closed set — events with a numeric pnl AND valid timestamps. Single source of
+    // truth for returns AND calendar span, so the two never disagree (e.g. timestamps from
+    // the full closedEvents set while returns are filtered down by pnl).
+    const validClosed = closedEvents.filter(
+      (e) =>
+        typeof e.pnl === "number" &&
+        typeof e.timestamp === "number" &&
+        e.timestamp > 0 &&
+        typeof (e.pendingAt ?? e.timestamp) === "number"
+    );
+    const returns = validClosed.map((e) => e.pnl as number);
     const avgPnl = returns.length > 0
       ? returns.reduce((sum, r) => sum + r, 0) / returns.length
       : 0;
@@ -474,15 +481,17 @@ class ReportStorage {
     const winRate = decisiveTrades > 0 ? (winCount / decisiveTrades) * 100 : 0;
 
     // Trade frequency from calendar span — gated by minimum span and sample size to
-    // suppress absurd annualization on short / sparse runs.
+    // suppress absurd annualization on short / sparse runs. Span built from validClosed
+    // so denominator (calendarSpanDays) and numerator (returns.length) come from the
+    // same event set.
     let firstPendingAt = Infinity;
     let lastCloseAt = -Infinity;
-    for (const e of closedEvents) {
+    for (const e of validClosed) {
       const startAt = e.pendingAt ?? e.timestamp;
       if (startAt < firstPendingAt) firstPendingAt = startAt;
       if (e.timestamp > lastCloseAt) lastCloseAt = e.timestamp;
     }
-    const calendarSpanDays = totalClosed > 0
+    const calendarSpanDays = validClosed.length > 0
       ? (lastCloseAt - firstPendingAt) / (1000 * 60 * 60 * 24)
       : 0;
     const canAnnualize =
@@ -536,10 +545,12 @@ class ReportStorage {
       ? fallValues.reduce((sum, v) => sum + v, 0) / fallValues.length
       : null;
 
-    // Sortino (canonical, Sortino 1991): avgPnl / downside deviation, where
-    // downsideDev = √( Σ min(0, r)² / N_total ). Dividing by N_total (not N_negative)
-    // properly penalises strategies with frequent losses; the "modified" form that
-    // divides by N_negative hides frequency risk in catastrophic-tail strategies.
+    // Sortino (canonical, Sortino 1991): (avgPnl - MAR) / downside deviation, where
+    // downsideDev = √( Σ min(0, r - MAR)² / N_total ). We use MAR = 0 (risk-free target),
+    // so the numerator reduces to avgPnl and the squared term to r² for r < 0.
+    // Dividing by N_total (not N_negative) properly penalises strategies with frequent
+    // losses; the "modified" form (N_negative) hides frequency risk in catastrophic-tail
+    // strategies.
     const sortinoRatio: number | null = (() => {
       if (!canComputeRatios) return null;
       const negativeReturns = returns.filter((r) => r < 0);
@@ -552,10 +563,10 @@ class ReportStorage {
     // Equity-curve max drawdown via compounded equity (multiplicative). Returns are per-trade
     // on cost basis — compounding assumes equal capital allocation per trade ("as-if 100%").
     // If equity ≤ 0 (leveraged short with r < -100%) — account blown, fix DD at 100%.
+    // Built from validClosed (newest-first), iterated reverse for chronological order.
     const chronologicalReturns: number[] = [];
-    for (let i = closedEvents.length - 1; i >= 0; i--) {
-      const p = closedEvents[i].pnl;
-      if (typeof p === "number") chronologicalReturns.push(p);
+    for (let i = validClosed.length - 1; i >= 0; i--) {
+      chronologicalReturns.push(validClosed[i].pnl as number);
     }
     let equity = 1;
     let peak = 1;
@@ -591,9 +602,12 @@ class ReportStorage {
     const calmarRatio: number | null = equityMaxDrawdown > 0 && expectedYearlyReturns !== null
       ? Math.max(-MAX_CALMAR_RATIO, Math.min(MAX_CALMAR_RATIO, expectedYearlyReturns / equityMaxDrawdown))
       : null;
-    const recoveryFactor: number | null = equityMaxDrawdown > 0
-      ? totalPnl / equityMaxDrawdown
-      : null;
+    // Recovery Factor: numerator must be the compounded total return, not arithmetic totalPnl —
+    // denominator is from the compounded equity curve, so mixing units inflates Recovery.
+    // Null when account is blown.
+    const recoveryFactor: number | null = blown || equityMaxDrawdown <= 0
+      ? null
+      : ((equityFinal - 1) * 100) / equityMaxDrawdown;
 
     return {
       eventList: this._eventList,

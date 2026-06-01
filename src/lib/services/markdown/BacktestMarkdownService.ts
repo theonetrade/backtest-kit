@@ -125,8 +125,9 @@ const MIN_CALENDAR_SPAN_DAYS = 14;
 /** Hard cap on tradesPerYear — prevents absurd extrapolation from short windows / clustered trades. */
 const MAX_TRADES_PER_YEAR = 365;
 /** Hard cap on |expectedYearlyReturns| percent. Compound interest on high avgPnl × frequency
- *  blows up to mathematically correct but business-unrealistic values. ±10000% = 100x equity. */
-const MAX_EXPECTED_YEARLY_RETURNS = 10000;
+ *  blows up to mathematically correct but business-unrealistic values. ±500% = 5x equity —
+ *  beyond this we suspect a noisy estimate, not a genuine edge. Above the cap → null. */
+const MAX_EXPECTED_YEARLY_RETURNS = 500;
 /** Hard cap on |calmarRatio|. Prevents explosion when equityMaxDrawdown is near zero. */
 const MAX_CALMAR_RATIO = 1000;
 
@@ -202,14 +203,22 @@ class ReportStorage {
     const winRate = decisiveTrades > 0 ? (winCount / decisiveTrades) * 100 : 0;
 
     // Trade frequency from calendar span — gated by minimum span and sample size to
-    // suppress absurd annualization on short / sparse runs.
+    // suppress absurd annualization on short / sparse runs. Skip signals with corrupted
+    // timestamps (0 / NaN / undefined) so they don't drag firstPendingAt to 0 or break
+    // lastCloseAt — the gate would silently fail otherwise.
     let firstPendingAt = Infinity;
     let lastCloseAt = -Infinity;
     for (const s of this._signalList) {
-      if (s.signal.pendingAt < firstPendingAt) firstPendingAt = s.signal.pendingAt;
-      if (s.closeTimestamp > lastCloseAt) lastCloseAt = s.closeTimestamp;
+      const pendingAt = s.signal.pendingAt;
+      const closeAt = s.closeTimestamp;
+      if (typeof pendingAt !== "number" || pendingAt <= 0) continue;
+      if (typeof closeAt !== "number" || closeAt <= 0) continue;
+      if (pendingAt < firstPendingAt) firstPendingAt = pendingAt;
+      if (closeAt > lastCloseAt) lastCloseAt = closeAt;
     }
-    const calendarSpanDays = (lastCloseAt - firstPendingAt) / (1000 * 60 * 60 * 24);
+    const calendarSpanDays = isFinite(firstPendingAt) && isFinite(lastCloseAt)
+      ? (lastCloseAt - firstPendingAt) / (1000 * 60 * 60 * 24)
+      : 0;
     const canAnnualize =
       totalSignals >= MIN_SIGNALS_FOR_ANNUALIZATION &&
       calendarSpanDays >= MIN_CALENDAR_SPAN_DAYS;
@@ -296,10 +305,12 @@ class ReportStorage {
       ? fallValues.reduce((sum, v) => sum + v, 0) / fallValues.length
       : null;
 
-    // Sortino (canonical, Sortino 1991): avgPnl / downside deviation, where
-    // downsideDev = √( Σ min(0, r)² / N_total ). Dividing by N_total (not N_negative)
-    // properly penalises strategies with frequent losses; the "modified" form that
-    // divides by N_negative hides frequency risk in catastrophic-tail strategies.
+    // Sortino (canonical, Sortino 1991): (avgPnl - MAR) / downside deviation, where
+    // downsideDev = √( Σ min(0, r - MAR)² / N_total ). We use MAR = 0 (risk-free target),
+    // so the numerator reduces to avgPnl and the squared term to r² for r < 0.
+    // Dividing by N_total (not N_negative) properly penalises strategies with frequent
+    // losses; the "modified" form (N_negative) hides frequency risk in catastrophic-tail
+    // strategies.
     const negativeReturns = returns.filter((r) => r < 0);
     const sortinoRatio: number | null = (() => {
       if (!canComputeRatios) return null;
@@ -313,9 +324,13 @@ class ReportStorage {
     const calmarRatio: number | null = equityMaxDrawdown > 0 && expectedYearlyReturns !== null
       ? Math.max(-MAX_CALMAR_RATIO, Math.min(MAX_CALMAR_RATIO, expectedYearlyReturns / equityMaxDrawdown))
       : null;
-    const recoveryFactor: number | null = equityMaxDrawdown > 0
-      ? totalPnl / equityMaxDrawdown
-      : null;
+    // Recovery Factor: numerator must be the compounded total return (equityFinal − 1) × 100,
+    // not the arithmetic totalPnl — denominator (equityMaxDrawdown) is from the compounded
+    // curve, so mixing units would inflate Recovery on long winning streaks.
+    // Null when account is blown — ratio is meaningless after total loss.
+    const recoveryFactor: number | null = blown || equityMaxDrawdown <= 0
+      ? null
+      : ((equityFinal - 1) * 100) / equityMaxDrawdown;
 
     return {
       signalList: this._signalList,

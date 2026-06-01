@@ -364,13 +364,15 @@ class ReportStorage {
       table,
       "",
       `**Total events:** ${stats.totalEvents}`,
-      `**Scheduled signals:** ${stats.totalScheduled}`,
+      `**Scheduled signals (raw):** ${stats.totalScheduled}`,
       `**Opened signals:** ${stats.totalOpened}`,
       `**Cancelled signals:** ${stats.totalCancelled}`,
       `**Activation rate:** ${stats.activationRate === null ? "N/A" : `${stats.activationRate.toFixed(2)}% (higher is better)`}`,
       `**Cancellation rate:** ${stats.cancellationRate === null ? "N/A" : `${stats.cancellationRate.toFixed(2)}% (lower is better)`}`,
       `**Average activation time:** ${stats.avgActivationTime === null ? "N/A" : `${stats.avgActivationTime.toFixed(2)} minutes`}`,
-      `**Average wait time (cancelled):** ${stats.avgWaitTime === null ? "N/A" : `${stats.avgWaitTime.toFixed(2)} minutes`}`
+      `**Average wait time (cancelled):** ${stats.avgWaitTime === null ? "N/A" : `${stats.avgWaitTime.toFixed(2)} minutes`}`,
+      "",
+      `*Activation / Cancellation rates are computed over scheduled signals whose outcome (opened or cancelled) is also in the buffer — matched by signalId. "Scheduled signals (raw)" above is the unmatched count and may include records whose outcome has not yet arrived or was evicted from the buffer.*`
     ].join("\n");
   }
 

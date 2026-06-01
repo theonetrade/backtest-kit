@@ -120,8 +120,9 @@ const MIN_CALENDAR_SPAN_DAYS = 14;
 /** Hard cap on tradesPerYear — prevents absurd extrapolation from short windows / clustered trades. */
 const MAX_TRADES_PER_YEAR = 365;
 /** Hard cap on |expectedYearlyReturns| percent. Compound interest on high avgPnl × frequency
- *  blows up to mathematically correct but business-unrealistic values. ±10000% = 100x equity. */
-const MAX_EXPECTED_YEARLY_RETURNS = 10000;
+ *  blows up to mathematically correct but business-unrealistic values. ±500% = 5x equity —
+ *  beyond this we suspect a noisy estimate, not a genuine edge. Above the cap → null. */
+const MAX_EXPECTED_YEARLY_RETURNS = 500;
 /** Hard cap on |calmarRatio|. Prevents explosion when equityMaxDrawdown is near zero. */
 const MAX_CALMAR_RATIO = 1000;
 
@@ -344,10 +345,12 @@ class HeatmapStorage {
         : null;
     }
 
-    // Sortino (canonical, Sortino 1991): avgPnl / downside deviation, where
-    // downsideDev = √( Σ min(0, r)² / N_total ). Dividing by N_total (not N_negative)
-    // properly penalises strategies with frequent losses; the "modified" form that
-    // divides by N_negative hides frequency risk in catastrophic-tail strategies.
+    // Sortino (canonical, Sortino 1991): (avgPnl - MAR) / downside deviation, where
+    // downsideDev = √( Σ min(0, r - MAR)² / N_total ). We use MAR = 0 (risk-free target),
+    // so the numerator reduces to avgPnl and the squared term to r² for r < 0.
+    // Dividing by N_total (not N_negative) properly penalises strategies with frequent
+    // losses; the "modified" form (N_negative) hides frequency risk in catastrophic-tail
+    // strategies.
     let sortinoRatio: number | null = null;
     if (canComputeRatios && avgPnl !== null) {
       const negativeReturns = signals
@@ -389,6 +392,8 @@ class HeatmapStorage {
     }
 
     // Calmar = annualized return / equity-curve max drawdown, capped at ±MAX_CALMAR_RATIO.
+    // Recovery Factor uses the compounded total return (equityFinal-1)*100, not arithmetic
+    // totalPnl — denominator is compounded so numerator must match. Null when account blown.
     let calmarRatio: number | null = null;
     let recoveryFactor: number | null = null;
     if (maxDrawdown !== null && maxDrawdown > 0) {
@@ -396,8 +401,8 @@ class HeatmapStorage {
         const raw = expectedYearlyReturns / maxDrawdown;
         calmarRatio = Math.max(-MAX_CALMAR_RATIO, Math.min(MAX_CALMAR_RATIO, raw));
       }
-      if (totalPnl !== null) {
-        recoveryFactor = totalPnl / maxDrawdown;
+      if (!blown) {
+        recoveryFactor = ((equityFinal - 1) * 100) / maxDrawdown;
       }
     }
 
