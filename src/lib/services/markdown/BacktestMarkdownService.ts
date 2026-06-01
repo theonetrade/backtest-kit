@@ -121,6 +121,9 @@ const MIN_SIGNALS_FOR_ANNUALIZATION = 10;
 const MIN_CALENDAR_SPAN_DAYS = 14;
 /** Hard cap on tradesPerYear — prevents absurd extrapolation from short windows / clustered trades. */
 const MAX_TRADES_PER_YEAR = 365;
+/** Hard cap on |expectedYearlyReturns| percent. Compound interest on high avgPnl × frequency
+ *  blows up to mathematically correct but business-unrealistic values. ±10000% = 100x equity. */
+const MAX_EXPECTED_YEARLY_RETURNS = 10000;
 
 
 /**
@@ -209,8 +212,13 @@ class ReportStorage {
       ? Math.min((totalSignals / calendarSpanDays) * 365, MAX_TRADES_PER_YEAR)
       : 0;
     // Compounded yearly return: (1 + avgPnl/100)^tradesPerYear - 1, expressed as percent.
+    // Clamped to ±MAX_EXPECTED_YEARLY_RETURNS to suppress business-unrealistic compounding
+    // explosions (mathematically correct but misleading for users).
     const expectedYearlyReturns: number | null = canAnnualize
-      ? (Math.pow(1 + avgPnl / 100, tradesPerYear) - 1) * 100
+      ? Math.max(
+          -MAX_EXPECTED_YEARLY_RETURNS,
+          Math.min(MAX_EXPECTED_YEARLY_RETURNS, (Math.pow(1 + avgPnl / 100, tradesPerYear) - 1) * 100)
+        )
       : null;
 
     // Per-trade Sharpe Ratio (risk-free rate = 0). Sample stddev (N-1) for unbiased estimate.

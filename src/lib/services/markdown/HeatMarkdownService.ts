@@ -116,6 +116,9 @@ const MIN_SIGNALS_FOR_ANNUALIZATION = 10;
 const MIN_CALENDAR_SPAN_DAYS = 14;
 /** Hard cap on tradesPerYear — prevents absurd extrapolation from short windows / clustered trades. */
 const MAX_TRADES_PER_YEAR = 365;
+/** Hard cap on |expectedYearlyReturns| percent. Compound interest on high avgPnl × frequency
+ *  blows up to mathematically correct but business-unrealistic values. ±10000% = 100x equity. */
+const MAX_EXPECTED_YEARLY_RETURNS = 10000;
 
 
 /**
@@ -356,7 +359,12 @@ class HeatmapStorage {
       const calendarSpanDays = (lastCloseAt - firstPendingAt) / (1000 * 60 * 60 * 24);
       if (calendarSpanDays >= MIN_CALENDAR_SPAN_DAYS) {
         tradesPerYear = Math.min((signals.length / calendarSpanDays) * 365, MAX_TRADES_PER_YEAR);
-        expectedYearlyReturns = (Math.pow(1 + avgPnl / 100, tradesPerYear) - 1) * 100;
+        // Clamp to ±MAX_EXPECTED_YEARLY_RETURNS — suppress compounding explosions.
+        const raw = (Math.pow(1 + avgPnl / 100, tradesPerYear) - 1) * 100;
+        expectedYearlyReturns = Math.max(
+          -MAX_EXPECTED_YEARLY_RETURNS,
+          Math.min(MAX_EXPECTED_YEARLY_RETURNS, raw)
+        );
       }
     }
 
@@ -422,12 +430,17 @@ class HeatmapStorage {
    * 2. Sorts symbols by `sharpeRatio` descending — best performers first,
    *    symbols with `null` sharpeRatio placed at the end.
    * 3. Computes portfolio-wide aggregates:
-   *    - `portfolioTotalPnl` — sum of all per-symbol `totalPnl` values (treats `null` as 0)
-   *    - `portfolioTotalTrades` — sum of all per-symbol `totalTrades`
-   *    - `portfolioSharpeRatio` — trade-count-weighted average of per-symbol sharpe ratios
+   *    - `portfolioTotalPnl` — sum of per-symbol `totalPnl` values, skipping `null` entries
+   *      (so a symbol with no data does not silently contribute 0). If every symbol's
+   *      `totalPnl` is null, the portfolio value is null.
+   *    - `portfolioTotalTrades` — sum of per-symbol `totalTrades`
+   *    - `portfolioSharpeRatio` — true Sharpe over the pooled return set across all
+   *      symbols (sample stddev, N-1). Not a per-symbol average — that would inflate
+   *      with single-trade symbols and ignore cross-symbol variance.
+   *    - `portfolioAvgPeakPnl` / `portfolioAvgFallPnl` — trade-count-weighted means
+   *      over symbols that have non-null values.
    *
-   * @returns Promise resolving to `HeatmapStatisticsModel` with per-symbol rows and
-   *   portfolio-wide `portfolioTotalPnl`, `portfolioSharpeRatio`, `portfolioTotalTrades`
+   * @returns Promise resolving to `HeatmapStatisticsModel`
    */
   public async getData(): Promise<HeatmapStatisticsModel> {
     const symbols: IHeatmapRow[] = [];

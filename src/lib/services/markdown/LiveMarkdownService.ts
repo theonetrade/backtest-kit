@@ -126,6 +126,9 @@ const MIN_SIGNALS_FOR_ANNUALIZATION = 10;
 const MIN_CALENDAR_SPAN_DAYS = 14;
 /** Hard cap on tradesPerYear — prevents absurd extrapolation from short windows / clustered trades. */
 const MAX_TRADES_PER_YEAR = 365;
+/** Hard cap on |expectedYearlyReturns| percent. Compound interest on high avgPnl × frequency
+ *  blows up to mathematically correct but business-unrealistic values. ±10000% = 100x equity. */
+const MAX_EXPECTED_YEARLY_RETURNS = 10000;
 
 
 /**
@@ -451,11 +454,15 @@ class ReportStorage {
     const winCount = closedEvents.filter((e) => (e.pnl ?? 0) > 0).length;
     const lossCount = closedEvents.filter((e) => (e.pnl ?? 0) < 0).length;
 
-    // Basic statistics
-    const avgPnl = totalClosed > 0
-      ? closedEvents.reduce((sum, e) => sum + (e.pnl || 0), 0) / totalClosed
+    // Filtered pnl set — exclude events without a numeric pnl. Substituting 0 for missing
+    // values would dilute both the mean and the variance and skew downstream metrics.
+    const returns = closedEvents
+      .map((e) => e.pnl)
+      .filter((v): v is number => typeof v === "number");
+    const avgPnl = returns.length > 0
+      ? returns.reduce((sum, r) => sum + r, 0) / returns.length
       : 0;
-    const totalPnl = closedEvents.reduce((sum, e) => sum + (e.pnl || 0), 0);
+    const totalPnl = returns.reduce((sum, r) => sum + r, 0);
 
     // Win rate excludes break-even trades from both numerator and denominator.
     const decisiveTrades = winCount + lossCount;
@@ -474,20 +481,24 @@ class ReportStorage {
       ? (lastCloseAt - firstPendingAt) / (1000 * 60 * 60 * 24)
       : 0;
     const canAnnualize =
-      totalClosed >= MIN_SIGNALS_FOR_ANNUALIZATION &&
+      returns.length >= MIN_SIGNALS_FOR_ANNUALIZATION &&
       calendarSpanDays >= MIN_CALENDAR_SPAN_DAYS;
     const tradesPerYear = canAnnualize
-      ? Math.min((totalClosed / calendarSpanDays) * 365, MAX_TRADES_PER_YEAR)
+      ? Math.min((returns.length / calendarSpanDays) * 365, MAX_TRADES_PER_YEAR)
       : 0;
     // Compounded yearly return: (1 + avgPnl/100)^tradesPerYear - 1, expressed as percent.
+    // Clamped to ±MAX_EXPECTED_YEARLY_RETURNS to suppress business-unrealistic compounding
+    // explosions (mathematically correct but misleading for users).
     const expectedYearlyReturns: number | null = canAnnualize
-      ? (Math.pow(1 + avgPnl / 100, tradesPerYear) - 1) * 100
+      ? Math.max(
+          -MAX_EXPECTED_YEARLY_RETURNS,
+          Math.min(MAX_EXPECTED_YEARLY_RETURNS, (Math.pow(1 + avgPnl / 100, tradesPerYear) - 1) * 100)
+        )
       : null;
 
     // Per-trade Sharpe Ratio (risk-free rate = 0). Sample stddev (N-1) for unbiased estimate.
-    const returns = closedEvents.map((e) => e.pnl || 0);
-    const stdDev = totalClosed > 1
-      ? Math.sqrt(returns.reduce((sum, r) => sum + Math.pow(r - avgPnl, 2), 0) / (totalClosed - 1))
+    const stdDev = returns.length > 1
+      ? Math.sqrt(returns.reduce((sum, r) => sum + Math.pow(r - avgPnl, 2), 0) / (returns.length - 1))
       : 0;
     const sharpeRatio = stdDev > 0 ? avgPnl / stdDev : 0;
     // Annualize only when gate passes; otherwise null.
@@ -534,12 +545,19 @@ class ReportStorage {
     })();
 
     // Equity-curve max drawdown via compounded equity (multiplicative, not additive).
-    // Events are stored newest-first; iterate in reverse for chronological order.
+    // Build a chronologically-ordered return stream from the filtered `returns` set
+    // (closedEvents are stored newest-first). Walking it in oldest-to-newest order keeps
+    // the equity curve causal.
+    const chronologicalReturns: number[] = [];
+    for (let i = closedEvents.length - 1; i >= 0; i--) {
+      const p = closedEvents[i].pnl;
+      if (typeof p === "number") chronologicalReturns.push(p);
+    }
     let equity = 1;
     let peak = 1;
     let equityMaxDrawdown = 0;
-    for (let i = closedEvents.length - 1; i >= 0; i--) {
-      equity *= 1 + (closedEvents[i].pnl || 0) / 100;
+    for (const r of chronologicalReturns) {
+      equity *= 1 + r / 100;
       if (equity > peak) peak = equity;
       const dd = (peak - equity) / peak * 100;
       if (dd > equityMaxDrawdown) equityMaxDrawdown = dd;

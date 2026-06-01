@@ -191,11 +191,14 @@ class PerformanceStorage {
       const totalDuration = durations.reduce((sum, d) => sum + d, 0);
       const avgDuration = totalDuration / durations.length;
 
-      // Calculate standard deviation
-      const variance =
-        durations.reduce((sum, d) => sum + Math.pow(d - avgDuration, 2), 0) /
-        durations.length;
-      const stdDev = Math.sqrt(variance);
+      // Sample standard deviation (Bessel correction: divide by N-1, not N) — consistent
+      // with Sharpe/Sortino calculations in Backtest/Live/Heat services.
+      const stdDev = durations.length > 1
+        ? Math.sqrt(
+            durations.reduce((sum, d) => sum + Math.pow(d - avgDuration, 2), 0) /
+              (durations.length - 1)
+          )
+        : 0;
 
       // Calculate wait times between events
       const waitTimes: number[] = [];
