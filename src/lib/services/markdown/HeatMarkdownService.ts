@@ -112,6 +112,9 @@ function isUnsafe(value: number | null): boolean {
 
 /** Minimum closed signals required to annualize Sharpe / yearly returns / Calmar. */
 const MIN_SIGNALS_FOR_ANNUALIZATION = 10;
+/** Minimum signals required for ANY ratio metric (Sharpe / Sortino / stdDev). Below this,
+ *  sample size is too small to estimate variance meaningfully. */
+const MIN_SIGNALS_FOR_RATIOS = 10;
 /** Minimum calendar span (days) for trade-frequency extrapolation. */
 const MIN_CALENDAR_SPAN_DAYS = 14;
 /** Hard cap on tradesPerYear — prevents absurd extrapolation from short windows / clustered trades. */
@@ -119,6 +122,8 @@ const MAX_TRADES_PER_YEAR = 365;
 /** Hard cap on |expectedYearlyReturns| percent. Compound interest on high avgPnl × frequency
  *  blows up to mathematically correct but business-unrealistic values. ±10000% = 100x equity. */
 const MAX_EXPECTED_YEARLY_RETURNS = 10000;
+/** Hard cap on |calmarRatio|. Prevents explosion when equityMaxDrawdown is near zero. */
+const MAX_CALMAR_RATIO = 1000;
 
 
 /**
@@ -209,9 +214,12 @@ class HeatmapStorage {
       avgPnl = totalPnl! / signals.length;
     }
 
-    // Sample standard deviation (Bessel correction: divide by N-1, not N)
+    // Sample standard deviation (Bessel correction: divide by N-1, not N).
+    // Per-symbol ratios are gated by MIN_SIGNALS_FOR_RATIOS — variance estimates from
+    // tiny samples are too noisy to publish.
+    const canComputeRatios = signals.length >= MIN_SIGNALS_FOR_RATIOS;
     let stdDev: number | null = null;
-    if (signals.length > 1 && avgPnl !== null) {
+    if (canComputeRatios && avgPnl !== null) {
       const variance =
         signals.reduce(
           (acc, s) => acc + Math.pow(s.pnl.pnlPercentage - avgPnl!, 2),
@@ -226,22 +234,29 @@ class HeatmapStorage {
       sharpeRatio = avgPnl / stdDev;
     }
 
-    // Equity-curve max drawdown via compounded equity (multiplicative, not additive).
-    // Returns are per-trade percentages on per-trade cost basis; arithmetic sum mixes
-    // bases. Compounding equity *= (1 + r/100) gives the true portfolio drawdown.
+    // Equity-curve max drawdown via compounded equity ("as-if 100% allocation per trade").
     // Signals are stored newest-first (unshift in addSignal), so iterate in reverse.
+    // If equity ≤ 0 — account blown, fix DD at 100%. equityFinal feeds expectedYearlyReturns.
     let maxDrawdown: number | null = null;
+    let equityFinal = 1;
+    let blown = false;
     if (signals.length > 0) {
       let equity = 1;
       let peak = 1;
       let maxDD = 0;
       for (let i = signals.length - 1; i >= 0; i--) {
         equity *= 1 + signals[i].pnl.pnlPercentage / 100;
+        if (equity <= 0) {
+          maxDD = 100;
+          blown = true;
+          break;
+        }
         if (equity > peak) peak = equity;
         const dd = (peak - equity) / peak * 100;
         if (dd > maxDD) maxDD = dd;
       }
       maxDrawdown = maxDD;
+      equityFinal = blown ? 0 : equity;
     }
 
     // Calculate Profit Factor
@@ -329,27 +344,27 @@ class HeatmapStorage {
         : null;
     }
 
-    // Calculate Sortino Ratio: downside deviation = RMS of negative returns (losing trades only)
+    // Sortino: avgPnl / downside deviation. Gated on sample size.
     let sortinoRatio: number | null = null;
-    if (signals.length > 0 && avgPnl !== null) {
+    if (canComputeRatios && avgPnl !== null) {
       const negativeReturns = signals
         .map((s) => s.pnl.pnlPercentage)
         .filter((r) => r < 0);
-      const downsideVariance = negativeReturns.length > 0
-        ? negativeReturns.reduce((acc, r) => acc + r * r, 0) / negativeReturns.length
-        : 0;
-      const downsideDeviation = Math.sqrt(downsideVariance);
-      if (downsideDeviation > 0) {
-        sortinoRatio = avgPnl / downsideDeviation;
+      if (negativeReturns.length > 0) {
+        const downsideVariance = negativeReturns.reduce((acc, r) => acc + r * r, 0) / negativeReturns.length;
+        const downsideDeviation = Math.sqrt(downsideVariance);
+        if (downsideDeviation > 0) {
+          sortinoRatio = avgPnl / downsideDeviation;
+        }
       }
     }
 
-    // Expected yearly returns with compounding. Annualization gated by sample size
-    // and calendar span to suppress absurd numbers from short windows / tiny N.
-    // Formula: (1 + avgPnl/100)^tradesPerYear - 1, expressed as percent.
+    // Expected yearly returns via geometric mean of equity curve.
+    // equityFinal^(tradesPerYear / N) - 1 — accounts for volatility drag.
+    // Gated by sample size and calendar span; if account blown → full loss.
     let expectedYearlyReturns: number | null = null;
     let tradesPerYear: number | null = null;
-    if (signals.length >= MIN_SIGNALS_FOR_ANNUALIZATION && avgPnl !== null) {
+    if (signals.length >= MIN_SIGNALS_FOR_ANNUALIZATION) {
       let firstPendingAt = Infinity;
       let lastCloseAt = -Infinity;
       for (const s of signals) {
@@ -359,21 +374,25 @@ class HeatmapStorage {
       const calendarSpanDays = (lastCloseAt - firstPendingAt) / (1000 * 60 * 60 * 24);
       if (calendarSpanDays >= MIN_CALENDAR_SPAN_DAYS) {
         tradesPerYear = Math.min((signals.length / calendarSpanDays) * 365, MAX_TRADES_PER_YEAR);
-        // Clamp to ±MAX_EXPECTED_YEARLY_RETURNS — suppress compounding explosions.
-        const raw = (Math.pow(1 + avgPnl / 100, tradesPerYear) - 1) * 100;
-        expectedYearlyReturns = Math.max(
-          -MAX_EXPECTED_YEARLY_RETURNS,
-          Math.min(MAX_EXPECTED_YEARLY_RETURNS, raw)
-        );
+        if (blown) {
+          expectedYearlyReturns = -100;
+        } else {
+          const raw = (Math.pow(equityFinal, tradesPerYear / signals.length) - 1) * 100;
+          expectedYearlyReturns = Math.max(
+            -MAX_EXPECTED_YEARLY_RETURNS,
+            Math.min(MAX_EXPECTED_YEARLY_RETURNS, raw)
+          );
+        }
       }
     }
 
-    // Calmar = annualized return / equity-curve max drawdown. Null if annualization gated off.
+    // Calmar = annualized return / equity-curve max drawdown, capped at ±MAX_CALMAR_RATIO.
     let calmarRatio: number | null = null;
     let recoveryFactor: number | null = null;
     if (maxDrawdown !== null && maxDrawdown > 0) {
       if (expectedYearlyReturns !== null) {
-        calmarRatio = expectedYearlyReturns / maxDrawdown;
+        const raw = expectedYearlyReturns / maxDrawdown;
+        calmarRatio = Math.max(-MAX_CALMAR_RATIO, Math.min(MAX_CALMAR_RATIO, raw));
       }
       if (totalPnl !== null) {
         recoveryFactor = totalPnl / maxDrawdown;
