@@ -111,8 +111,11 @@ test("performance: all-zero durations — pct guard, no NaN in report", async ({
   if (m.avgDuration !== 0) return fail(`avgDuration must be 0, got ${m.avgDuration}`);
   if (m.stdDev !== 0) return fail(`stdDev must be 0 for identical zeros, got ${m.stdDev}`);
 
-  const md = await svc.getReport(STRATEGY);
+  const md = await svc.getReport("ZEROS-PERF", STRATEGY, EXCHANGE, FRAME, true);
   if (/NaN/.test(md)) return fail(`getReport contains "NaN" — pct guard regression. report:\n${md}`);
+  // Sanity: report must actually cover the live_tick metric, not just be the
+  // empty-state message — otherwise the no-NaN check would pass vacuously.
+  if (!/live_tick/.test(md)) return fail(`getReport must mention live_tick — empty report would pass the NaN check vacuously`);
   pass(`All-zero durations: no NaN, stats safe`);
 });
 

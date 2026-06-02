@@ -26,10 +26,17 @@ import "./measure/backtest_21.test.mjs";
 import "./measure/backtest_22.test.mjs";
 import "./measure/backtest_23.test.mjs";
 import "./measure/backtest_24.test.mjs";
+import "./measure/backtest_25.test.mjs";
 import "./measure/schedule.test.mjs";
 import "./measure/performance.test.mjs";
 import "./measure/markdown_rendering.test.mjs";
 import "./measure/columns.test.mjs";
+import "./measure/infra.test.mjs";
+import "./measure/walker.test.mjs";
+import "./measure/heat_extras.test.mjs";
+import "./measure/schedule_extra.test.mjs";
+import "./measure/performance_extra.test.mjs";
+import "./measure/event_services.test.mjs";
 
 run(import.meta.url, () => {
     console.log("All tests are finished");
