@@ -7,7 +7,7 @@ import {
   EXCHANGE,
   FRAME,
   toClosedTick,
-} from "../utils/_measure_helpers.mjs";
+} from "../utils/measure_helpers.mjs";
 
 // Streak boundary case. Sequence: WWWWWWW LLLL WWW (14 signals).
 // Expected: maxWinStreak=7, maxLossStreak=4.

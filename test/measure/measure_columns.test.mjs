@@ -7,7 +7,7 @@ import {
   EXCHANGE,
   FRAME,
   toClosedTick,
-} from "../utils/_measure_helpers.mjs";
+} from "../utils/measure_helpers.mjs";
 
 // Column formatters defence — every column maps `null` to "N/A" rather than
 // e.g. "0.000" or the literal string "null". The full Heat table is rendered

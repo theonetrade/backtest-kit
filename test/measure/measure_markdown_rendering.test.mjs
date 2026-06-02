@@ -9,7 +9,7 @@ import {
   EXCHANGE,
   FRAME,
   toClosedTick,
-} from "../utils/_measure_helpers.mjs";
+} from "../utils/measure_helpers.mjs";
 
 // Markdown rendering — defends the report's textual contract.
 // Bug history: getReport could regress to printing `null` instead of `N/A`,

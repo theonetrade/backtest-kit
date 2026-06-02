@@ -6,7 +6,7 @@ import {
   EXCHANGE,
   FRAME,
   toClosedTick,
-} from "../utils/_measure_helpers.mjs";
+} from "../utils/measure_helpers.mjs";
 
 // Lifecycle contract: subscribe/unsubscribe must be safe to call in any
 // order and any number of times.

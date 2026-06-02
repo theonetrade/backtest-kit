@@ -7,7 +7,7 @@ import {
   EXCHANGE,
   FRAME,
   toClosedTick,
-} from "../utils/_measure_helpers.mjs";
+} from "../utils/measure_helpers.mjs";
 
 // Buffer overflow + idempotency. 350 signals → trim to 250. Two consecutive
 // getData() calls without any new ticks in between must produce identical
