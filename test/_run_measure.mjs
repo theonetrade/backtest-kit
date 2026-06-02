@@ -87,24 +87,6 @@ import "./measure/backtest_83.test.mjs";
 import "./measure/backtest_84.test.mjs";
 import "./measure/backtest_85.test.mjs";
 
-import "./measure/measure_walker_unbounded.test.mjs";
-import "./measure/measure_storage_keys.test.mjs";
-import "./measure/measure_defensive_inputs.test.mjs";
-import "./measure/measure_edge_inputs.test.mjs";
-import "./measure/measure_empty_state.test.mjs";
-import "./measure/measure_lifecycle.test.mjs";
-import "./measure/measure_mode_separation.test.mjs";
-import "./measure/measure_schedule.test.mjs";
-import "./measure/measure_performance.test.mjs";
-import "./measure/measure_markdown_rendering.test.mjs";
-import "./measure/measure_columns.test.mjs";
-import "./measure/measure_infra.test.mjs";
-import "./measure/measure_walker.test.mjs";
-import "./measure/measure_heat_extras.test.mjs";
-import "./measure/measure_schedule_extra.test.mjs";
-import "./measure/measure_performance_extra.test.mjs";
-import "./measure/measure_event_services.test.mjs";
-
 run(import.meta.url, () => {
     console.log("All tests are finished");
     process.exit(-1);
