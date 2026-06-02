@@ -28,20 +28,13 @@ const assertAnnuity = (stats) => {
   if (stats.lossCount !== 0) return `lossCount must be 0, got ${stats.lossCount}`;
   if (!approx(stats.avgPnl, 0.1, 1e-9)) return `avgPnl must be 0.1, got ${stats.avgPnl}`;
   // stdDev: identical returns produce a float artifact (~1e-16) instead of
-  // exactly 0 due to (x-mean) accumulation. The service checks `stdDev > 0`
-  // only, so the epsilon stdDev DOES NOT gate sharpe — it produces an
-  // astronomically large value (avg/epsilon). DOCUMENTED LIMITATION:
-  // identical-returns + variance-based metrics interact poorly via float math.
+  // exactly 0 due to (x-mean) accumulation. The service applies a
+  // STDDEV_EPSILON guard (1e-9) so the artifact is treated as zero — sharpe
+  // and sortino must surface as null, not astronomical.
   if (Math.abs(stats.stdDev) > 1e-9) return `stdDev must be ≈0 (identical returns), got ${stats.stdDev}`;
-  // sharpeRatio is either null (if service hits exact-zero stdDev gate) or
-  // astronomically large (if float artifact stdDev > 0). Accept both.
   if (stats.sharpeRatio !== null) {
-    if (!isFinite(stats.sharpeRatio)) {
-      return `sharpeRatio non-finite: ${stats.sharpeRatio}`;
-    }
-    if (Math.abs(stats.sharpeRatio) < 1e10) {
-      return `if sharpeRatio is non-null, it must be either null OR astronomically large (float epsilon stdDev). Got ${stats.sharpeRatio}`;
-    }
+    return `sharpeRatio must be null (stdDev below STDDEV_EPSILON guard), got ${stats.sharpeRatio}. ` +
+      `If non-null, the float-artifact stdDev passed the gate — regression.`;
   }
   if (stats.sortinoRatio !== null) return `sortinoRatio must be null, got ${stats.sortinoRatio}`;
 

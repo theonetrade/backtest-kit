@@ -13,6 +13,8 @@ export const MIN_CALENDAR_SPAN_DAYS = 14;
 export const MAX_TRADES_PER_YEAR = 365;
 export const MAX_EXPECTED_YEARLY_RETURNS = 100;
 export const MAX_CALMAR_RATIO = 1000;
+/** Float-artifact stdDev threshold — mirrors the service guard. */
+export const STDDEV_EPSILON = 1e-9;
 
 /**
  * Maps a persisted ISignalRow into the IStrategyTickResultClosed shape the
@@ -97,7 +99,7 @@ export const computePoolReference = (rows) => {
 
   const canRatios = n >= MIN_SIGNALS_FOR_RATIOS;
   const stdDev = canRatios ? sampleStdDev(returns) : 0;
-  const sharpe = canRatios && stdDev > 0 ? avgPnl / stdDev : null;
+  const sharpe = canRatios && stdDev > STDDEV_EPSILON ? avgPnl / stdDev : null;
 
   const firstPend = Math.min(...valid.map((r) => r.pendingAt));
   const lastClose = Math.max(...valid.map((r) => r.updatedAt));
@@ -142,7 +144,7 @@ export const computePoolReference = (rows) => {
   let sortinoRatio = null;
   if (canRatios && negative.length > 0) {
     const downDev = Math.sqrt(negative.reduce((s, r) => s + r * r, 0) / returns.length);
-    sortinoRatio = downDev > 0 ? avgPnl / downDev : null;
+    sortinoRatio = downDev > STDDEV_EPSILON ? avgPnl / downDev : null;
   }
 
   const calmarRatio =
@@ -201,7 +203,7 @@ export const computeHeatReference = (rows) => {
     const avgPnl = totalPnl / n;
     const canRatios = n >= MIN_SIGNALS_FOR_RATIOS;
     const stdDev = canRatios ? sampleStdDev(returns) : null;
-    const sharpe = stdDev !== null && stdDev > 0 ? avgPnl / stdDev : null;
+    const sharpe = stdDev !== null && stdDev > STDDEV_EPSILON ? avgPnl / stdDev : null;
     const peakVals = sigs
       .map((s) => s.peakProfit?.pnlPercentage)
       .filter((v) => typeof v === "number");
@@ -236,7 +238,7 @@ export const computeHeatReference = (rows) => {
   if (allReturns.length >= MIN_SIGNALS_FOR_RATIOS) {
     const avg = portfolioTotalPnl / allReturns.length;
     const sd = sampleStdDev(allReturns);
-    if (sd > 0) portfolioSharpe = avg / sd;
+    if (sd > STDDEV_EPSILON) portfolioSharpe = avg / sd;
   }
 
   // Trade-weighted peak/fall, weighted only over symbols with non-null values.

@@ -25,8 +25,11 @@ const assertUnicorn = (stats) => {
   if (!approx(stats.totalPnl, 15, 1e-9)) return `totalPnl must be 15, got ${stats.totalPnl}`;
 
   // ALL variance-based metrics null
-  if (stats.stdDev !== 0) return `stdDev must be 0 (identical returns), got ${stats.stdDev}`;
-  if (stats.sharpeRatio !== null) return `sharpeRatio must be null (stdDev=0), got ${stats.sharpeRatio}`;
+  // stdDev: identical returns produce a float artifact (~1e-17), not exact 0,
+  // due to (x-mean) accumulation. Service treats anything below STDDEV_EPSILON
+  // as zero for gating sharpe — that's what makes the test ask for null below.
+  if (Math.abs(stats.stdDev) > 1e-9) return `stdDev must be ≈0 (identical returns), got ${stats.stdDev}`;
+  if (stats.sharpeRatio !== null) return `sharpeRatio must be null (stdDev below epsilon gate), got ${stats.sharpeRatio}`;
   if (stats.sortinoRatio !== null) return `sortinoRatio must be null (no negatives), got ${stats.sortinoRatio}`;
   if (stats.annualizedSharpeRatio !== null) return `annualizedSharpe must be null, got ${stats.annualizedSharpeRatio}`;
   if (stats.recoveryFactor !== null) return `recoveryFactor must be null (DD=0), got ${stats.recoveryFactor}`;

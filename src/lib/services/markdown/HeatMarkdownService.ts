@@ -125,6 +125,10 @@ const MAX_TRADES_PER_YEAR = 365;
 const MAX_EXPECTED_YEARLY_RETURNS = 100;
 /** Hard cap on |calmarRatio|. Prevents explosion when equityMaxDrawdown is near zero. */
 const MAX_CALMAR_RATIO = 1000;
+/** Minimum stdDev required for Sharpe/Sortino. Identical-returns series produce
+ *  float-artifact stdDev (~1e-17) that's > 0 but spuriously inflates sharpe to
+ *  astronomical magnitudes (avgPnl / epsilon). */
+const STDDEV_EPSILON = 1e-9;
 
 
 /**
@@ -231,7 +235,9 @@ class HeatmapStorage {
 
     // Per-trade Sharpe Ratio
     let sharpeRatio: number | null = null;
-    if (avgPnl !== null && stdDev !== null && stdDev > 0) {
+    // STDDEV_EPSILON guard — protects against float-artifact stdDev producing
+    // spuriously astronomical sharpe on identical-returns symbols.
+    if (avgPnl !== null && stdDev !== null && stdDev > STDDEV_EPSILON) {
       sharpeRatio = avgPnl / stdDev;
     }
 
@@ -359,7 +365,8 @@ class HeatmapStorage {
       if (negativeReturns.length > 0) {
         const downsideVariance = negativeReturns.reduce((acc, r) => acc + r * r, 0) / signals.length;
         const downsideDeviation = Math.sqrt(downsideVariance);
-        if (downsideDeviation > 0) {
+        // Same epsilon guard as Sharpe — protects against float-artifact downsideDev.
+        if (downsideDeviation > STDDEV_EPSILON) {
           sortinoRatio = avgPnl / downsideDeviation;
         }
       }
@@ -524,7 +531,8 @@ class HeatmapStorage {
         allReturns.reduce((acc, r) => acc + Math.pow(r - portfolioAvg, 2), 0) /
         (allReturns.length - 1);
       const portfolioStdDev = Math.sqrt(portfolioVariance);
-      if (portfolioStdDev > 0) {
+      // STDDEV_EPSILON guard — same protection as per-symbol Sharpe.
+      if (portfolioStdDev > STDDEV_EPSILON) {
         portfolioSharpeRatio = portfolioAvg / portfolioStdDev;
       }
     }

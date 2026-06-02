@@ -135,6 +135,10 @@ const MAX_TRADES_PER_YEAR = 365;
 const MAX_EXPECTED_YEARLY_RETURNS = 100;
 /** Hard cap on |calmarRatio|. Prevents explosion when equityMaxDrawdown is near zero. */
 const MAX_CALMAR_RATIO = 1000;
+/** Minimum stdDev required for Sharpe/Sortino. Identical-returns series produce
+ *  float-artifact stdDev (~1e-17) that's > 0 but spuriously inflates sharpe to
+ *  astronomical magnitudes (avgPnl / epsilon). */
+const STDDEV_EPSILON = 1e-9;
 
 
 /**
@@ -511,7 +515,9 @@ class ReportStorage {
     const stdDev = canComputeRatios
       ? Math.sqrt(returns.reduce((sum, r) => sum + Math.pow(r - avgPnl, 2), 0) / (returns.length - 1))
       : 0;
-    const sharpeRatio: number | null = canComputeRatios && stdDev > 0
+    // STDDEV_EPSILON guard — protects against float-artifact stdDev from identical
+    // returns producing spuriously astronomical sharpe.
+    const sharpeRatio: number | null = canComputeRatios && stdDev > STDDEV_EPSILON
       ? avgPnl / stdDev
       : null;
     // Annualize only when gate passes; otherwise null.
@@ -562,7 +568,8 @@ class ReportStorage {
       if (negativeReturns.length === 0) return null;
       const downsideVariance = negativeReturns.reduce((sum, r) => sum + r * r, 0) / returns.length;
       const downsideDeviation = Math.sqrt(downsideVariance);
-      return downsideDeviation > 0 ? avgPnl / downsideDeviation : null;
+      // Same epsilon guard as Sharpe — protects against float-artifact downsideDev.
+      return downsideDeviation > STDDEV_EPSILON ? avgPnl / downsideDeviation : null;
     })();
 
     // Equity-curve max drawdown via compounded equity (multiplicative). Returns are per-trade
