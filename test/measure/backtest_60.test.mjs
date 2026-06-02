@@ -67,13 +67,16 @@ const assertSilent = (stats, countField) => {
     return `stdDev must be 0 when ratio gate is closed (documented), got ${stats.stdDev}`;
   }
 
-  // certaintyRatio — NOT ratio-gated by N (depends only on avgWin/avgLoss).
-  // 0.75 / 0.5 = 1.5. Should be computed.
-  if (stats.certaintyRatio === null) {
-    return `certaintyRatio must be computed (no N-gate on it), got null`;
+  // certaintyRatio — gated by N like the other ratios (N=3 < MIN_SIGNALS_FOR_RATIOS).
+  // On a 3-trade sample the win/loss means are too noisy to publish a ratio,
+  // so the service withholds it as N/A alongside Sharpe/Sortino/Calmar.
+  if (stats.certaintyRatio !== null) {
+    return `certaintyRatio must be null (N=3 < MIN_SIGNALS_FOR_RATIOS), got ${stats.certaintyRatio}`;
   }
-  if (!approx(stats.certaintyRatio, 1.5, 0.01)) {
-    return `certaintyRatio must be ≈1.5, got ${stats.certaintyRatio}`;
+
+  // recoveryFactor — also N-gated now: null on a 3-trade sample.
+  if (stats.recoveryFactor !== null) {
+    return `recoveryFactor must be null (N=3 < MIN_SIGNALS_FOR_RATIOS), got ${stats.recoveryFactor}`;
   }
 
   // No NaN/Infinity

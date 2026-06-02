@@ -417,7 +417,10 @@ class HeatmapStorage {
         const raw = expectedYearlyReturns / maxDrawdown;
         calmarRatio = Math.max(-MAX_CALMAR_RATIO, Math.min(MAX_CALMAR_RATIO, raw));
       }
-      if (!blown) {
+      if (!blown && canComputeRatios) {
+        // Gated below MIN_SIGNALS_FOR_RATIOS like Sharpe — a Recovery Factor on
+        // a handful of trades is statistically meaningless, so don't surface it
+        // per-symbol while Sharpe is N/A.
         // Same MAX_CALMAR_RATIO clamp as Calmar — both compounded-profit/DD ratios.
         const rawRec = ((equityFinal - 1) * 100) / maxDrawdown;
         recoveryFactor = Math.max(-MAX_CALMAR_RATIO, Math.min(MAX_CALMAR_RATIO, rawRec));

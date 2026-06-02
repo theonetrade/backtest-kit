@@ -6,21 +6,19 @@ import { runBacktestPool, runLivePool, approx } from "./_measure_helpers.mjs";
 
 // Intermediate scenario: small N (6) + catastrophic black swan.
 // 4 wins +0.5%, 1 small loss -0.3%, 1 black swan -12%.
-//   n=6 → BELOW ratio gate → sharpe/sortino null
+//   n=6 → BELOW ratio gate → ALL ratios null (sharpe/sortino/certainty/recovery)
 //   totalPnl = 2 - 0.3 - 12 = -10.3 (strongly negative)
 //   avgPnl ≈ -1.72
 //   winCount=4, lossCount=2, winRate=66.67% (LOOKS HEALTHY)
-//   certaintyRatio: avgWin=0.5, avgLoss=-6.15 → 0.5/6.15 ≈ 0.081
 //
 // MOST DANGEROUS REAL-WORLD CASE: small sample, large loss.
 // User sees:
 //   - winRate 66.67% (sounds great!)
-//   - totalPnl -10.3% (strongly negative)
-//   - certaintyRatio 0.08 (catastrophic asymmetry)
-//   - But NO sharpe/sortino to confirm
-// They must rely on aggregates alone. Analytics correctly gates ratios
-// (not enough data for variance estimation) but exposes the catastrophe
-// via aggregates AND certaintyRatio (which doesn't require N≥10).
+//   - totalPnl -10.3% (strongly negative — the ONLY signal of the catastrophe)
+//   - ALL ratios N/A (not enough data for any of them to be trustworthy)
+// They must rely on the aggregates alone. The point: on a 6-trade sample no
+// ratio — not even certainty/recovery — is published, because none of them
+// are statistically meaningful. Only totalPnl/avgPnl reveal the loss.
 
 const POOL = "POOL-B64";
 
@@ -52,24 +50,22 @@ const assertSmallNSwan = (stats, countField) => {
     return `annualizedSharpeRatio must be null, got ${stats.annualizedSharpeRatio}`;
   }
 
-  // BUT certaintyRatio IS computed (not N-gated) — and it screams
-  if (stats.certaintyRatio === null) {
-    return `certaintyRatio must be computed (no N-gate on it), got null`;
-  }
-  if (stats.certaintyRatio >= 0.2) {
-    return `certaintyRatio must be FAR below 1.0 (≈0.08) — the catastrophic asymmetry, got ${stats.certaintyRatio}`;
-  }
-  if (!approx(stats.certaintyRatio, 0.0813, 0.01)) {
-    return `certaintyRatio must be ≈0.081, got ${stats.certaintyRatio}`;
+  // certaintyRatio — N-gated like the others (N=6 < MIN). The catastrophic
+  // asymmetry is NOT exposed via a ratio on this tiny sample; only the
+  // aggregates (totalPnl/avgPnl, asserted above) reveal it. Surfacing a
+  // certainty ratio on 6 trades would be statistically misleading.
+  if (stats.certaintyRatio !== null) {
+    return `certaintyRatio must be null (N=6 < MIN_SIGNALS_FOR_RATIOS), got ${stats.certaintyRatio}`;
   }
 
-  // recoveryFactor: DD > 0 → computed. Negative because compound loss.
-  if (stats.recoveryFactor === null) return `recoveryFactor must be computed (DD>0), got null`;
-  if (stats.recoveryFactor >= 0) return `recoveryFactor must be negative (losing), got ${stats.recoveryFactor}`;
+  // recoveryFactor — also N-gated now: null on a 6-trade sample.
+  if (stats.recoveryFactor !== null) {
+    return `recoveryFactor must be null (N=6 < MIN_SIGNALS_FOR_RATIOS), got ${stats.recoveryFactor}`;
+  }
   return null;
 };
 
-test("backtest_64.json: small-N (6) + black swan — totalPnl screams, certainty=0.08, ratios gated (Backtest)", async (ctx) => {
+test("backtest_64.json: small-N (6) + black swan — totalPnl screams, ALL ratios gated to null (Backtest)", async (ctx) => {
   await runBacktestPool(lib.backtestMarkdownService, signals, POOL, "Backtest small-N+swan verified", ctx, (stats) => assertSmallNSwan(stats, "totalSignals"));
 });
 

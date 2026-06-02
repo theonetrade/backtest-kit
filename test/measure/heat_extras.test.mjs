@@ -129,11 +129,12 @@ test("heat: expectancy uses real winProb/lossProb (break-evens contribute 0)", a
 });
 
 // ---------------------------------------------------------------------------
-// Test 5: per-symbol recoveryFactor does NOT depend on annualization gates —
-// only DD > 0 and !blown. With 5 trades (< MIN_SIGNALS_FOR_RATIOS), Sharpe is
-// gated to null, but recoveryFactor must STILL be computed.
+// Test 5: per-symbol recoveryFactor IS sample-size gated, like Sharpe. With
+// 5 trades (< MIN_SIGNALS_FOR_RATIOS) both Sharpe AND recoveryFactor must be
+// null — a Recovery Factor on a handful of trades is statistically meaningless
+// and must not be surfaced while Sharpe is N/A.
 // ---------------------------------------------------------------------------
-test("heat: per-symbol recoveryFactor computed even when Sharpe is gated", async ({ pass, fail }) => {
+test("heat: per-symbol recoveryFactor gated to null when Sharpe is gated (N<10)", async ({ pass, fail }) => {
   const pnls = [1, 1, -2, 1, 1]; // 5 trades, DD > 0, equity ends > 0
   const rows = pnls.map((p, i) => makeRow(i, p, "REC-GATED"));
   const stats = await feed(rows);
@@ -143,15 +144,12 @@ test("heat: per-symbol recoveryFactor computed even when Sharpe is gated", async
   if (row.sharpeRatio !== null) {
     return fail(`sharpeRatio must be gated (N=5 < 10), got ${row.sharpeRatio}`);
   }
-  if (row.recoveryFactor === null) {
-    return fail(`recoveryFactor must be computed regardless of ratio gate, got null`);
+  if (row.recoveryFactor !== null) {
+    return fail(`recoveryFactor must be null (N=5 < MIN_SIGNALS_FOR_RATIOS), got ${row.recoveryFactor}`);
   }
-  // Equity trajectory: 1 → 1.01 → 1.0201 → 0.999698 → 1.009695 → 1.019792
-  // peak = 1.0201 (after 2nd), trough = 0.99970 → DD = (1.0201 - 0.99970)/1.0201 ≈ 1.98%
-  // equityFinal ≈ 1.0198, total return = 1.98%
-  // recovery = 1.98 / 1.98 ≈ 1.0
-  if (row.recoveryFactor <= 0) {
-    return fail(`recoveryFactor must be positive (compound positive, DD > 0), got ${row.recoveryFactor}`);
+  // maxDrawdown is still computed (it's not ratio-gated) — only the ratio is withheld.
+  if (row.maxDrawdown === null || row.maxDrawdown <= 0) {
+    return fail(`maxDrawdown must still be computed (>0), got ${row.maxDrawdown}`);
   }
-  pass(`recoveryFactor computed at gated N=5: ${row.recoveryFactor.toFixed(3)}`);
+  pass(`recoveryFactor gated to null at N=5 (maxDrawdown=${row.maxDrawdown.toFixed(3)}% still computed)`);
 });

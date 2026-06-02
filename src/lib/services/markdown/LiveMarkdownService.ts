@@ -528,8 +528,11 @@ class ReportStorage {
     // Certainty Ratio: null (not zero) when there are no losing trades — a flawless
     // strategy has undefined Certainty Ratio, not "worst case zero". Computed on
     // validClosed for consistency with other ratios.
+    // Gated below MIN_SIGNALS_FOR_RATIOS — same sample-size gate as Sharpe/Sortino,
+    // so the report doesn't surface certainty on a handful of trades while
+    // withholding the rest.
     let certaintyRatio: number | null = null;
-    if (totalClosed > 0) {
+    if (canComputeRatios && totalClosed > 0) {
       const wins = validClosed.filter((e) => (e.pnl as number) > 0);
       const losses = validClosed.filter((e) => (e.pnl as number) < 0);
       const avgWin = wins.length > 0
@@ -620,10 +623,12 @@ class ReportStorage {
       : null;
     // Recovery Factor: numerator must be the compounded total return, not arithmetic totalPnl —
     // denominator is from the compounded equity curve, so mixing units inflates Recovery.
+    // Null below MIN_SIGNALS_FOR_RATIOS — same sample-size gate as the other ratios,
+    // so a 3-trade run doesn't surface a Recovery Factor while Sharpe/Calmar are N/A.
     // Null when account is blown.
     // Same MAX_CALMAR_RATIO clamp as Calmar — both are compounded-profit/DD ratios
     // and explode the same way when DD is near zero.
-    const recoveryFactor: number | null = blown || equityMaxDrawdown <= 0
+    const recoveryFactor: number | null = !canComputeRatios || blown || equityMaxDrawdown <= 0
       ? null
       : Math.max(
           -MAX_CALMAR_RATIO,

@@ -128,10 +128,11 @@ export const computePoolReference = (rows) => {
   const losses = returns.filter((r) => r < 0);
   const avgWin = wins.length ? wins.reduce((a, b) => a + b, 0) / wins.length : 0;
   const avgLoss = losses.length ? losses.reduce((a, b) => a + b, 0) / losses.length : 0;
-  // STDDEV_EPSILON guard mirrors the service: float-artifact losses produce
-  // spurious astronomical certaintyRatio without it.
+  // Gated by canRatios (N≥MIN_SIGNALS_FOR_RATIOS) like the service — certainty
+  // on a handful of trades is too noisy to publish. STDDEV_EPSILON guard mirrors
+  // the service: float-artifact losses produce spurious astronomical certaintyRatio.
   const certaintyRatio =
-    Math.abs(avgLoss) > STDDEV_EPSILON && avgLoss < 0 ? avgWin / Math.abs(avgLoss) : null;
+    canRatios && Math.abs(avgLoss) > STDDEV_EPSILON && avgLoss < 0 ? avgWin / Math.abs(avgLoss) : null;
 
   const peakVals = valid
     .map((r) => r.peakProfit?.pnlPercentage)
@@ -158,9 +159,10 @@ export const computePoolReference = (rows) => {
         )
       : null;
 
+  // Gated by canRatios (N≥MIN_SIGNALS_FOR_RATIOS) like the service.
   // Same MAX_CALMAR_RATIO clamp as the service — both compounded-profit/DD ratios.
   const recoveryFactor =
-    blown || equityMaxDD <= 0
+    !canRatios || blown || equityMaxDD <= 0
       ? null
       : Math.max(
           -MAX_CALMAR_RATIO,

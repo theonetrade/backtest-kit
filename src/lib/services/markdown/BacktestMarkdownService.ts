@@ -312,10 +312,13 @@ class ReportStorage {
     const avgLoss = losses.length > 0
       ? losses.reduce((sum, s) => sum + s.pnl.pnlPercentage, 0) / losses.length
       : 0;
-    // Null when no losing trades OR when |avgLoss| is below STDDEV_EPSILON.
-    // The latter guards against float-artifact losses (-1e-15) producing
-    // spurious astronomical certaintyRatio (≈1e14).
-    const certaintyRatio: number | null = Math.abs(avgLoss) > STDDEV_EPSILON && avgLoss < 0
+    // Null below MIN_SIGNALS_FOR_RATIOS — on a handful of trades the win/loss
+    // means are too noisy to publish a ratio (same sample-size gate as Sharpe/
+    // Sortino, so the report doesn't surface certainty while withholding the rest).
+    // Also null when no losing trades OR when |avgLoss| is below STDDEV_EPSILON
+    // (float-artifact losses (-1e-15) would otherwise produce a spurious
+    // astronomical certaintyRatio ≈1e14).
+    const certaintyRatio: number | null = canComputeRatios && Math.abs(avgLoss) > STDDEV_EPSILON && avgLoss < 0
       ? avgWin / Math.abs(avgLoss)
       : null;
 
@@ -357,10 +360,12 @@ class ReportStorage {
     // Recovery Factor: numerator must be the compounded total return (equityFinal − 1) × 100,
     // not the arithmetic totalPnl — denominator (equityMaxDrawdown) is from the compounded
     // curve, so mixing units would inflate Recovery on long winning streaks.
+    // Null below MIN_SIGNALS_FOR_RATIOS — same sample-size gate as the other ratios,
+    // so a 3-trade run doesn't surface a Recovery Factor while Sharpe/Calmar are N/A.
     // Null when account is blown — ratio is meaningless after total loss.
     // Same MAX_CALMAR_RATIO clamp as Calmar — both are compounded-profit/DD ratios
     // and explode the same way when DD is near zero.
-    const recoveryFactor: number | null = blown || equityMaxDrawdown <= 0
+    const recoveryFactor: number | null = !canComputeRatios || blown || equityMaxDrawdown <= 0
       ? null
       : Math.max(
           -MAX_CALMAR_RATIO,
