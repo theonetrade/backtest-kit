@@ -1,6 +1,6 @@
 import * as di_scoped from 'di-scoped';
 import * as functools_kit from 'functools-kit';
-import { Subject } from 'functools-kit';
+import { Subject, BehaviorSubject } from 'functools-kit';
 import { WriteStream } from 'fs';
 
 /**
@@ -5090,7 +5090,7 @@ declare function getActionSchema(actionName: ActionName): IActionSchema;
  * Backtest.background("BTCUSDT", { strategyName, exchangeName, frameName });
  * ```
  */
-declare function waitForReady(isBacktest?: boolean): Promise<void>;
+declare function waitForReady(isBacktest?: boolean): Promise<string>;
 
 /**
  * Tolerance zone configuration for DCA overlap detection.
@@ -29091,6 +29091,13 @@ declare const beforeStartSubject: Subject<BeforeStartContract>;
  * Emits when the engine has completed processing a signal.
  */
 declare const afterEndSubject: Subject<AfterEndContract>;
+/**
+ * Emitter for `@backtest-kit/cli`, which notifies the application
+ * that all modules have been initialized.
+ *
+ * Send entry absolute path to the consumer
+ */
+declare const entrySubject: BehaviorSubject<string>;
 
 declare const emitters_activePingSubject: typeof activePingSubject;
 declare const emitters_afterEndSubject: typeof afterEndSubject;
@@ -29100,6 +29107,7 @@ declare const emitters_breakevenSubject: typeof breakevenSubject;
 declare const emitters_doneBacktestSubject: typeof doneBacktestSubject;
 declare const emitters_doneLiveSubject: typeof doneLiveSubject;
 declare const emitters_doneWalkerSubject: typeof doneWalkerSubject;
+declare const emitters_entrySubject: typeof entrySubject;
 declare const emitters_errorEmitter: typeof errorEmitter;
 declare const emitters_exitEmitter: typeof exitEmitter;
 declare const emitters_highestProfitSubject: typeof highestProfitSubject;
@@ -29124,7 +29132,7 @@ declare const emitters_walkerCompleteSubject: typeof walkerCompleteSubject;
 declare const emitters_walkerEmitter: typeof walkerEmitter;
 declare const emitters_walkerStopSubject: typeof walkerStopSubject;
 declare namespace emitters {
-  export { emitters_activePingSubject as activePingSubject, emitters_afterEndSubject as afterEndSubject, emitters_backtestScheduleOpenSubject as backtestScheduleOpenSubject, emitters_beforeStartSubject as beforeStartSubject, emitters_breakevenSubject as breakevenSubject, emitters_doneBacktestSubject as doneBacktestSubject, emitters_doneLiveSubject as doneLiveSubject, emitters_doneWalkerSubject as doneWalkerSubject, emitters_errorEmitter as errorEmitter, emitters_exitEmitter as exitEmitter, emitters_highestProfitSubject as highestProfitSubject, emitters_idlePingSubject as idlePingSubject, emitters_maxDrawdownSubject as maxDrawdownSubject, emitters_partialLossSubject as partialLossSubject, emitters_partialProfitSubject as partialProfitSubject, emitters_performanceEmitter as performanceEmitter, emitters_progressBacktestEmitter as progressBacktestEmitter, emitters_progressWalkerEmitter as progressWalkerEmitter, emitters_riskSubject as riskSubject, emitters_schedulePingSubject as schedulePingSubject, emitters_shutdownEmitter as shutdownEmitter, emitters_signalBacktestEmitter as signalBacktestEmitter, emitters_signalEmitter as signalEmitter, emitters_signalLiveEmitter as signalLiveEmitter, emitters_signalNotifySubject as signalNotifySubject, emitters_strategyCommitSubject as strategyCommitSubject, emitters_syncSubject as syncSubject, emitters_validationSubject as validationSubject, emitters_walkerCompleteSubject as walkerCompleteSubject, emitters_walkerEmitter as walkerEmitter, emitters_walkerStopSubject as walkerStopSubject };
+  export { emitters_activePingSubject as activePingSubject, emitters_afterEndSubject as afterEndSubject, emitters_backtestScheduleOpenSubject as backtestScheduleOpenSubject, emitters_beforeStartSubject as beforeStartSubject, emitters_breakevenSubject as breakevenSubject, emitters_doneBacktestSubject as doneBacktestSubject, emitters_doneLiveSubject as doneLiveSubject, emitters_doneWalkerSubject as doneWalkerSubject, emitters_entrySubject as entrySubject, emitters_errorEmitter as errorEmitter, emitters_exitEmitter as exitEmitter, emitters_highestProfitSubject as highestProfitSubject, emitters_idlePingSubject as idlePingSubject, emitters_maxDrawdownSubject as maxDrawdownSubject, emitters_partialLossSubject as partialLossSubject, emitters_partialProfitSubject as partialProfitSubject, emitters_performanceEmitter as performanceEmitter, emitters_progressBacktestEmitter as progressBacktestEmitter, emitters_progressWalkerEmitter as progressWalkerEmitter, emitters_riskSubject as riskSubject, emitters_schedulePingSubject as schedulePingSubject, emitters_shutdownEmitter as shutdownEmitter, emitters_signalBacktestEmitter as signalBacktestEmitter, emitters_signalEmitter as signalEmitter, emitters_signalLiveEmitter as signalLiveEmitter, emitters_signalNotifySubject as signalNotifySubject, emitters_strategyCommitSubject as strategyCommitSubject, emitters_syncSubject as syncSubject, emitters_validationSubject as validationSubject, emitters_walkerCompleteSubject as walkerCompleteSubject, emitters_walkerEmitter as walkerEmitter, emitters_walkerStopSubject as walkerStopSubject };
 }
 
 /**

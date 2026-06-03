@@ -1,10 +1,13 @@
 import { sleep } from "functools-kit";
 import lib from "../lib";
+import { entrySubject } from "../config/emitters";
 
 const WAIT_FOR_READY_METHOD_NAME = "init.waitForReady";
 
-const MAX_WAIT_SECONDS = 10;
+const MAX_WAIT_SECONDS = 30;
 const SECOND_DELAY = 1_000;
+
+const TIMEOUT_SYMBOL = Symbol('timeout');
 
 /**
  * Blocks until the schema registries needed to start trading are populated.
@@ -43,6 +46,18 @@ const SECOND_DELAY = 1_000;
  */
 export async function waitForReady(isBacktest = true) {
   lib.loggerService.info(WAIT_FOR_READY_METHOD_NAME, { isBacktest });
+  if (entrySubject.data) {
+    return;
+  }
+  if (entrySubject.hasListeners) {
+    lib.loggerService.debug(`${WAIT_FOR_READY_METHOD_NAME} waiting for entrySubject`);
+    const result = await Promise.race([
+      entrySubject.toPromise(),
+      sleep(MAX_WAIT_SECONDS * SECOND_DELAY).then(() => TIMEOUT_SYMBOL)
+    ])
+    typeof result === "symbol" && console.log("waitForReady timeout");
+    return;
+  }
   for (let i = 0; i !== MAX_WAIT_SECONDS; i++) {
     const [exchangeList, frameList, strategyList] = await Promise.all([
       lib.exchangeValidationService.list(),
@@ -72,6 +87,9 @@ export async function waitForReady(isBacktest = true) {
       });
       await sleep(SECOND_DELAY);
       continue;
+    }
+    if (i === MAX_WAIT_SECONDS - 1) {
+      console.log("waitForReady timeout");
     }
     break;
   }

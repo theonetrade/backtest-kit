@@ -1,4 +1,4 @@
-import { Subject } from "functools-kit";
+import { BehaviorSubject, Subject } from "functools-kit";
 import { IStrategyTickResult, IStrategyTickResultOpened } from "../interfaces/Strategy.interface";
 import { DoneContract } from "../contract/Done.contract";
 import { ProgressBacktestContract } from "../contract/ProgressBacktest.contract";
@@ -231,3 +231,11 @@ export const beforeStartSubject = new Subject<BeforeStartContract>();
  * Emits when the engine has completed processing a signal.
  */
 export const afterEndSubject = new Subject<AfterEndContract>();
+
+/**
+ * Emitter for `@backtest-kit/cli`, which notifies the application
+ * that all modules have been initialized.
+ * 
+ * Send entry absolute path to the consumer
+ */
+export const entrySubject = new BehaviorSubject<string>();

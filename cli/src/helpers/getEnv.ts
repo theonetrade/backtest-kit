@@ -1,8 +1,8 @@
 import { singleshot } from "functools-kit";
-import { entrySubject } from "../config/emitters";
+import { getEntrySubject } from "../config/emitters";
 
 export const getEnv = singleshot(() => {
-  if (!entrySubject.data) {
+  if (!getEntrySubject().data) {
     getEnv.clear();
   }
   return {

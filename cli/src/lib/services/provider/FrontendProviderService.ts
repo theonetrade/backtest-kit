@@ -4,7 +4,7 @@ import { inject } from "../../../lib/core/di";
 import LoggerService from "../base/LoggerService";
 import TYPES from "../../../lib/core/types";
 import { getArgs } from "../../../helpers/getArgs";
-import { entrySubject } from "../../../config/emitters";
+import { getEntrySubject } from "../../../config/emitters";
 import { getEnv } from "../../../helpers/getEnv";
 import ResolveService from "../core/ResolveService";
 import ConfigConnectionService from "../connection/ConfigConnectionService";
@@ -103,7 +103,7 @@ export class FrontendProviderService {
     if (!getArgs().values.ui) {
       return;
     }
-    return entrySubject.subscribe(this.enable);
+    return getEntrySubject().subscribe(this.enable);
   });
 }
 

@@ -1,5 +1,7 @@
 import "./config/polyfill";
 import "./config/setup";
+import "./config/init";
+
 import "./lib";
 
 import "./main/start";

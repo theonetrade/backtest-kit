@@ -16,7 +16,7 @@ import { Setup } from "../classes/Setup";
 import { flush } from "./flush";
 import path from "path";
 import dotenv from "dotenv";
-import { entrySubject } from "../config/emitters";
+import { getEntrySubject } from "../config/emitters";
 import notifyKill, { kill } from "../utils/notifyKill";
 
 type Mode = "backtest" | "live" | "paper" | "walker";
@@ -202,7 +202,7 @@ export const main = async () => {
     await cli.resolveService.attachEntry(absolutePath);
   }
 
-  await entrySubject.next(absolutePath);
+  await getEntrySubject().next(absolutePath);
 };
 
 main();

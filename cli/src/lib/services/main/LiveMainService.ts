@@ -23,7 +23,7 @@ import { Setup } from "../../../classes/Setup";
 import path from "path";
 import dotenv from "dotenv";
 import ConfigConnectionService from "../connection/ConfigConnectionService";
-import { entrySubject } from "../../../config/emitters";
+import { getEntrySubject } from "../../../config/emitters";
 import { kill } from "../../../utils/notifyKill";
 
 export class LiveMainService {
@@ -138,7 +138,7 @@ export class LiveMainService {
       notifyVerbose();
     }
 
-    await entrySubject.next(absolutePath);
+    await getEntrySubject().next(absolutePath);
 
     Live.background(symbol, {
       strategyName,
