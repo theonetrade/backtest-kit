@@ -1,16 +1,20 @@
 import {
+    Box,
     Divider,
     DividerProps,
     Link,
     LinkProps,
-    SxProps,
+    Stack,
+    Table,
+    TableContainer,
+    TableProps,
     Typography,
     TypographyProps,
 } from "@mui/material";
 import MuiMarkdown, { defaultOverrides } from "mui-markdown";
 import { applyFixes } from "markdownlint";
 import { lint } from "markdownlint/promise";
-import { useAsyncValue } from "react-declarative";
+import { PaperView, ScrollView, useAsyncValue } from "react-declarative";
 import ioc from "../../lib";
 
 const CustomLink = (props: LinkProps) => (
@@ -44,6 +48,30 @@ const CustomStrong = (props: TypographyProps) => (
     <Typography component="span" fontWeight="bold" {...props}>
         {props.children}
     </Typography>
+);
+
+// Custom Table component with a horizontally scrollable container
+const CustomTable = ({ sx, ...props }: TableProps) => (
+    <PaperView
+        variant="outlined"
+        sx={{
+            width: "calc(100% - 16px)",
+            marginRight: "16px",
+            marginTop: "8px",
+            marginBottom: "8px",
+            height: "calc(100dvh - 300px)",
+            ...sx
+        }}
+        >
+        <ScrollView withScrollbar sx={{ height: "100%" }}>
+            <Stack direction="column">
+                <Table {...props}>
+                    {props.children}
+                </Table>
+                <Box flex={1} />
+            </Stack>
+        </ScrollView>
+    </PaperView>
 );
 
 // Custom Paragraph component to preserve newlines and handle nested elements
@@ -155,6 +183,9 @@ export const Markdown = ({ content }: IMarkdownProps) => {
                 },
                 strong: {
                     component: CustomStrong, // Add custom strong component
+                },
+                table: {
+                    component: CustomTable,
                 },
             }}
         >
