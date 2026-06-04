@@ -6,6 +6,9 @@ import Markdown from "./common/Markdown";
 import toPlainString from "../helpers/toPlainString";
 import downloadMarkdown from "../utils/downloadMarkdown";
 import StatusInfoModel from "../model/StatusInfo.model";
+import ContentCopy from "@mui/icons-material/ContentCopy";
+import { copyToClipboard } from "react-declarative";
+import ioc from "../lib";
 
 const useStyles = makeStyles()((theme) => ({
     root: {
@@ -27,6 +30,10 @@ const useStyles = makeStyles()((theme) => ({
     expandButton: {
         cursor: "pointer !important",
         marginLeft: theme.spacing(1),
+    },
+    copyButton: {
+        cursor: "pointer !important",
+        marginRight: theme.spacing(1),
     },
     downloadButton: {
         cursor: "pointer !important",
@@ -63,7 +70,7 @@ const toMarkdown = (data: StatusInfoModel): string => {
         `**${t("Total PNL")}:** ${fmt(portfolioTotalPnl)}  `,
         `**Sharpe Ratio:** ${fmt(portfolioSharpeRatio, "")}  `,
         `**${t("Total trades")}:** ${portfolioTotalTrades}  `,
-        `**${t("Standard Deviation")}:** ${fmt(portfolioStdDev)}  `,
+        `**${t("Standard Deviation Per Trade")}:** ${fmt(portfolioStdDev)}  `,
         `**${t("Sortino Ratio")}:** ${fmt(portfolioSortinoRatio, "")}  `,
         `**${t("Calmar Ratio")}:** ${fmt(portfolioCalmarRatio, "")}  `,
         `**${t("Recovery Factor")}:** ${fmt(portfolioRecoveryFactor, "")}  `,
@@ -111,8 +118,22 @@ export const StatusInfo = ({ data }: IStatusInfoProps) => {
         await downloadMarkdown(content);
     };
 
+    const handleCopy = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (await copyToClipboard(content)) {
+            ioc.alertService.notify("Copied!");
+        }
+    }
+
     const renderAction = () => (
         <>
+            <IconButton
+                className={classes.copyButton}
+                onClick={handleCopy}
+                size="small"
+            >
+                <ContentCopy />
+            </IconButton>
             <IconButton
                 className={classes.downloadButton}
                 onClick={handleDownloadPdf}

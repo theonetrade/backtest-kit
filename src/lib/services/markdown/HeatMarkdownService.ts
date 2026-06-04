@@ -775,7 +775,7 @@ class HeatmapStorage {
       `# Portfolio Heatmap: ${strategyName}`,
       "",
       `**Total Symbols:** ${data.totalSymbols} | **Portfolio PNL:** ${data.portfolioTotalPnl !== null ? str(data.portfolioTotalPnl, "%") : "N/A"} | **Pooled Sharpe:** ${data.portfolioSharpeRatio !== null ? str(data.portfolioSharpeRatio) : "N/A"} | **Total Trades:** ${data.portfolioTotalTrades} | **Avg Peak PNL:** ${data.portfolioAvgPeakPnl !== null ? str(data.portfolioAvgPeakPnl, "%") : "N/A"} | **Avg Max Drawdown PNL:** ${data.portfolioAvgFallPnl !== null ? str(data.portfolioAvgFallPnl, "%") : "N/A"}`,
-      `**Standard Deviation:** ${data.portfolioStdDev !== null ? str(data.portfolioStdDev, "%") : "N/A"} | **Sortino Ratio:** ${data.portfolioSortinoRatio !== null ? str(data.portfolioSortinoRatio) : "N/A"} | **Calmar Ratio:** ${data.portfolioCalmarRatio !== null ? str(data.portfolioCalmarRatio) : "N/A"} | **Recovery Factor:** ${data.portfolioRecoveryFactor !== null ? str(data.portfolioRecoveryFactor) : "N/A"} | **Expectancy:** ${data.portfolioExpectancy !== null ? str(data.portfolioExpectancy, "%") : "N/A"}`,
+      `**Standard Deviation Per Trade:** ${data.portfolioStdDev !== null ? str(data.portfolioStdDev, "%") : "N/A"} | **Sortino Ratio:** ${data.portfolioSortinoRatio !== null ? str(data.portfolioSortinoRatio) : "N/A"} | **Calmar Ratio:** ${data.portfolioCalmarRatio !== null ? str(data.portfolioCalmarRatio) : "N/A"} | **Recovery Factor:** ${data.portfolioRecoveryFactor !== null ? str(data.portfolioRecoveryFactor) : "N/A"} | **Expectancy:** ${data.portfolioExpectancy !== null ? str(data.portfolioExpectancy, "%") : "N/A"}`,
       "",
       table,
       "",
