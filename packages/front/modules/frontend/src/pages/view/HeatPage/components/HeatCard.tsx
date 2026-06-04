@@ -59,9 +59,18 @@ const useStyles = makeStyles()((theme) => ({
 const fields: TypedField<IHeatmapRow>[] = [
     {
         type: FieldType.Text,
+        columns: "6",
         name: "totalPnl",
         title: "Total PNL",
         compute: (obj) => (obj.totalPnl !== null ? `${obj.totalPnl.toFixed(2)}%` : "N/A"),
+        readonly: true,
+    },
+    {
+        type: FieldType.Text,
+        columns: "6",
+        name: "totalPnl",
+        title: "Sharpe Ratio",
+        compute: (obj) => (obj.sharpeRatio !== null ? `${obj.sharpeRatio.toFixed(2)}%` : "N/A"),
         readonly: true,
     },
     {
