@@ -268,13 +268,33 @@ class ReportStorage {
     // per trade ("as-if 100% allocation"). Walks validSignals in chronological order
     // (storage is newest-first, so iterate in reverse). Using validSignals (same set as
     // tradesPerYear) keeps equityFinal consistent with the annualization exponent.
-    // If equity goes ≤ 0 (e.g. leveraged short with r < -100%) — account blown,
-    // fix DD at 100% and stop walking the curve.
+    //
+    // MARK-TO-MARKET DD: each trade's worst intra-trade excursion (signal.maxDrawdown,
+    // i.e. the `_fall` snapshot, ≤ 0) is applied as a trough BEFORE booking the realized
+    // close. Without this the curve only steps at close, so a trade that dipped to -18%
+    // and recovered to +2% would register zero drawdown — understating DD and inflating
+    // Calmar/Recovery. The trough does not persist into equity (it's a transient
+    // mark-to-market low); equity then moves to the realized close.
+    // If equity (at trough or close) goes ≤ 0 (e.g. leveraged loss < -100%) — account
+    // blown, fix DD at 100% and stop walking the curve.
     let equity = 1;
     let peak = 1;
     let equityMaxDrawdown = 0;
     let blown = false;
     for (let i = validSignals.length - 1; i >= 0; i--) {
+      // Intra-trade trough — mark-to-market low while the position was open.
+      const fallPct = validSignals[i].signal.maxDrawdown?.pnlPercentage;
+      if (typeof fallPct === "number" && fallPct < 0) {
+        const trough = equity * (1 + fallPct / 100);
+        if (trough <= 0) {
+          equityMaxDrawdown = 100;
+          blown = true;
+          break;
+        }
+        const troughDd = (peak - trough) / peak * 100;
+        if (troughDd > equityMaxDrawdown) equityMaxDrawdown = troughDd;
+      }
+      // Realized close — book the final per-trade result.
       equity *= 1 + validSignals[i].pnl.pnlPercentage / 100;
       if (equity <= 0) {
         equityMaxDrawdown = 100;

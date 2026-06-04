@@ -54,10 +54,20 @@ const sampleStdDev = (xs) => {
   return Math.sqrt(xs.reduce((s, r) => s + (r - avg) ** 2, 0) / (xs.length - 1));
 };
 
-const equityMaxDrawdown = (returns) => {
+// Mark-to-market equity DD: optional `falls` (per-trade intra-trade troughs ≤ 0,
+// aligned 1:1 with `returns`) applied as a transient trough before each realized
+// close — mirrors the services.
+const equityMaxDrawdown = (returns, falls = null) => {
   let equity = 1, peak = 1, maxDD = 0;
-  for (const r of returns) {
-    equity *= 1 + r / 100;
+  for (let i = 0; i < returns.length; i++) {
+    const fall = falls ? falls[i] : null;
+    if (typeof fall === "number" && fall < 0) {
+      const trough = equity * (1 + fall / 100);
+      if (trough <= 0) return { maxDD: 100, blown: true, equityFinal: 0 };
+      const troughDd = ((peak - trough) / peak) * 100;
+      if (troughDd > maxDD) maxDD = troughDd;
+    }
+    equity *= 1 + returns[i] / 100;
     if (equity <= 0) return { maxDD: 100, blown: true, equityFinal: 0 };
     if (equity > peak) peak = equity;
     const dd = ((peak - equity) / peak) * 100;
@@ -75,6 +85,10 @@ const computePoolReference = (rows) => {
   );
   const n = valid.length;
   const returns = valid.map((r) => r.pnl.pnlPercentage);
+  const falls = valid.map((r) => {
+    const f = r.maxDrawdown?.pnlPercentage;
+    return typeof f === "number" ? f : null;
+  });
 
   const winCount = returns.filter((r) => r > 0).length;
   const lossCount = returns.filter((r) => r < 0).length;
@@ -98,7 +112,7 @@ const computePoolReference = (rows) => {
   const annualizedSharpe =
     canAnnualize && sharpe !== null ? sharpe * Math.sqrt(tradesPerYear) : null;
 
-  const { maxDD: equityMaxDD, blown, equityFinal } = equityMaxDrawdown(returns);
+  const { maxDD: equityMaxDD, blown, equityFinal } = equityMaxDrawdown(returns, falls);
 
   let expectedYearlyReturns = null;
   if (canAnnualize) {
@@ -148,10 +162,15 @@ const computeHeatReference = (rows) => {
   const bySymbol = new Map();
   for (const r of rows) {
     if (!bySymbol.has(r.symbol)) bySymbol.set(r.symbol, []);
-    bySymbol.get(r.symbol).push(r.pnl.pnlPercentage);
+    bySymbol.get(r.symbol).push(r);
   }
   const perSymbol = {};
-  for (const [symbol, returns] of bySymbol.entries()) {
+  for (const [symbol, sigs] of bySymbol.entries()) {
+    const returns = sigs.map((s) => s.pnl.pnlPercentage);
+    const falls = sigs.map((s) => {
+      const f = s.maxDrawdown?.pnlPercentage;
+      return typeof f === "number" ? f : null;
+    });
     const n = returns.length;
     const winCount = returns.filter((r) => r > 0).length;
     const lossCount = returns.filter((r) => r < 0).length;
@@ -166,7 +185,7 @@ const computeHeatReference = (rows) => {
       winRate: decisive > 0 ? (winCount / decisive) * 100 : null,
       totalPnl,
       sharpeRatio: sharpe,
-      maxDrawdown: equityMaxDrawdown(returns).maxDD,
+      maxDrawdown: equityMaxDrawdown(returns, falls).maxDD,
     };
   }
   const allReturns = rows.map((r) => r.pnl.pnlPercentage);

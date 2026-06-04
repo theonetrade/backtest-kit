@@ -56,6 +56,11 @@ const computeReference = (rows) => {
   );
   const n = valid.length;
   const returns = valid.map((r) => r.pnl.pnlPercentage);
+  // Intra-trade troughs (≤ 0) aligned with returns — mark-to-market DD input.
+  const falls = valid.map((r) => {
+    const f = r.maxDrawdown?.pnlPercentage;
+    return typeof f === "number" ? f : null;
+  });
 
   const winCount = returns.filter((r) => r > 0).length;
   const lossCount = returns.filter((r) => r < 0).length;
@@ -80,9 +85,18 @@ const computeReference = (rows) => {
   const annualizedSharpe =
     canAnnualize && sharpe !== null ? sharpe * Math.sqrt(tradesPerYear) : null;
 
-  // equity curve (compounded, chronological — JSON is already oldest-first)
+  // equity curve (compounded, chronological — JSON is already oldest-first).
+  // Mark-to-market: apply each trade's intra-trade trough (falls[i], ≤ 0) before
+  // booking the realized close, mirroring the services.
   let equity = 1, peak = 1, equityMaxDrawdown = 0, blown = false;
   for (let i = 0; i < n; i++) {
+    const fall = falls[i];
+    if (typeof fall === "number" && fall < 0) {
+      const trough = equity * (1 + fall / 100);
+      if (trough <= 0) { equityMaxDrawdown = 100; blown = true; break; }
+      const troughDd = ((peak - trough) / peak) * 100;
+      if (troughDd > equityMaxDrawdown) equityMaxDrawdown = troughDd;
+    }
     equity *= 1 + returns[i] / 100;
     if (equity <= 0) { equityMaxDrawdown = 100; blown = true; break; }
     if (equity > peak) peak = equity;

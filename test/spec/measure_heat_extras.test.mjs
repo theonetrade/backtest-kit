@@ -153,3 +153,109 @@ test("heat: per-symbol recoveryFactor gated to null when Sharpe is gated (N<10)"
   }
   pass(`recoveryFactor gated to null at N=5 (maxDrawdown=${row.maxDrawdown.toFixed(3)}% still computed)`);
 });
+
+// ---------------------------------------------------------------------------
+// Test 6: pooled Calmar must be ANNUALIZED (≠ Recovery). Regression for a bug
+// where pooled Calmar used the compounded TOTAL return as its numerator (same
+// as Recovery), making portfolioCalmarRatio === portfolioRecoveryFactor for
+// every dataset. Calmar's numerator must be expectedYearlyReturns (annualized);
+// only then do the two diverge.
+//
+// Wide spacing (≈25 days/trade over 12 trades → span ≈ 275d, tradesPerYear ≈ 16
+// < 365) so the annualization gate PASSES and pooled Calmar is computed.
+// ---------------------------------------------------------------------------
+test("heat: pooled Calmar is annualized and distinct from Recovery (not the same number)", async ({ pass, fail }) => {
+  const svc = lib.heatMarkdownService;
+  svc.subscribe();
+  await svc.clear({ exchangeName: EXCHANGE, frameName: FRAME, backtest: true });
+
+  const STEP = 25 * DAY; // wide spacing → span well over MIN_CALENDAR_SPAN_DAYS
+  const pnls = [1, 2, -1, 1.5, 2, -0.5, 1, 1, -1.2, 2, 0.8, 1.3]; // 12 trades, DD>0
+  for (let i = 0; i < pnls.length; i++) {
+    const symbol = i % 2 === 0 ? "POOL-A" : "POOL-B";
+    const pendingAt = T0 + i * STEP;
+    await svc.tick(
+      toClosedTick({
+        ...makeRow(i, pnls[i], symbol),
+        pendingAt,
+        updatedAt: pendingAt + 4 * 3_600_000,
+      }),
+    );
+  }
+
+  const stats = await svc.getData(EXCHANGE, FRAME, true);
+
+  if (stats.portfolioCalmarRatio === null) {
+    return fail(`portfolioCalmarRatio must be computed (span≥14d, freq≤365), got null`);
+  }
+  if (stats.portfolioRecoveryFactor === null) {
+    return fail(`portfolioRecoveryFactor must be computed (DD>0, not blown), got null`);
+  }
+  // The bug: both equal the compounded-total-return / DD. Annualized Calmar must
+  // differ from the (non-annualized) Recovery for this multi-period dataset.
+  if (stats.portfolioCalmarRatio === stats.portfolioRecoveryFactor) {
+    return fail(
+      `portfolioCalmarRatio (${stats.portfolioCalmarRatio}) must NOT equal ` +
+        `portfolioRecoveryFactor (${stats.portfolioRecoveryFactor}) — Calmar regressed to total-return numerator`,
+    );
+  }
+  pass(
+    `pooled Calmar annualized & distinct: calmar=${stats.portfolioCalmarRatio.toFixed(3)}, ` +
+      `recovery=${stats.portfolioRecoveryFactor.toFixed(3)}`,
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Test 7: MARK-TO-MARKET max drawdown. Regression for a bug where the equity
+// curve only stepped at trade close (realized PnL), so a trade that dipped to
+// -18% intra-trade and recovered to +2% registered ZERO drawdown — understating
+// DD and inflating Calmar/Recovery. The per-trade intra-trade trough
+// (signal.maxDrawdown) must be applied to the equity curve.
+//
+// 12 trades, each closing +2% but each dipping to -18% mark-to-market. Realized
+// curve is monotonically up → realized DD = 0. Mark-to-market DD must reflect
+// the ~18% round-trip dip.
+// ---------------------------------------------------------------------------
+test("heat: maxDrawdown is mark-to-market (intra-trade dip counts, not just realized close)", async ({ pass, fail }) => {
+  const svc = lib.heatMarkdownService;
+  svc.subscribe();
+  await svc.clear({ exchangeName: EXCHANGE, frameName: FRAME, backtest: true });
+
+  // Each trade: closes +2%, but dipped to -18% while open.
+  for (let i = 0; i < 12; i++) {
+    const pendingAt = T0 + i * DAY;
+    await svc.tick(
+      toClosedTick({
+        id: `mtm-${i}`,
+        symbol: "MTM",
+        pendingAt,
+        updatedAt: pendingAt + 4 * 3_600_000,
+        priceOpen: 100,
+        pnl: { pnlPercentage: 2, priceOpen: 100, priceClose: 102, pnlCost: 2, pnlEntries: 100 },
+        peakProfit: { pnlPercentage: 2 },
+        maxDrawdown: { pnlPercentage: -18 }, // intra-trade trough
+        position: "long",
+        note: "",
+        exchangeName: EXCHANGE,
+        strategyName: STRATEGY,
+        frameName: FRAME,
+      }),
+    );
+  }
+
+  const stats = await svc.getData(EXCHANGE, FRAME, true);
+  const row = stats.symbols.find((s) => s.symbol === "MTM");
+  if (!row) return fail(`MTM row missing`);
+
+  // Realized-only DD would be 0 (every close is +2%). Mark-to-market DD must be
+  // substantial (~18%, slightly less after the first +2% lifts the peak before
+  // subsequent dips, but at minimum the first trade's -18% from peak=1).
+  if (row.maxDrawdown === null) return fail(`maxDrawdown must be computed, got null`);
+  if (row.maxDrawdown < 17) {
+    return fail(
+      `maxDrawdown must reflect the -18% intra-trade dip (≥17%), got ${row.maxDrawdown}. ` +
+        `If ≈0, DD regressed to realized-only (closes are all +2%).`,
+    );
+  }
+  pass(`mark-to-market DD captured: maxDrawdown=${row.maxDrawdown.toFixed(2)}% (realized-only would be ~0)`);
+});

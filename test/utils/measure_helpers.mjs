@@ -57,13 +57,26 @@ export const sampleStdDev = (xs) => {
 /**
  * High-water-mark equity drawdown via compounded returns.
  * Detects blown account when equity ≤ 0 (e.g. r < -100% with leverage).
+ *
+ * MARK-TO-MARKET: if `falls` is provided (parallel array of per-trade intra-trade
+ * troughs, ≤ 0, aligned 1:1 with `returns`), each trade's worst mark-to-market
+ * excursion is applied as a transient trough BEFORE booking the realized close —
+ * mirroring the services. Omit `falls` (or pass null entries) for the legacy
+ * realized-only curve.
  */
-export const equityMaxDrawdown = (returns) => {
+export const equityMaxDrawdown = (returns, falls = null) => {
   let equity = 1;
   let peak = 1;
   let maxDD = 0;
-  for (const r of returns) {
-    equity *= 1 + r / 100;
+  for (let i = 0; i < returns.length; i++) {
+    const fall = falls ? falls[i] : null;
+    if (typeof fall === "number" && fall < 0) {
+      const trough = equity * (1 + fall / 100);
+      if (trough <= 0) return { maxDD: 100, blown: true, equityFinal: 0 };
+      const troughDd = ((peak - trough) / peak) * 100;
+      if (troughDd > maxDD) maxDD = troughDd;
+    }
+    equity *= 1 + returns[i] / 100;
     if (equity <= 0) return { maxDD: 100, blown: true, equityFinal: 0 };
     if (equity > peak) peak = equity;
     const dd = ((peak - equity) / peak) * 100;
@@ -90,6 +103,12 @@ export const computePoolReference = (rows) => {
   if (n === 0) return null;
 
   const returns = valid.map((r) => r.pnl.pnlPercentage);
+  // Intra-trade troughs (≤ 0) aligned 1:1 with returns — fed to the
+  // mark-to-market equity-DD curve, mirroring the services.
+  const falls = valid.map((r) => {
+    const f = r.maxDrawdown?.pnlPercentage;
+    return typeof f === "number" ? f : null;
+  });
   const winCount = returns.filter((r) => r > 0).length;
   const lossCount = returns.filter((r) => r < 0).length;
   const decisive = winCount + lossCount;
@@ -113,7 +132,7 @@ export const computePoolReference = (rows) => {
   const annualizedSharpe =
     canAnnualize && sharpe !== null ? sharpe * Math.sqrt(tradesPerYear) : null;
 
-  const { maxDD: equityMaxDD, blown, equityFinal } = equityMaxDrawdown(returns);
+  const { maxDD: equityMaxDD, blown, equityFinal } = equityMaxDrawdown(returns, falls);
 
   let expectedYearlyReturns = null;
   if (canAnnualize) {
@@ -213,6 +232,10 @@ export const computeHeatReference = (rows) => {
   const perSymbol = {};
   for (const [symbol, sigs] of bySymbol.entries()) {
     const returns = sigs.map((s) => s.pnl.pnlPercentage);
+    const falls = sigs.map((s) => {
+      const f = s.maxDrawdown?.pnlPercentage;
+      return typeof f === "number" ? f : null;
+    });
     const n = returns.length;
     const winCount = returns.filter((r) => r > 0).length;
     const lossCount = returns.filter((r) => r < 0).length;
@@ -243,7 +266,7 @@ export const computeHeatReference = (rows) => {
       avgPnl,
       stdDev,
       sharpeRatio: sharpe,
-      maxDrawdown: equityMaxDrawdown(returns).maxDD,
+      maxDrawdown: equityMaxDrawdown(returns, falls).maxDD,
       avgPeakPnl,
       avgFallPnl,
     };

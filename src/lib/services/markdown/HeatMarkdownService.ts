@@ -244,6 +244,12 @@ class HeatmapStorage {
     // Equity-curve max drawdown via compounded equity ("as-if 100% allocation per trade").
     // Signals are stored newest-first (unshift in addSignal), so iterate in reverse.
     // If equity ≤ 0 — account blown, fix DD at 100%. equityFinal feeds expectedYearlyReturns.
+    //
+    // MARK-TO-MARKET DD: each trade's worst intra-trade excursion (signal.maxDrawdown,
+    // the `_fall` snapshot, ≤ 0) is applied as a trough BEFORE booking the realized close.
+    // Without it the curve only steps at close, so a trade that dipped to -18% and
+    // recovered to +2% would register zero drawdown — understating DD and inflating
+    // Calmar/Recovery.
     let maxDrawdown: number | null = null;
     let equityFinal = 1;
     let blown = false;
@@ -252,6 +258,17 @@ class HeatmapStorage {
       let peak = 1;
       let maxDD = 0;
       for (let i = signals.length - 1; i >= 0; i--) {
+        const fallPct = signals[i].signal.maxDrawdown?.pnlPercentage;
+        if (typeof fallPct === "number" && fallPct < 0) {
+          const trough = equity * (1 + fallPct / 100);
+          if (trough <= 0) {
+            maxDD = 100;
+            blown = true;
+            break;
+          }
+          const troughDd = (peak - trough) / peak * 100;
+          if (troughDd > maxDD) maxDD = troughDd;
+        }
         equity *= 1 + signals[i].pnl.pnlPercentage / 100;
         if (equity <= 0) {
           maxDD = 100;
@@ -531,11 +548,16 @@ class HeatmapStorage {
     let portfolioCalmarRatio: number | null = null;
     let portfolioRecoveryFactor: number | null = null;
     const allReturns: number[] = [];
+    // Parallel array of intra-trade troughs (≤ 0), aligned 1:1 with allReturns,
+    // used for mark-to-market DD in the pooled equity curve below.
+    const allFalls: (number | null)[] = [];
     let poolFirstPendingAt = Infinity;
     let poolLastCloseAt = -Infinity;
     for (const signals of this.symbolData.values()) {
       for (const s of signals) {
         allReturns.push(s.pnl.pnlPercentage);
+        const fall = s.signal.maxDrawdown?.pnlPercentage;
+        allFalls.push(typeof fall === "number" ? fall : null);
         if (s.signal.pendingAt < poolFirstPendingAt) poolFirstPendingAt = s.signal.pendingAt;
         if (s.closeTimestamp > poolLastCloseAt) poolLastCloseAt = s.closeTimestamp;
       }
@@ -574,13 +596,26 @@ class HeatmapStorage {
         portfolioExpectancy = (wins.length / total) * avgWin + (losses.length / total) * avgLoss;
       }
 
-      // Pooled equity-curve max drawdown (compounded).
+      // Pooled equity-curve max drawdown (compounded). MARK-TO-MARKET: each trade's
+      // intra-trade trough (allFalls, ≤ 0) is applied before booking the realized close,
+      // so deep round-trip dips are captured rather than understating DD.
       let equity = 1;
       let peak = 1;
       let maxDD = 0;
       let blown = false;
-      for (const r of allReturns) {
-        equity *= 1 + r / 100;
+      for (let i = 0; i < allReturns.length; i++) {
+        const fall = allFalls[i];
+        if (fall !== null && fall < 0) {
+          const trough = equity * (1 + fall / 100);
+          if (trough <= 0) {
+            maxDD = 100;
+            blown = true;
+            break;
+          }
+          const troughDd = ((peak - trough) / peak) * 100;
+          if (troughDd > maxDD) maxDD = troughDd;
+        }
+        equity *= 1 + allReturns[i] / 100;
         if (equity <= 0) {
           maxDD = 100;
           blown = true;

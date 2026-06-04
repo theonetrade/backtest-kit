@@ -588,15 +588,36 @@ class ReportStorage {
     // on cost basis — compounding assumes equal capital allocation per trade ("as-if 100%").
     // If equity ≤ 0 (leveraged short with r < -100%) — account blown, fix DD at 100%.
     // Built from validClosed (newest-first), iterated reverse for chronological order.
-    const chronologicalReturns: number[] = [];
+    //
+    // MARK-TO-MARKET DD: each trade's worst intra-trade excursion (fallPnl, the `_fall`
+    // snapshot, ≤ 0) is applied as a trough BEFORE booking the realized close. Without it
+    // the curve only steps at close, so a trade that dipped to -18% and recovered to +2%
+    // would register zero drawdown — understating DD and inflating Calmar/Recovery.
+    const chronological: { r: number; fall: number | null }[] = [];
     for (let i = validClosed.length - 1; i >= 0; i--) {
-      chronologicalReturns.push(validClosed[i].pnl as number);
+      const fall = validClosed[i].fallPnl;
+      chronological.push({
+        r: validClosed[i].pnl as number,
+        fall: typeof fall === "number" ? fall : null,
+      });
     }
     let equity = 1;
     let peak = 1;
     let equityMaxDrawdown = 0;
     let blown = false;
-    for (const r of chronologicalReturns) {
+    for (const { r, fall } of chronological) {
+      // Intra-trade trough — mark-to-market low while the position was open.
+      if (fall !== null && fall < 0) {
+        const trough = equity * (1 + fall / 100);
+        if (trough <= 0) {
+          equityMaxDrawdown = 100;
+          blown = true;
+          break;
+        }
+        const troughDd = (peak - trough) / peak * 100;
+        if (troughDd > equityMaxDrawdown) equityMaxDrawdown = troughDd;
+      }
+      // Realized close.
       equity *= 1 + r / 100;
       if (equity <= 0) {
         equityMaxDrawdown = 100;
