@@ -133,6 +133,12 @@ export const computePoolReference = (rows) => {
   // the service: float-artifact losses produce spurious astronomical certaintyRatio.
   const certaintyRatio =
     canRatios && Math.abs(avgLoss) > STDDEV_EPSILON && avgLoss < 0 ? avgWin / Math.abs(avgLoss) : null;
+  // Per-trade Expectancy: winProb*avgWin + lossProb*avgLoss. Gated by canRatios
+  // like the service. Break-evens contribute 0 (excluded from both probabilities).
+  const expectancy =
+    canRatios && n > 0
+      ? (wins.length / n) * avgWin + (losses.length / n) * avgLoss
+      : null;
 
   const peakVals = valid
     .map((r) => r.peakProfit?.pnlPercentage)
@@ -182,6 +188,7 @@ export const computePoolReference = (rows) => {
     equityMaxDrawdown: equityMaxDD,
     expectedYearlyReturns,
     certaintyRatio,
+    expectancy,
     avgPeakPnl,
     avgFallPnl,
     sortinoRatio,
@@ -335,6 +342,12 @@ export const runBacktestPool = async (
       ref.certaintyRatio,
     ],
     [
+      "expectancy",
+      approx(stats.expectancy, ref.expectancy, 1e-9),
+      stats.expectancy,
+      ref.expectancy,
+    ],
+    [
       "expectedYearlyReturns",
       approx(stats.expectedYearlyReturns, ref.expectedYearlyReturns, 1e-6),
       stats.expectedYearlyReturns,
@@ -425,6 +438,12 @@ export const runLivePool = async (
       approx(stats.certaintyRatio, ref.certaintyRatio, 1e-9),
       stats.certaintyRatio,
       ref.certaintyRatio,
+    ],
+    [
+      "expectancy",
+      approx(stats.expectancy, ref.expectancy, 1e-9),
+      stats.expectancy,
+      ref.expectancy,
     ],
     [
       "sortinoRatio",

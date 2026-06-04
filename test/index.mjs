@@ -162,6 +162,21 @@ import "./measure/backtest_82.test.mjs";
 import "./measure/backtest_83.test.mjs";
 import "./measure/backtest_84.test.mjs";
 import "./measure/backtest_85.test.mjs";
+import "./measure/backtest_86.test.mjs";
+import "./measure/backtest_87.test.mjs";
+import "./measure/backtest_88.test.mjs";
+import "./measure/backtest_89.test.mjs";
+import "./measure/backtest_90.test.mjs";
+import "./measure/backtest_91.test.mjs";
+import "./measure/backtest_92.test.mjs";
+import "./measure/backtest_93.test.mjs";
+import "./measure/backtest_94.test.mjs";
+import "./measure/backtest_95.test.mjs";
+import "./measure/backtest_96.test.mjs";
+import "./measure/backtest_97.test.mjs";
+import "./measure/backtest_98.test.mjs";
+import "./measure/backtest_99.test.mjs";
+import "./measure/backtest_100.test.mjs";
 
 run(import.meta.url, () => {
     console.log("All tests are finished");

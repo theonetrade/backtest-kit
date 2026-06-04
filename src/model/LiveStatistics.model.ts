@@ -138,4 +138,7 @@ export interface LiveStatisticsModel {
 
   /** Recovery Factor (totalPnl / max drawdown), null if unsafe. Higher is better. */
   recoveryFactor: number | null;
+
+  /** Per-trade Expectancy (winProb*avgWin + lossProb*avgLoss), null if unsafe. Higher is better. */
+  expectancy: number | null;
 }

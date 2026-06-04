@@ -191,6 +191,7 @@ class ReportStorage {
         sortinoRatio: null,
         calmarRatio: null,
         recoveryFactor: null,
+        expectancy: null,
       };
     }
 
@@ -322,6 +323,13 @@ class ReportStorage {
       ? avgWin / Math.abs(avgLoss)
       : null;
 
+    // Per-trade Expectancy: winProb*avgWin + lossProb*avgLoss. Break-even trades
+    // contribute 0 (they're excluded from both probabilities). N-gated like the
+    // other ratios — on a tiny sample the per-trade EV is too noisy to publish.
+    const expectancy: number | null = canComputeRatios && totalSignals > 0
+      ? (wins.length / totalSignals) * avgWin + (losses.length / totalSignals) * avgLoss
+      : null;
+
     // Average peak/fall PNL — over validSignals; only signals that actually have the
     // value contribute (no zero dilution from missing peakProfit/maxDrawdown).
     const peakValues = validSignals
@@ -390,6 +398,7 @@ class ReportStorage {
       sortinoRatio: isUnsafe(sortinoRatio) ? null : sortinoRatio,
       calmarRatio: isUnsafe(calmarRatio) ? null : calmarRatio,
       recoveryFactor: isUnsafe(recoveryFactor) ? null : recoveryFactor,
+      expectancy: isUnsafe(expectancy) ? null : expectancy,
     };
   }
 
@@ -451,6 +460,7 @@ class ReportStorage {
       `**Sortino Ratio:** ${stats.sortinoRatio === null ? "N/A" : `${stats.sortinoRatio.toFixed(3)} (higher is better)`}`,
       `**Calmar Ratio:** ${stats.calmarRatio === null ? "N/A" : `${stats.calmarRatio.toFixed(3)} (higher is better)`}`,
       `**Recovery Factor:** ${stats.recoveryFactor === null ? "N/A" : `${stats.recoveryFactor.toFixed(3)} (higher is better)`}`,
+      `**Expectancy:** ${stats.expectancy === null ? "N/A" : `${stats.expectancy > 0 ? "+" : ""}${stats.expectancy.toFixed(3)}% (higher is better)`}`,
       "",
       `*Win Rate: reliable above 200+ signals; below 30 signals a single streak can shift it by 10-20%.*`,
       `*Sharpe Ratio: below 1.0 is poor, 1.0-2.0 is acceptable, above 2.0 is strong. Requires 30+ signals.*`,
@@ -460,6 +470,7 @@ class ReportStorage {
       `*Expected Yearly Returns: compounded geometric return from the equity curve, annualized by tradesPerYear. Same gating as Annualized Sharpe. Capped at ±${MAX_EXPECTED_YEARLY_RETURNS}% — values above the cap return N/A.*`,
       `*Calmar Ratio: below 0.5 is poor, 0.5-1.0 is acceptable, above 1.0 is strong. Denominator is compounded equity-curve max drawdown. Capped at ±${MAX_CALMAR_RATIO}.*`,
       `*Recovery Factor: below 1.0 means total profit does not cover max drawdown. Above 3.0 is considered good. Uses compounded total return as numerator.*`,
+      `*Expectancy: per-trade expected value (winProb × avgWin + lossProb × avgLoss). Positive = profitable on average per trade. Break-even trades contribute 0.*`,
       `*All metrics require 100+ signals to be statistically reliable. Annualized metrics assume the observed trading frequency and market conditions persist year-round.*`,
       `*IMPORTANT: Equity curve, Expected Yearly Returns, Calmar, Recovery and Max Drawdown all assume **100% capital allocation per trade** (no sizing, no portfolio fraction). Per-trade pnlPercentage is treated as a return on full equity. If your strategy risks X% of capital per trade, the realized portfolio return / drawdown will be roughly X/100 of the reported figures. The framework does not track portfolio-level sizing, so these metrics represent a theoretical upper bound under full allocation.*`,
       `*Negative values for Sharpe / Sortino / Calmar / Recovery / Expected Yearly Returns indicate a losing strategy (avgPnl < 0 or totalPnl < 0). "Higher is better" still applies — closer to zero is less bad, positive is profitable.*`,
