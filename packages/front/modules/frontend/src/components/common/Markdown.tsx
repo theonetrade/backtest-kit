@@ -90,6 +90,19 @@ interface IVirtualRow {
     [cellKey: string]: ReactNode;
 }
 
+// Safely reads `children` off any node. A React element's `props` is always an
+// object, but a malformed/foreign element could carry null props — guard for it.
+const getChildren = (node: ReactNode): ReactNode => {
+    if (!isValidElement(node)) {
+        return null;
+    }
+    const props = node.props as { children?: ReactNode } | null | undefined;
+    if (props == null) {
+        return null;
+    }
+    return props.children ?? null;
+};
+
 // Recursively flattens a React node tree into plain text (for header labels)
 const extractText = (node: ReactNode): string => {
     if (node == null || typeof node === "boolean") {
@@ -102,7 +115,7 @@ const extractText = (node: ReactNode): string => {
         return node.map(extractText).join("");
     }
     if (isValidElement(node)) {
-        return extractText((node.props as { children?: ReactNode }).children);
+        return extractText(getChildren(node));
     }
     return "";
 };
@@ -118,7 +131,7 @@ const findElementByTag = (node: ReactNode, tag: string): React.ReactElement | nu
             found = child;
             return;
         }
-        found = findElementByTag((child.props as { children?: ReactNode }).children, tag);
+        found = findElementByTag(getChildren(child), tag);
     });
     return found;
 };
@@ -134,15 +147,15 @@ const collectElementsByTag = (node: ReactNode, tag: string): React.ReactElement[
             result.push(child);
             return;
         }
-        result.push(...collectElementsByTag((child.props as { children?: ReactNode }).children, tag));
+        result.push(...collectElementsByTag(getChildren(child), tag));
     });
     return result;
 };
 
 // Returns the direct cell elements (<th>/<td>) of a table row
-const collectCells = (row: React.ReactElement): React.ReactElement[] => {
+const collectCells = (row: ReactNode): React.ReactElement[] => {
     const cells: React.ReactElement[] = [];
-    Children.forEach((row.props as { children?: ReactNode }).children, (child) => {
+    Children.forEach(getChildren(row), (child) => {
         if (isValidElement(child) && (child.type === "th" || child.type === "td")) {
             cells.push(child);
         }
@@ -155,8 +168,8 @@ const VirtualTable = ({ children }: TableProps) => {
         const thead = findElementByTag(children, "thead");
         const tbody = findElementByTag(children, "tbody");
 
-        const headerRow = thead ? collectElementsByTag(thead, "tr")[0] : undefined;
-        const headerCells = headerRow ? collectCells(headerRow) : [];
+        const headerRow = thead ? collectElementsByTag(thead, "tr")[0] ?? null : null;
+        const headerCells = collectCells(headerRow);
 
         const columns: IGridColumn<IVirtualRow>[] = headerCells.map((cell, index) => {
             const field = `cell_${index}` as const;
@@ -165,7 +178,7 @@ const VirtualTable = ({ children }: TableProps) => {
                 label: extractText(cell) || typo.nbsp,
                 minWidth: 120,
                 // Passthrough: the cell may hold custom components (links, bold, etc.)
-                format: (row) => <Fragment>{row[field]}</Fragment>,
+                format: (row) => <Fragment>{row[field] ?? null}</Fragment>,
             };
         });
 
@@ -174,7 +187,7 @@ const VirtualTable = ({ children }: TableProps) => {
             const cells = collectCells(row);
             const entry: IVirtualRow = { id: `row_${rowIndex}` };
             cells.forEach((cell, cellIndex) => {
-                entry[`cell_${cellIndex}`] = (cell.props as { children?: ReactNode }).children;
+                entry[`cell_${cellIndex}`] = getChildren(cell);
             });
             return entry;
         });
