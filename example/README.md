@@ -4,10 +4,22 @@
 
 > A collection of production-quality backtests built with [backtest-kit](https://github.com/tripolskypetr/backtest-kit). Each example demonstrates a distinct signal source, entry logic, and position management approach.
 
+![screenshot](https://raw.githubusercontent.com/tripolskypetr/backtest-kit/HEAD/assets/screenshots/screenshot16.png)
+
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/tripolskypetr/backtest-kit)
 [![npm](https://img.shields.io/npm/v/backtest-kit.svg?style=flat-square)](https://npmjs.org/package/backtest-kit)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue)]()
 [![Build](https://github.com/tripolskypetr/backtest-kit/actions/workflows/webpack.yml/badge.svg)](https://github.com/tripolskypetr/backtest-kit/actions/workflows/webpack.yml)
+
+---
+
+## 🚀 Quick Start
+
+> Link to [the source code](https://github.com/tripolskypetr/backtest-kit/tree/master/example/content/jan_2026.strategy)
+
+```bash
+npm start -- --backtest --symbol TRXUSDT ./content/jan_2026.strategy/jan_2026.strategy.ts
+```
 
 ---
 
