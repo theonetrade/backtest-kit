@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "start": "cross-env NODE_ENV=development CC_ENABLE_MOCK=1 vite --host 0.0.0.0 --port 3000",
+    "dev": "vite --host 0.0.0.0 --port 3000",
     "build": "node --max_old_space_size=16384 ./node_modules/vite/bin/vite.js build"
   },
   "keywords": [],

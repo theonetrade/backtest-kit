@@ -55,11 +55,19 @@ const CustomTable = ({ sx, ...props }: TableProps) => (
     <PaperView
         variant="outlined"
         sx={{
-            width: "calc(100% - 16px)",
-            marginRight: "16px",
+            width: "calc(100% - 32px)",
+            marginRight: "32px",
             marginTop: "8px",
             marginBottom: "8px",
             height: "calc(100dvh - 300px)",
+            "& *": {
+                scrollbarWidth: "none",
+            },
+            "&:hover": {
+                "& *": {
+                    scrollbarWidth: "auto !important",
+                },
+            },
             ...sx
         }}
         >
