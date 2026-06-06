@@ -135,7 +135,7 @@ const handleDownloadJson = async () => {
     const content = JSON.stringify(data, null, 2);
     const blob = new Blob([content], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
-    ioc.layoutService.downloadFile(url, `heat_${Date.now()}.md`);
+    ioc.layoutService.downloadFile(url, `heat_${Date.now()}.json`);
 }
 
 export const MainView = () => {
