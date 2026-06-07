@@ -125,7 +125,7 @@ const options: IBreadcrumbs2Option[] = [
             }
             const { symbol, when, currentPrice, backtest } = data;
             return (
-              <Tooltip description={backtest ? "Backtest mode" : "Live mode"}>
+              <Tooltip placement="bottom" description={backtest ? "Backtest mode" : "Live mode"}>
                 <Stack 
                   direction="row" 
                   alignItems="center" 
