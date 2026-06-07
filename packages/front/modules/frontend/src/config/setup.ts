@@ -16,7 +16,7 @@ import {
 
 import isToday from "dayjs/plugin/isToday";
 import localeData from "dayjs/plugin/localeData";
-import ruLocale from "dayjs/locale/ru";
+import enLocale from "dayjs/locale/en-gb";
 import utc from "dayjs/plugin/utc";
 
 ChartJS.register(
@@ -37,5 +37,5 @@ ChartJS.register(
     dayjs.extend(utc);
     dayjs.extend(isToday);
 
-    dayjs.locale(ruLocale);
+    dayjs.locale(enLocale);
 }

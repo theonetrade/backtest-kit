@@ -33,6 +33,7 @@ const mockServices = {
   performanceMockService: Symbol("performanceMockService"),
   environmentMockService: Symbol("environmentMockService"),
   setupMockService: Symbol("setupMockService"),
+  runtimeMockService: Symbol("runtimeMockService"),
 };
 
 const viewServices = {
@@ -48,6 +49,7 @@ const viewServices = {
   performanceViewService: Symbol("performanceViewService"),
   environmentViewService: Symbol("environmentViewService"),
   setupViewService: Symbol("setupViewService"),
+  runtimeViewService: Symbol("runtimeViewService"),
 };
 
 export const TYPES = {

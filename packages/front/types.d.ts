@@ -1,6 +1,6 @@
 import http from 'http';
 import * as backtest_kit from 'backtest-kit';
-import { CandleInterval, NotificationModel, IStorageSignalRow, ILogEntry, IPublicSignalRow } from 'backtest-kit';
+import { CandleInterval, NotificationModel, IStorageSignalRow, ILogEntry, IPublicSignalRow, IRuntimeInfo } from 'backtest-kit';
 import * as functools_kit from 'functools-kit';
 
 declare function serve(host?: string, port?: number, cwd?: string): () => void;
@@ -441,6 +441,17 @@ declare class SetupViewService {
     getSetupData: () => Promise<any>;
 }
 
+declare class RuntimeMockService {
+    private readonly loggerService;
+    getRuntimeInfo: () => Promise<IRuntimeInfo>;
+}
+
+declare class RuntimeViewService {
+    private readonly loggerService;
+    private readonly runtimeMockService;
+    getRuntimeInfo: () => Promise<IRuntimeInfo>;
+}
+
 declare const ioc: {
     notificationViewService: NotificationViewService;
     storageViewService: StorageViewService;
@@ -454,6 +465,7 @@ declare const ioc: {
     performanceViewService: PerformanceViewService;
     environmentViewService: EnvironmentViewService;
     setupViewService: SetupViewService;
+    runtimeViewService: RuntimeViewService;
     notificationMockService: NotificationMockService;
     storageMockService: StorageMockService;
     exchangeMockService: ExchangeMockService;
@@ -466,6 +478,7 @@ declare const ioc: {
     performanceMockService: PerformanceMockService;
     environmentMockService: EnvironmentMockService;
     setupMockService: SetupMockService;
+    runtimeMockService: RuntimeMockService;
     liveMetaService: LiveMetaService;
     symbolMetaService: SymbolMetaService;
     backtestMetaService: BacktestMetaService;

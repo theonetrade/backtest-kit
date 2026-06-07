@@ -1,21 +1,27 @@
 import {
     Box,
+    Breadcrumbs,
     Button,
     ButtonBase,
     Chip,
     Container,
     darken,
+    Divider,
     getContrastRatio,
     lighten,
+    Link,
     Paper,
     Stack,
+    Typography,
 } from "@mui/material";
 import {
     Async,
     Breadcrumbs2,
     Breadcrumbs2Type,
     Center,
+    dayjs,
     FieldType,
+    formatAmount,
     IBreadcrumbs2Action,
     IBreadcrumbs2Option,
     IOutletProps,
@@ -88,16 +94,90 @@ function isLightColor(hex: string) {
 }
 
 const options: IBreadcrumbs2Option[] = [
-    {
-        type: Breadcrumbs2Type.Link,
-        action: "back-action",
-        label: "Main",
-    },
-    {
-        type: Breadcrumbs2Type.Link,
-        action: "back-action",
-        label: "Navigation",
-    },
+  {
+    type: Breadcrumbs2Type.Component,
+    element: () => (
+      <Stack direction="row" alignItems="center">
+        <Breadcrumbs aria-label="breadcrumb">
+          <Link
+            underline="always"
+            color="inherit"
+            href="#"
+            onClick={(e) => e.preventDefault()}
+          >
+            Main
+          </Link>
+          <Link
+            underline="always"
+            color="inherit"
+            href="#"
+            onClick={(e) => e.preventDefault()}
+          >
+            Navigation
+          </Link>
+        </Breadcrumbs>
+        <Box flex={1} />
+        <Async>
+          {async () => {
+            const data = await ioc.runtimeViewService.getRuntimeInfo();
+            if (!data) {
+              return null;
+            }
+            const { symbol, when, currentPrice, backtest } = data;
+            return (
+              <Tooltip description={backtest ? "Backtest mode" : "Live mode"}>
+                <Stack 
+                  direction="row" 
+                  alignItems="center" 
+                  spacing={1}
+                  sx={{
+                    display: {
+                      xs: "none",
+                      sm: "flex",
+                    },
+                  }}
+                >
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      opacity: 0.5,
+                    }}
+                  >
+                    Symbol:
+                    {typo.nbsp}
+                    <b>{symbol}</b>
+                  </Typography>
+                  <Divider orientation="vertical" flexItem />
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      opacity: 0.5,
+                    }}
+                  >
+                    Time:
+                    {typo.nbsp}
+                    <b>{dayjs(when).format("HH:mm DD MMM YYYY")}</b>
+                  </Typography>
+                  <Divider orientation="vertical" flexItem />
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      opacity: 0.5,
+                    }}
+                  >
+                    Price:
+                    {typo.nbsp}
+                    <b>{formatAmount(currentPrice, 8)}$</b>
+                  </Typography>
+                </Stack>
+              </Tooltip>
+            );
+          }}
+        </Async>
+        <Box pr={1} />
+      </Stack>
+    ),
+  },
 ];
 
 const actions: IBreadcrumbs2Action[] = [

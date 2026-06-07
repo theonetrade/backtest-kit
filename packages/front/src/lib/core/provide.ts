@@ -28,9 +28,11 @@ import LiveMetaService from "../services/meta/LiveMetaService";
 import PerformanceMockService from "../services/mock/PerformanceMockService";
 import EnvironmentMockService from "../services/mock/EnvironmentMockService";
 import SetupMockService from "../services/mock/SetupMockService";
+import RuntimeMockService from "../services/mock/RuntimeMockService";
 import PerformanceViewService from "../services/view/PerformanceViewService";
 import EnvironmentViewService from "../services/view/EnvironmentViewService";
 import SetupViewService from "../services/view/SetupViewService";
+import RuntimeViewService from "../services/view/RuntimeViewService";
 
 {
   provide(TYPES.loggerService, () => new LoggerService());
@@ -61,6 +63,7 @@ import SetupViewService from "../services/view/SetupViewService";
   provide(TYPES.performanceMockService, () => new PerformanceMockService());
   provide(TYPES.environmentMockService, () => new EnvironmentMockService());
   provide(TYPES.setupMockService, () => new SetupMockService());
+  provide(TYPES.runtimeMockService, () => new RuntimeMockService());
 }
 
 {
@@ -76,4 +79,5 @@ import SetupViewService from "../services/view/SetupViewService";
  provide(TYPES.performanceViewService, () => new PerformanceViewService());
  provide(TYPES.environmentViewService, () => new EnvironmentViewService());
  provide(TYPES.setupViewService, () => new SetupViewService());
+ provide(TYPES.runtimeViewService, () => new RuntimeViewService());
 }
