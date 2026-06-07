@@ -26452,12 +26452,15 @@ declare class CronUtils {
      * - Fire-once global: `${name}:once:g${generation}`.
      * - Fire-once fan-out: `${name}:once:${symbol}:g${generation}`.
      *
-     * Value is the shared in-flight handler promise. Every parallel `tick` for
-     * the same slot key awaits this exact promise (mutex semantics) and is
-     * released together when it settles. `_inFlight` is owned exclusively by
-     * `_runEntry` — `clear()` does **not** touch it, so the singleshot promise
-     * survives concurrent `clear` calls and continues to coordinate parallel
-     * ticks until it settles.
+     * Value is the shared in-flight handler promise. It resolves to a `boolean`
+     * "failed" flag (`true` when the handler — or the runtime-info assembly —
+     * threw), which `_tick` uses to roll back the periodic watermark of the slot
+     * it opened so a failed boundary is retried. Every parallel `tick` for the
+     * same slot key awaits this exact promise (mutex semantics) and is released
+     * together when it settles. `_inFlight` is owned exclusively by `_runEntry` —
+     * `clear()` does **not** touch it, so the singleshot promise survives
+     * concurrent `clear` calls and continues to coordinate parallel ticks until
+     * it settles.
      */
     private readonly _inFlight;
     /**
@@ -26501,9 +26504,12 @@ declare class CronUtils {
      *
      * Written synchronously in `_tick` at slot-open time (before the `await`),
      * so a still-in-flight handler does not let a later tick re-open the same
-     * (or an already-passed) boundary. Fire-once entries never touch this map —
-     * they use `_firedOnce`. Pruned by `_clearBoundaryFor` on
-     * `register`/`unregister` and wiped by `dispose`.
+     * (or an already-passed) boundary. If that handler then **fails**, the
+     * advance is rolled back after the slot settles — the prior value is restored
+     * (or the key deleted if there was none) — so the failed boundary is retried
+     * on the next tick, mirroring catch-up of a skipped boundary. Fire-once
+     * entries never touch this map — they use `_firedOnce`. Pruned by
+     * `_clearBoundaryFor` on `register`/`unregister` and wiped by `dispose`.
      */
     private readonly _lastBoundary;
     /**
@@ -26531,15 +26537,20 @@ declare class CronUtils {
      *
      * Assembles the {@link IRuntimeInfo} snapshot via
      * `RuntimeMetaService.getRuntimeInfo(symbol, context, backtest)` and invokes
-     * `entry.handler(info)`. Swallows and logs any error via `console.error`, and
-     * clears the `_inFlight` slot in `.finally()` so the next boundary produces a
-     * fresh promise. For fire-once entries `firedKey` is added to `_firedOnce` on
+     * `entry.handler(info)`. Logs any error via `console.error` and **returns** a
+     * `failed` boolean (`true` when the handler — or the runtime-info assembly —
+     * threw) so the caller (`_tick`) can roll back the periodic watermark of the
+     * slot it opened and retry that boundary. The error is **not** rethrown, so a
+     * failing handler never produces an unhandled rejection. Clears the
+     * `_inFlight` slot in `.finally()` so the next boundary produces a fresh
+     * promise. For fire-once entries `firedKey` is added to `_firedOnce` on
      * success so subsequent ticks skip it.
      *
      * `getRuntimeInfo` is the user-facing aggregator: its sub-fetches (range,
      * info, price) are individually wrapped in `trycatch` with `null` fallbacks,
-     * so it never throws for missing data. Only the handler itself can throw, and
-     * that is caught here.
+     * so it almost never throws for missing data. Whatever does throw — the
+     * handler, or in rare cases `getRuntimeInfo` — is caught here and reported via
+     * the returned `failed` flag; the watermark rollback treats both identically.
      *
      * @param context - Strategy/exchange/frame identifiers from the originating
      *   lifecycle event, forwarded to `getRuntimeInfo` to resolve `range`/`info`.
@@ -26548,6 +26559,8 @@ declare class CronUtils {
      * @param backtest - Forwarded to `getRuntimeInfo` and surfaced as
      *   `info.backtest`; the "winner" tick's flag is what all parallel awaiters
      *   of this slot see.
+     * @returns `true` if the handler (or `getRuntimeInfo`) threw, `false` on
+     *   success. `_tick` uses this to decide whether to roll back the watermark.
      */
     private _runEntry;
     /**
@@ -26673,12 +26686,18 @@ declare class CronUtils {
      *    so the next boundary creates a fresh promise; for fire-once entries the
      *    fired-once key is also added to `_firedOnce` on success so subsequent
      *    ticks skip it.
+     * 7. After `await Promise.all`, roll back the watermark for every **periodic**
+     *    slot this tick *opened* (not the ones whose in-flight promise it reused)
+     *    whose handler reported failure, so the next tick re-opens and re-runs
+     *    that boundary.
      *
      * Errors thrown by `handler` are caught, logged via `console.error`, and
      * **not** rethrown — a failing handler must not break the per-symbol
      * tick loop or unblock other parallel backtests with an unhandled
      * rejection. A failed fire-once handler is **not** marked as fired and
-     * will retry on the next tick.
+     * will retry on the next tick. A failed **periodic** handler likewise
+     * retries: the boundary watermark advanced at slot-open time is rolled back
+     * after the slot settles (step 7), so the next tick re-opens that boundary.
      *
      * Requires active method context and execution context.
      *
@@ -37010,6 +37029,16 @@ declare const backtest: {
         readonly priceMetaService: PriceMetaService;
         readonly frameSchemaService: FrameSchemaService;
         readonly strategySchemaService: StrategySchemaService;
+        _getRange: ((context: {
+            strategyName: string;
+            exchangeName: string;
+            frameName: string;
+        }, backtest: boolean) => any) & functools_kit.IClearableMemoize<string> & functools_kit.IControlMemoize<string, any>;
+        _getInfo: ((context: {
+            strategyName: string;
+            exchangeName: string;
+            frameName: string;
+        }) => any) & functools_kit.IClearableMemoize<string> & functools_kit.IControlMemoize<string, any>;
         getRuntimeInfo: <Data extends RuntimeData = RuntimeData>(symbol: string, context: {
             strategyName: string;
             exchangeName: string;

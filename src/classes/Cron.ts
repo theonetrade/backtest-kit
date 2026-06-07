@@ -179,6 +179,43 @@ interface ICronEntryRecord {
   generation: number;
 }
 
+/**
+ * Bookkeeping for a periodic slot that a single `_tick` invocation actually
+ * **opened** (the `!pending` branch of {@link CronUtils._tick}) and may need to
+ * roll back.
+ *
+ * Only opened periodic slots are tracked: slots whose in-flight promise was
+ * reused from another tick are excluded (rolling back a watermark this tick did
+ * not advance would corrupt a sibling symbol's slot in global mode), and so are
+ * fire-once slots (they coordinate via `_firedOnce`, not the watermark).
+ *
+ * After `await Promise.all`, `_tick` walks these records and, for any whose
+ * `pending` resolved to `failed = true`, restores `_lastBoundary[boundaryKey]`
+ * to `prevBoundary` (or deletes the key when `prevBoundary` is `undefined`),
+ * re-arming the strict-`>` gate so the failed boundary is retried on the next
+ * tick.
+ *
+ * Not exported — used only inside {@link CronUtils._tick}.
+ */
+interface ICronOpenedSlot {
+  /**
+   * The `_lastBoundary` key for this slot (`${name}${scope}${genSuffix}`, no
+   * `alignedMs` segment) — the watermark entry to restore on failure.
+   */
+  boundaryKey: string;
+  /**
+   * The watermark value captured **before** this tick advanced it. `undefined`
+   * means the boundary had never been opened, so a rollback deletes the key
+   * rather than restoring a value.
+   */
+  prevBoundary: number | undefined;
+  /**
+   * The shared in-flight handler promise opened for this slot. Resolves to the
+   * `failed` flag that decides whether the rollback fires.
+   */
+  pending: Promise<boolean>;
+}
+
 
 /**
  * Utility class for registering periodic tasks that fire on candle-interval
@@ -246,14 +283,17 @@ export class CronUtils {
    * - Fire-once global: `${name}:once:g${generation}`.
    * - Fire-once fan-out: `${name}:once:${symbol}:g${generation}`.
    *
-   * Value is the shared in-flight handler promise. Every parallel `tick` for
-   * the same slot key awaits this exact promise (mutex semantics) and is
-   * released together when it settles. `_inFlight` is owned exclusively by
-   * `_runEntry` — `clear()` does **not** touch it, so the singleshot promise
-   * survives concurrent `clear` calls and continues to coordinate parallel
-   * ticks until it settles.
+   * Value is the shared in-flight handler promise. It resolves to a `boolean`
+   * "failed" flag (`true` when the handler — or the runtime-info assembly —
+   * threw), which `_tick` uses to roll back the periodic watermark of the slot
+   * it opened so a failed boundary is retried. Every parallel `tick` for the
+   * same slot key awaits this exact promise (mutex semantics) and is released
+   * together when it settles. `_inFlight` is owned exclusively by `_runEntry` —
+   * `clear()` does **not** touch it, so the singleshot promise survives
+   * concurrent `clear` calls and continues to coordinate parallel ticks until
+   * it settles.
    */
-  private readonly _inFlight = new Map<string, Promise<void>>();
+  private readonly _inFlight = new Map<string, Promise<boolean>>();
 
   /**
    * Keys of fire-once entries whose handler has already settled successfully.
@@ -297,9 +337,12 @@ export class CronUtils {
    *
    * Written synchronously in `_tick` at slot-open time (before the `await`),
    * so a still-in-flight handler does not let a later tick re-open the same
-   * (or an already-passed) boundary. Fire-once entries never touch this map —
-   * they use `_firedOnce`. Pruned by `_clearBoundaryFor` on
-   * `register`/`unregister` and wiped by `dispose`.
+   * (or an already-passed) boundary. If that handler then **fails**, the
+   * advance is rolled back after the slot settles — the prior value is restored
+   * (or the key deleted if there was none) — so the failed boundary is retried
+   * on the next tick, mirroring catch-up of a skipped boundary. Fire-once
+   * entries never touch this map — they use `_firedOnce`. Pruned by
+   * `_clearBoundaryFor` on `register`/`unregister` and wiped by `dispose`.
    */
   private readonly _lastBoundary = new Map<string, number>();
 
@@ -350,15 +393,20 @@ export class CronUtils {
    *
    * Assembles the {@link IRuntimeInfo} snapshot via
    * `RuntimeMetaService.getRuntimeInfo(symbol, context, backtest)` and invokes
-   * `entry.handler(info)`. Swallows and logs any error via `console.error`, and
-   * clears the `_inFlight` slot in `.finally()` so the next boundary produces a
-   * fresh promise. For fire-once entries `firedKey` is added to `_firedOnce` on
+   * `entry.handler(info)`. Logs any error via `console.error` and **returns** a
+   * `failed` boolean (`true` when the handler — or the runtime-info assembly —
+   * threw) so the caller (`_tick`) can roll back the periodic watermark of the
+   * slot it opened and retry that boundary. The error is **not** rethrown, so a
+   * failing handler never produces an unhandled rejection. Clears the
+   * `_inFlight` slot in `.finally()` so the next boundary produces a fresh
+   * promise. For fire-once entries `firedKey` is added to `_firedOnce` on
    * success so subsequent ticks skip it.
    *
    * `getRuntimeInfo` is the user-facing aggregator: its sub-fetches (range,
    * info, price) are individually wrapped in `trycatch` with `null` fallbacks,
-   * so it never throws for missing data. Only the handler itself can throw, and
-   * that is caught here.
+   * so it almost never throws for missing data. Whatever does throw — the
+   * handler, or in rare cases `getRuntimeInfo` — is caught here and reported via
+   * the returned `failed` flag; the watermark rollback treats both identically.
    *
    * @param context - Strategy/exchange/frame identifiers from the originating
    *   lifecycle event, forwarded to `getRuntimeInfo` to resolve `range`/`info`.
@@ -367,6 +415,8 @@ export class CronUtils {
    * @param backtest - Forwarded to `getRuntimeInfo` and surfaced as
    *   `info.backtest`; the "winner" tick's flag is what all parallel awaiters
    *   of this slot see.
+   * @returns `true` if the handler (or `getRuntimeInfo`) threw, `false` on
+   *   success. `_tick` uses this to decide whether to roll back the watermark.
    */
   private async _runEntry(
     entry: CronEntry,
@@ -376,7 +426,7 @@ export class CronUtils {
     firedKey: string | null,
     backtest: boolean,
     context: { strategyName: string; exchangeName: string; frameName: string }
-  ): Promise<void> {
+  ): Promise<boolean> {
     let failed = false;
     try {
       const info = await RUNTIME_META_SERVICE.getRuntimeInfo(symbol, context, backtest);
@@ -393,6 +443,7 @@ export class CronUtils {
         this._firedOnce.add(firedKey);
       }
     }
+    return failed;
   }
 
   /**
@@ -568,12 +619,18 @@ export class CronUtils {
    *    so the next boundary creates a fresh promise; for fire-once entries the
    *    fired-once key is also added to `_firedOnce` on success so subsequent
    *    ticks skip it.
+   * 7. After `await Promise.all`, roll back the watermark for every **periodic**
+   *    slot this tick *opened* (not the ones whose in-flight promise it reused)
+   *    whose handler reported failure, so the next tick re-opens and re-runs
+   *    that boundary.
    *
    * Errors thrown by `handler` are caught, logged via `console.error`, and
    * **not** rethrown — a failing handler must not break the per-symbol
    * tick loop or unblock other parallel backtests with an unhandled
    * rejection. A failed fire-once handler is **not** marked as fired and
-   * will retry on the next tick.
+   * will retry on the next tick. A failed **periodic** handler likewise
+   * retries: the boundary watermark advanced at slot-open time is rolled back
+   * after the slot settles (step 7), so the next tick re-opens that boundary.
    *
    * Requires active method context and execution context.
    *
@@ -608,7 +665,11 @@ export class CronUtils {
     }
 
     const ts = alignToInterval(when, "1m").getTime();
-    const taskList: Promise<void>[] = [];
+    const taskList: Promise<boolean>[] = [];
+    // Periodic slots THIS tick actually opened (the `!pending` branch), tracked
+    // for watermark rollback on failure. See {@link IOpenedSlot} for what is and
+    // is not recorded here and why.
+    const openedList: ICronOpenedSlot[] = [];
 
     for (const { entry, generation } of this._entries.values()) {
       if (entry.symbols?.length && !entry.symbols.includes(symbol)) {
@@ -656,18 +717,52 @@ export class CronUtils {
         // Advance the watermark synchronously at slot-open time, before the
         // await below. Otherwise a later tick on the same (or an already
         // crossed) boundary, arriving while this handler is still in flight,
-        // would see the stale watermark and open a duplicate slot.
+        // would see the stale watermark and open a duplicate slot. The advance
+        // is rolled back after the slot settles if the handler failed (see the
+        // post-await loop below), so a failed boundary is retried next tick.
         if (boundaryKey !== null) {
+          // Capture the pre-advance value so it can be restored verbatim on
+          // failure (undefined => the boundary had never opened => delete the
+          // key on rollback). Read fresh here rather than reusing `lastBoundary`
+          // above to keep the value↔slot binding local and obvious; there is no
+          // `await` between the two reads, so they are identical.
+          const prevBoundary = this._lastBoundary.get(boundaryKey);
           this._lastBoundary.set(boundaryKey, alignedMs);
+          pending = this._runEntry(entry, symbol, alignedMs, slotKey, firedKey, backtest, context);
+          this._inFlight.set(slotKey, pending);
+          openedList.push({ boundaryKey, prevBoundary, pending });
+        } else {
+          pending = this._runEntry(entry, symbol, alignedMs, slotKey, firedKey, backtest, context);
+          this._inFlight.set(slotKey, pending);
         }
-        pending = this._runEntry(entry, symbol, alignedMs, slotKey, firedKey, backtest, context);
-        this._inFlight.set(slotKey, pending);
       }
 
       taskList.push(pending);
     }
 
     await Promise.all(taskList);
+
+    // Roll back the watermark for any periodic slot THIS tick opened whose
+    // handler failed, so the next tick re-opens the same boundary and retries
+    // it — mirroring how a skipped boundary is later caught up. We are still
+    // inside this `_tick`; `singlerun` serialises ticks, so no other tick could
+    // have advanced `_lastBoundary` for these keys between our synchronous `set`
+    // above and here. Restoring `prevBoundary` (or deleting the key when it was
+    // `undefined`) re-arms the strict-`>` gate without disturbing any earlier
+    // already-fired boundary. `await pending` is cheap — every promise already
+    // settled in `Promise.all` above; we re-await via `openedList` because its
+    // entries (opened slots only) do not line up with `taskList` indices.
+    for (const { boundaryKey, prevBoundary, pending } of openedList) {
+      const failed = await pending;
+      if (!failed) {
+        continue;
+      }
+      if (prevBoundary === undefined) {
+        this._lastBoundary.delete(boundaryKey);
+      } else {
+        this._lastBoundary.set(boundaryKey, prevBoundary);
+      }
+    }
   };
 
   /**
