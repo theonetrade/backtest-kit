@@ -96,6 +96,36 @@ export class PriceMetaService {
   );
 
   /**
+   * Checks if a price exists for the given key and has emitted at least one value.
+   *
+   * @param symbol - Trading pair symbol (e.g., "BTCUSDT")
+   * @param context - Strategy, exchange, and frame identifiers
+   * @param backtest - True if backtest mode, false if live mode
+   * @returns True if a price exists and has emitted a value, false otherwise
+   */
+  public hasPrice = (
+    symbol: string,
+    context: {
+      strategyName: string;
+      exchangeName: string;
+      frameName: string;
+    },
+    backtest: boolean,
+  ) => {
+    const key = CREATE_KEY_FN(
+      symbol,
+      context.strategyName,
+      context.exchangeName,
+      context.frameName,
+      backtest,
+    );
+    if (!this.getSource.has(key)) {
+      return false;
+    }
+    return !!this.getSource.get(key)?.data;
+  }
+
+  /**
    * Returns the current market price for the given symbol and context.
    *
    * When called inside an execution context (i.e., during a signal handler or action),

@@ -74,6 +74,7 @@ import { MaxDrawdownReportService } from "../services/report/MaxDrawdownReportSe
 import { MaxDrawdownMarkdownService } from "../services/markdown/MaxDrawdownMarkdownService";
 import ContextMetaService from "../services/meta/ContextMetaService";
 import NotificationHelperService from "../services/helpers/NotificationHelperService";
+import RuntimeMetaService from "../services/meta/RuntimeMetaService";
 
 {
     provide(TYPES.loggerService, () => new LoggerService());
@@ -116,6 +117,7 @@ import NotificationHelperService from "../services/helpers/NotificationHelperSer
     provide(TYPES.contextMetaService, () => new ContextMetaService());
     provide(TYPES.priceMetaService, () => new PriceMetaService());
     provide(TYPES.timeMetaService, () => new TimeMetaService());
+    provide(TYPES.runtimeMetaService, () => new RuntimeMetaService());
 }
 
 {

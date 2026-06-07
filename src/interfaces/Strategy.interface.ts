@@ -11,6 +11,14 @@ import { StrategyCommitContract } from "../contract/StrategyCommit.contract";
 import { SignalSyncContract } from "../contract/SignalSync.contract";
 
 /**
+ * Generic key-value type for strategy runtime data.
+ * Allows strategies to store arbitrary data for custom monitoring, reporting, or external logic.
+ * This is a flexible structure that can hold any additional information a strategy wants to track at runtime.
+ * The content of this object is not defined by the system and can be used freely by strategy implementations.
+ */
+export type RuntimeData = Record<string, unknown>;
+
+/**
  * Commit payload for strategy commits.
  * Used in activateScheduled, closePending, cancelScheduled
  */
@@ -597,6 +605,8 @@ export interface IStrategySchema {
   riskList?: RiskName[];
   /** Optional list of action identifiers to attach to this strategy */
   actions?: ActionName[];
+  /** Optional runtime for custom monitoring, reporting or external logic */
+  info?: RuntimeData;
 }
 
 /**
