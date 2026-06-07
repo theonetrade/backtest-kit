@@ -67,6 +67,7 @@ const useStyles = makeStyles()((theme) => ({
         color: "white",
         paddingLeft: theme.spacing(1),
         paddingRight: theme.spacing(3),
+        userSelect: "none",
         transition: "opacity 500ms",
         opacity: "0.8",
         cursor: "pointer",
