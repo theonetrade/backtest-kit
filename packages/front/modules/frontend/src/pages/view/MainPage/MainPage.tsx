@@ -28,6 +28,7 @@ import {
     LoaderView,
     One,
     sleep,
+    trycatch,
     TypedField,
     typo,
 } from "react-declarative";
@@ -119,7 +120,8 @@ const options: IBreadcrumbs2Option[] = [
         <Box flex={1} />
         <Async reloadSubject={reloadSubject}>
           {async () => {
-            const data = await ioc.runtimeViewService.getRuntimeInfo();
+            const fetch = trycatch(ioc.runtimeViewService.getRuntimeInfo, { defaultValue: null })
+            const data = await fetch();
             if (!data) {
               return null;
             }
