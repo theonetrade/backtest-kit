@@ -29,6 +29,21 @@ const CRON_METHOD_NAME_DISABLE = "CronUtils.disable";
 const CRON_METHOD_NAME_DISPOSE = "CronUtils.dispose";
 
 /**
+ * Watchdog timeout (ms) for a single cron handler invocation.
+ *
+ * A handler that does not settle within this window is treated as failed:
+ * `_runEntry` races `entry.handler(info)` against this `sleep` and, when the
+ * timeout wins, throws into the same `catch` as any other handler error —
+ * surfacing `failed = true`, logging a warning, and (for periodic entries)
+ * rolling back the watermark so the boundary is retried on the next tick.
+ *
+ * This guards the `singlerun`-serialised tick pipeline against a handler that
+ * never resolves (a lost `resolve`, a hung promise with no timeout of its
+ * own): without it such a handler would stall every subsequent tick forever.
+ */
+const CRON_HANDLER_TIMEOUT = 120_000;
+
+/**
  * Local logger instance.
  *
  * Created directly rather than resolved from the DI container so that
@@ -747,7 +762,28 @@ export class CronUtils {
       taskList.push(pending);
     }
 
-    await Promise.all(taskList);
+    {
+      // Watchdog: warn (do not interrupt) if the slots this tick is awaiting
+      // have not settled within CRON_HANDLER_TIMEOUT. We deliberately keep
+      // awaiting Promise.all so the singlerun pipeline stays serialised and no
+      // duplicate/zombie slots are spawned — the timer only surfaces the stall.
+      // Use a real setTimeout/clearTimeout (not sleep) so the alarm is cancelled
+      // the instant Promise.all resolves, rather than lingering for the full
+      // timeout on every fast tick.
+      const timer = setTimeout(() => {
+        const message = `${CRON_METHOD_NAME_TICK} timed out after ${CRON_HANDLER_TIMEOUT}ms`;
+        const payload = { symbol, when, context };
+        LOGGER_SERVICE.warn(message, payload);
+        console.error(message, payload);
+        errorEmitter.next(new Error(message));
+      }, CRON_HANDLER_TIMEOUT);
+
+      try {
+        await Promise.all(taskList);
+      } finally {
+        clearTimeout(timer);
+      }
+    }
 
     // Roll back the watermark for any periodic slot THIS tick opened whose
     // handler failed, so the next tick re-opens the same boundary and retries
