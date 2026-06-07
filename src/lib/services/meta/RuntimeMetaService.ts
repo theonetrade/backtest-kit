@@ -5,7 +5,7 @@ import { TLoggerService } from "../base/LoggerService";
 import TYPES from "../../../lib/core/types";
 import TimeMetaService from "./TimeMetaService";
 import FrameSchemaService from "../schema/FrameSchemaService";
-import { errorData, getErrorMessage, trycatch } from "functools-kit";
+import { errorData, getErrorMessage, memoize, trycatch } from "functools-kit";
 import { errorEmitter } from "../../../config/emitters";
 import StrategySchemaService from "../schema/StrategySchemaService";
 import PriceMetaService from "./PriceMetaService";
@@ -116,6 +116,53 @@ export const RuntimeMetaService = singleton(class {
   readonly strategySchemaService = inject<StrategySchemaService>(TYPES.strategySchemaService);
 
   /**
+   * Fetches the time range for the current strategy execution context.
+   *
+   * For backtest mode, it retrieves the start and end dates from the frame schema.
+   * For live mode, it returns null since there is no predefined time range.
+   *
+   * This method is memoized to optimize performance, as the time range for a given context will not change during execution.
+   *
+   * @param context - Strategy, exchange, and frame identifiers
+   * @param backtest - True if backtest mode, false if live mode
+   * @returns An object containing 'from' and 'to' Date objects for backtest mode, or null for live mode
+   */
+  _getRange = memoize(
+    ([context, backtest]) => `${context.frameName}:${backtest ? "backtest" : "live"}`,
+    (
+    context: {
+      strategyName: string;
+      exchangeName: string;
+      frameName: string;
+    },
+    backtest: boolean,
+  ) => {
+    return GET_RANGE_FN(this, context, backtest);
+  });
+
+  /**
+   * Fetches strategy-defined runtime information for the current execution context.
+   *
+   * This method retrieves the 'info' object defined in the strategy schema, which can contain any custom data the strategy wants to track at runtime.
+   * The content of this object is not defined by the system and can be used freely by strategy implementations for monitoring, reporting, or external logic.
+   *
+   * This method is memoized to optimize performance, as the strategy info for a given context will not change during execution.
+   *
+   * @param context - Strategy, exchange, and frame identifiers
+   * @returns The 'info' object defined in the strategy schema for the given strategy, or null if not defined
+   */
+  _getInfo = memoize(
+    ([context]) => context.strategyName,
+    (context: {
+      strategyName: string;
+      exchangeName: string;
+      frameName: string;
+    }) => {
+      return GET_INFO_FN(this, context);
+    },
+  );
+
+  /**
    * Fetches comprehensive runtime information for a given symbol and strategy context, including current price, timestamp, and strategy-specific info.
    *
    * This method aggregates data from multiple sources (time, price, frame schema, strategy schema) to provide a complete picture of the current runtime state for a strategy tick.
@@ -146,8 +193,8 @@ export const RuntimeMetaService = singleton(class {
     );
     const when = new Date(timestamp);
     const currentPrice = await GET_PRICE_FN(this, symbol, context, backtest);
-    const range = GET_RANGE_FN(this, context, backtest);
-    const info = GET_INFO_FN(this, context);
+    const range = this._getRange(context, backtest);
+    const info = this._getInfo(context);
     return {
       symbol,
       range,

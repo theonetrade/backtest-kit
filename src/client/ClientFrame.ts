@@ -6,6 +6,7 @@ import {
 } from "../interfaces/Frame.interface";
 import backtest from "../lib";
 import { errorEmitter } from "../config/emitters";
+import { alignToInterval } from "../utils/alignToInterval";
 
 /**
  * Maps FrameInterval to minutes for timestamp calculation.
@@ -90,8 +91,14 @@ const GET_TIMEFRAME_FN = async (symbol: string, self: ClientFrame) => {
   // Ensure endDate doesn't go beyond today
   const effectiveEndDate = endDate > today ? today : endDate;
 
+  // Align the iteration start down to the 1-minute boundary so every generated
+  // timestamp lands on a clean minute, matching live mode
+  // (LiveLogicPrivateService aligns `when` via alignToInterval(new Date(), "1m")).
+  // Without this, a startDate carrying sub-minute (or any non-aligned) offset
+  // would propagate that offset to every tick `when` — and therefore to
+  // IRuntimeInfo.when handed to Cron handlers — diverging from live behaviour.
   const timeframes: Date[] = [];
-  let currentDate = new Date(startDate);
+  let currentDate = alignToInterval(startDate, "1m");
 
   while (currentDate <= effectiveEndDate) {
     timeframes.push(new Date(currentDate));
