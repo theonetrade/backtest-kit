@@ -65,6 +65,7 @@ export const NavigationView = () => {
                             sm: "flex",
                         },
                         cursor: "pointer",
+                        userSelect: "none",
                     }}
                     onClick={() => {
                         ioc.runtimeViewService.getRuntimeInfo.clear();
