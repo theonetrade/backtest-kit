@@ -9,8 +9,21 @@ import ActionValidationService from "../validation/ActionValidationService";
 import { StrategyName } from "../../../interfaces/Strategy.interface";
 import { ExchangeName } from "../../../interfaces/Exchange.interface";
 import { TLoggerService } from "../base/LoggerService";
+import { memoize } from "functools-kit";
 
 const METHOD_NAME_RUN = "liveCommandService run";
+const METHOD_NAME_VALIDATE = "liveCommandService validate";
+
+/**
+ * Creates a unique key for memoizing validate calls.
+ * Key format: "strategyName:exchangeName:frameName"
+ * @param context - Context with strategyName, exchangeName, frameName
+ * @returns Unique string key for memoization
+ */
+const CREATE_KEY_FN = (context: { strategyName: StrategyName; exchangeName: ExchangeName }): string => {
+  const parts = [context.strategyName, context.exchangeName];
+  return parts.join(":");
+};
 
 type Keys = Omit<LiveLogicPublicService, keyof {
   loggerService: never;
@@ -51,6 +64,30 @@ export class LiveCommandService implements TLiveLogicPublicService {
     TYPES.actionValidationService
   );
 
+
+  /**
+   * Validates strategy and associated risk configuration.
+   * Memoized to avoid redundant validations for the same strategy-exchange combination.
+   *
+   * @param context - Context with strategyName, exchangeName
+   * @param methodName - Name of the calling method for error tracking
+   */
+  private validate = memoize(
+    ([context]) => CREATE_KEY_FN(context),
+    (context: { strategyName: StrategyName; exchangeName: ExchangeName }, methodName: string) => {
+      this.loggerService.log(METHOD_NAME_VALIDATE, {
+        context,
+        methodName,
+      });
+      this.strategyValidationService.validate(context.strategyName, methodName);
+      this.exchangeValidationService.validate(context.exchangeName, methodName);
+      const { riskName, riskList, actions } = this.strategySchemaService.get(context.strategyName);
+      riskName && this.riskValidationService.validate(riskName, methodName);
+      riskList && riskList.forEach((riskName) => this.riskValidationService.validate(riskName, methodName));
+      actions && actions.forEach((actionName) => this.actionValidationService.validate(actionName, methodName));
+    }
+  );
+
   /**
    * Runs live trading for a symbol with context propagation.
    *
@@ -71,24 +108,7 @@ export class LiveCommandService implements TLiveLogicPublicService {
       symbol,
       context,
     });
-    {
-      this.strategyValidationService.validate(
-        context.strategyName,
-        METHOD_NAME_RUN
-      );
-      this.exchangeValidationService.validate(
-        context.exchangeName,
-        METHOD_NAME_RUN
-      );
-    }
-    {
-      const { riskName, riskList, actions } = this.strategySchemaService.get(
-        context.strategyName
-      );
-      riskName && this.riskValidationService.validate(riskName, METHOD_NAME_RUN);
-      riskList && riskList.forEach((riskName) => this.riskValidationService.validate(riskName, METHOD_NAME_RUN));
-      actions && actions.forEach((actionName) => this.actionValidationService.validate(actionName, METHOD_NAME_RUN));
-    }
+    this.validate(context, METHOD_NAME_RUN);
     return this.liveLogicPublicService.run(symbol, context);
   };
 }

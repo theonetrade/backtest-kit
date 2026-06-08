@@ -12,6 +12,7 @@ import { memoize } from "functools-kit";
 import { IBreakeven } from "../../../interfaces/Breakeven.interface";
 import { FrameName } from "../../../interfaces/Frame.interface";
 import { ExchangeName } from "../../../interfaces/Exchange.interface";
+import ActionValidationService from "../validation/ActionValidationService";
 
 /**
  * Creates a unique key for memoizing validate calls.
@@ -114,6 +115,13 @@ export class BreakevenGlobalService implements TBreakeven {
   );
 
   /**
+   * Action validation service for validating frame existence.
+   */
+  private readonly actionValidationService = inject<ActionValidationService>(
+    TYPES.actionValidationService
+  );
+
+  /**
    * Validates strategy and associated risk configuration.
    * Memoized to avoid redundant validations for the same strategy-exchange-frame combination.
    *
@@ -130,9 +138,10 @@ export class BreakevenGlobalService implements TBreakeven {
       this.strategyValidationService.validate(context.strategyName, methodName);
       this.exchangeValidationService.validate(context.exchangeName, methodName);
       context.frameName && this.frameValidationService.validate(context.frameName, methodName);
-      const { riskName, riskList } = this.strategySchemaService.get(context.strategyName);
+      const { riskName, riskList, actions } = this.strategySchemaService.get(context.strategyName);
       riskName && this.riskValidationService.validate(riskName, methodName);
       riskList && riskList.forEach((riskName) => this.riskValidationService.validate(riskName, methodName));
+      actions && actions.forEach((actionName) => this.actionValidationService.validate(actionName, methodName));
     }
   );
 

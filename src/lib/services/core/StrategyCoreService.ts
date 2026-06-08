@@ -23,6 +23,7 @@ import RiskValidationService from "../validation/RiskValidationService";
 import StrategyValidationService from "../validation/StrategyValidationService";
 import ExchangeValidationService from "../validation/ExchangeValidationService";
 import FrameValidationService from "../validation/FrameValidationService";
+import ActionValidationService from "../validation/ActionValidationService";
 import { FrameName } from "../../../interfaces/Frame.interface";
 
 const METHOD_NAME_VALIDATE = "strategyCoreService validate";
@@ -74,6 +75,9 @@ export class StrategyCoreService implements TStrategy {
   private readonly frameValidationService = inject<FrameValidationService>(
     TYPES.frameValidationService
   );
+  private readonly actionValidationService = inject<ActionValidationService>(
+    TYPES.actionValidationService
+  );
 
   /**
    * Validates strategy and associated risk configuration.
@@ -90,7 +94,7 @@ export class StrategyCoreService implements TStrategy {
       this.loggerService.log(METHOD_NAME_VALIDATE, {
         context,
       });
-      const { riskName, riskList } = this.strategySchemaService.get(context.strategyName);
+      const { riskName, riskList, actions } = this.strategySchemaService.get(context.strategyName);
       this.strategyValidationService.validate(
         context.strategyName,
         METHOD_NAME_VALIDATE
@@ -102,6 +106,7 @@ export class StrategyCoreService implements TStrategy {
       context.frameName && this.frameValidationService.validate(context.frameName, METHOD_NAME_VALIDATE);
       riskName && this.riskValidationService.validate(riskName, METHOD_NAME_VALIDATE);
       riskList && riskList.forEach((riskName) => this.riskValidationService.validate(riskName, METHOD_NAME_VALIDATE));
+      actions && actions.forEach((actionName) => this.actionValidationService.validate(actionName, METHOD_NAME_VALIDATE));
     }
   );
 

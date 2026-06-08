@@ -11,8 +11,22 @@ import ActionValidationService from "../validation/ActionValidationService";
 import { StrategyName } from "../../../interfaces/Strategy.interface";
 import { ExchangeName } from "../../../interfaces/Exchange.interface";
 import { FrameName } from "../../../interfaces/Frame.interface";
+import { memoize } from "functools-kit";
 
 const METHOD_NAME_RUN = "backtestCommandService run";
+const METHOD_NAME_VALIDATE = "backtestCommandService validate";
+
+/**
+ * Creates a unique key for memoizing validate calls.
+ * Key format: "strategyName:exchangeName:frameName"
+ * @param context - Context with strategyName, exchangeName, frameName
+ * @returns Unique string key for memoization
+ */
+const CREATE_KEY_FN = (context: { strategyName: StrategyName; exchangeName: ExchangeName; frameName: FrameName }): string => {
+  const parts = [context.strategyName, context.exchangeName];
+  if (context.frameName) parts.push(context.frameName);
+  return parts.join(":");
+};
 
 /**
  * Type definition for keys of BacktestLogicPublicService.
@@ -62,6 +76,30 @@ export class BacktestCommandService implements TBacktestLogicPublicService {
   );
 
   /**
+   * Validates strategy and associated risk configuration.
+   * Memoized to avoid redundant validations for the same strategy-exchange-frame combination.
+   *
+   * @param context - Context with strategyName, exchangeName and frameName
+   * @param methodName - Name of the calling method for error tracking
+   */
+  private validate = memoize(
+    ([context]) => CREATE_KEY_FN(context),
+    (context: { strategyName: StrategyName; exchangeName: ExchangeName; frameName: FrameName }, methodName: string) => {
+      this.loggerService.log(METHOD_NAME_VALIDATE, {
+        context,
+        methodName,
+      });
+      this.strategyValidationService.validate(context.strategyName, methodName);
+      this.exchangeValidationService.validate(context.exchangeName, methodName);
+      this.frameValidationService.validate(context.frameName, methodName);
+      const { riskName, riskList, actions } = this.strategySchemaService.get(context.strategyName);
+      riskName && this.riskValidationService.validate(riskName, methodName);
+      riskList && riskList.forEach((riskName) => this.riskValidationService.validate(riskName, methodName));
+      actions && actions.forEach((actionName) => this.actionValidationService.validate(actionName, methodName));
+    }
+  );
+
+  /**
    * Runs backtest for a symbol with context propagation.
    *
    * @param symbol - Trading pair symbol (e.g., "BTCUSDT")
@@ -80,25 +118,7 @@ export class BacktestCommandService implements TBacktestLogicPublicService {
       symbol,
       context,
     });
-    {
-      this.strategyValidationService.validate(
-        context.strategyName,
-        METHOD_NAME_RUN
-      );
-      this.exchangeValidationService.validate(
-        context.exchangeName,
-        METHOD_NAME_RUN
-      );
-      this.frameValidationService.validate(context.frameName, METHOD_NAME_RUN);
-    }
-    {
-      const { riskName, riskList, actions } = this.strategySchemaService.get(
-        context.strategyName
-      );
-      riskName && this.riskValidationService.validate(riskName, METHOD_NAME_RUN);
-      riskList && riskList.forEach((riskName) => this.riskValidationService.validate(riskName, METHOD_NAME_RUN));
-      actions && actions.forEach((actionName) => this.actionValidationService.validate(actionName, METHOD_NAME_RUN));
-    }
+    this.validate(context, METHOD_NAME_RUN);
     return this.backtestLogicPublicService.run(symbol, context);
   };
 }
