@@ -1,6 +1,7 @@
 import { ArrowForward } from "@mui/icons-material";
 import { TypedField, FieldType, dayjs, CopyButton } from "react-declarative";
 import ioc from "../lib";
+import getPriceScale from "../utils/getPriceScale";
 import Markdown from "../components/common/Markdown";
 import toPlainString from "../helpers/toPlainString";
 
@@ -183,7 +184,7 @@ export const signal_cancelled_fields: TypedField[] = [
                         readonly: true,
                         compute: (obj) =>
                             !!obj.priceOpen
-                                ? `${obj.priceOpen.toFixed(6)}$`
+                                ? `${obj.priceOpen.toFixed(getPriceScale(obj.priceOpen))}$`
                                 : "Not specified",
                     },
                     {
@@ -198,7 +199,7 @@ export const signal_cancelled_fields: TypedField[] = [
                         isVisible: (obj) => !!obj.priceTakeProfit,
                         compute: (obj) =>
                             !!obj.priceTakeProfit
-                                ? `${obj.priceTakeProfit.toFixed(6)}$`
+                                ? `${obj.priceTakeProfit.toFixed(getPriceScale(obj.priceTakeProfit))}$`
                                 : "Not specified",
                     },
                     {
@@ -213,7 +214,7 @@ export const signal_cancelled_fields: TypedField[] = [
                         isVisible: (obj) => !!obj.priceStopLoss,
                         compute: (obj) =>
                             !!obj.priceStopLoss
-                                ? `${obj.priceStopLoss.toFixed(6)}$`
+                                ? `${obj.priceStopLoss.toFixed(getPriceScale(obj.priceStopLoss))}$`
                                 : "Not specified",
                     },
                     {
@@ -228,7 +229,7 @@ export const signal_cancelled_fields: TypedField[] = [
                         isVisible: (obj) => !!obj.originalPriceTakeProfit,
                         compute: (obj) =>
                             !!obj.originalPriceTakeProfit
-                                ? `${obj.originalPriceTakeProfit.toFixed(6)}$`
+                                ? `${obj.originalPriceTakeProfit.toFixed(getPriceScale(obj.originalPriceTakeProfit))}$`
                                 : "Not specified",
                     },
                     {
@@ -243,7 +244,7 @@ export const signal_cancelled_fields: TypedField[] = [
                         isVisible: (obj) => !!obj.originalPriceStopLoss,
                         compute: (obj) =>
                             !!obj.originalPriceStopLoss
-                                ? `${obj.originalPriceStopLoss.toFixed(6)}$`
+                                ? `${obj.originalPriceStopLoss.toFixed(getPriceScale(obj.originalPriceStopLoss))}$`
                                 : "Not specified",
                     },
                     {
@@ -258,7 +259,7 @@ export const signal_cancelled_fields: TypedField[] = [
                         isVisible: (obj) => !!obj.originalPriceOpen && obj.originalPriceOpen !== obj.priceOpen,
                         compute: (obj) =>
                             !!obj.originalPriceOpen
-                                ? `${obj.originalPriceOpen.toFixed(6)}$`
+                                ? `${obj.originalPriceOpen.toFixed(getPriceScale(obj.originalPriceOpen))}$`
                                 : "Not specified",
                     },
                     {

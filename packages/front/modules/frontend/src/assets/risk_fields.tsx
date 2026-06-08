@@ -1,5 +1,6 @@
 import { TypedField, FieldType, dayjs, CopyButton } from "react-declarative";
 import { Box } from "@mui/material";
+import getPriceScale from "../utils/getPriceScale";
 import Markdown from "../components/common/Markdown";
 import toPlainString from "../helpers/toPlainString";
 
@@ -73,7 +74,7 @@ export const risk_fields: TypedField[] = [
                         readonly: true,
                         compute: (obj) =>
                             !!obj.currentPrice
-                                ? `${obj.currentPrice.toFixed(6)}$`
+                                ? `${obj.currentPrice.toFixed(getPriceScale(obj.currentPrice))}$`
                                 : "Not specified",
                     },
                     {
@@ -190,7 +191,7 @@ export const risk_fields: TypedField[] = [
                         readonly: true,
                         compute: (obj) =>
                             !!obj.priceOpen
-                                ? `${obj.priceOpen.toFixed(6)}$`
+                                ? `${obj.priceOpen.toFixed(getPriceScale(obj.priceOpen))}$`
                                 : "Not specified",
                     },
                     {
@@ -204,7 +205,7 @@ export const risk_fields: TypedField[] = [
                         readonly: true,
                         compute: (obj) =>
                             !!obj.priceTakeProfit
-                                ? `${obj.priceTakeProfit.toFixed(6)}$`
+                                ? `${obj.priceTakeProfit.toFixed(getPriceScale(obj.priceTakeProfit))}$`
                                 : "Not specified",
                     },
                     {
@@ -218,7 +219,7 @@ export const risk_fields: TypedField[] = [
                         readonly: true,
                         compute: (obj) =>
                             !!obj.priceStopLoss
-                                ? `${obj.priceStopLoss.toFixed(6)}$`
+                                ? `${obj.priceStopLoss.toFixed(getPriceScale(obj.priceStopLoss))}$`
                                 : "Not specified",
                     },
                     {

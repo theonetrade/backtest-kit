@@ -1,6 +1,7 @@
 import { ArrowForward } from "@mui/icons-material";
 import { TypedField, FieldType, dayjs, CopyButton } from "react-declarative";
 import ioc from "../lib";
+import getPriceScale from "../utils/getPriceScale";
 import Markdown from "../components/common/Markdown";
 import toPlainString from "../helpers/toPlainString";
 
@@ -115,7 +116,7 @@ export const signal_notify_fields: TypedField[] = [
                         readonly: true,
                         compute: (obj) =>
                             !!obj.currentPrice
-                                ? `${obj.currentPrice.toFixed(6)}$`
+                                ? `${obj.currentPrice.toFixed(getPriceScale(obj.currentPrice))}$`
                                 : "Not specified",
                     },
                 ],
@@ -217,7 +218,7 @@ export const signal_notify_fields: TypedField[] = [
                         readonly: true,
                         compute: (obj) =>
                             !!obj.priceOpen
-                                ? `${obj.priceOpen.toFixed(6)}$`
+                                ? `${obj.priceOpen.toFixed(getPriceScale(obj.priceOpen))}$`
                                 : "Not specified",
                     },
                     {
@@ -232,7 +233,7 @@ export const signal_notify_fields: TypedField[] = [
                         isVisible: (obj) => !!obj.priceTakeProfit,
                         compute: (obj) =>
                             !!obj.priceTakeProfit
-                                ? `${obj.priceTakeProfit.toFixed(6)}$`
+                                ? `${obj.priceTakeProfit.toFixed(getPriceScale(obj.priceTakeProfit))}$`
                                 : "Not specified",
                     },
                     {
@@ -247,7 +248,7 @@ export const signal_notify_fields: TypedField[] = [
                         isVisible: (obj) => !!obj.priceStopLoss,
                         compute: (obj) =>
                             !!obj.priceStopLoss
-                                ? `${obj.priceStopLoss.toFixed(6)}$`
+                                ? `${obj.priceStopLoss.toFixed(getPriceScale(obj.priceStopLoss))}$`
                                 : "Not specified",
                     },
                     {
@@ -262,7 +263,7 @@ export const signal_notify_fields: TypedField[] = [
                         isVisible: (obj) => !!obj.originalPriceTakeProfit,
                         compute: (obj) =>
                             !!obj.originalPriceTakeProfit
-                                ? `${obj.originalPriceTakeProfit.toFixed(6)}$`
+                                ? `${obj.originalPriceTakeProfit.toFixed(getPriceScale(obj.originalPriceTakeProfit))}$`
                                 : "Not specified",
                     },
                     {
@@ -277,7 +278,7 @@ export const signal_notify_fields: TypedField[] = [
                         isVisible: (obj) => !!obj.originalPriceStopLoss,
                         compute: (obj) =>
                             !!obj.originalPriceStopLoss
-                                ? `${obj.originalPriceStopLoss.toFixed(6)}$`
+                                ? `${obj.originalPriceStopLoss.toFixed(getPriceScale(obj.originalPriceStopLoss))}$`
                                 : "Not specified",
                     },
                     {
@@ -294,7 +295,7 @@ export const signal_notify_fields: TypedField[] = [
                             obj.originalPriceOpen !== obj.priceOpen,
                         compute: (obj) =>
                             !!obj.originalPriceOpen
-                                ? `${obj.originalPriceOpen.toFixed(6)}$`
+                                ? `${obj.originalPriceOpen.toFixed(getPriceScale(obj.originalPriceOpen))}$`
                                 : "Not specified",
                     },
                     {
@@ -396,7 +397,7 @@ export const signal_notify_fields: TypedField[] = [
                         readonly: true,
                         compute: (obj) =>
                             !!obj.pnlPriceOpen
-                                ? `${obj.pnlPriceOpen.toFixed(6)}$`
+                                ? `${obj.pnlPriceOpen.toFixed(getPriceScale(obj.pnlPriceOpen))}$`
                                 : "N/A",
                     },
                     {
@@ -410,7 +411,7 @@ export const signal_notify_fields: TypedField[] = [
                         readonly: true,
                         compute: (obj) =>
                             !!obj.pnlPriceClose
-                                ? `${obj.pnlPriceClose.toFixed(6)}$`
+                                ? `${obj.pnlPriceClose.toFixed(getPriceScale(obj.pnlPriceClose))}$`
                                 : "N/A",
                     },
                 ],
@@ -469,7 +470,7 @@ export const signal_notify_fields: TypedField[] = [
                         readonly: true,
                         compute: (obj) =>
                             obj.peakProfitPriceOpen
-                                ? `${obj.peakProfitPriceOpen.toFixed(6)}$`
+                                ? `${obj.peakProfitPriceOpen.toFixed(getPriceScale(obj.peakProfitPriceOpen))}$`
                                 : "N/A",
                     },
                     {
@@ -483,7 +484,7 @@ export const signal_notify_fields: TypedField[] = [
                         readonly: true,
                         compute: (obj) =>
                             obj.peakProfitPriceClose
-                                ? `${obj.peakProfitPriceClose.toFixed(6)}$`
+                                ? `${obj.peakProfitPriceClose.toFixed(getPriceScale(obj.peakProfitPriceClose))}$`
                                 : "N/A",
                     },
                     {
@@ -556,7 +557,7 @@ export const signal_notify_fields: TypedField[] = [
                         readonly: true,
                         compute: (obj) =>
                             obj.maxDrawdownPriceOpen
-                                ? `${obj.maxDrawdownPriceOpen.toFixed(6)}$`
+                                ? `${obj.maxDrawdownPriceOpen.toFixed(getPriceScale(obj.maxDrawdownPriceOpen))}$`
                                 : "N/A",
                     },
                     {
@@ -570,7 +571,7 @@ export const signal_notify_fields: TypedField[] = [
                         readonly: true,
                         compute: (obj) =>
                             obj.maxDrawdownPriceClose
-                                ? `${obj.maxDrawdownPriceClose.toFixed(6)}$`
+                                ? `${obj.maxDrawdownPriceClose.toFixed(getPriceScale(obj.maxDrawdownPriceClose))}$`
                                 : "N/A",
                     },
                     {
