@@ -17,7 +17,6 @@
  *   medianStepSize so the metric self-tunes to the instrument's typical
  *   move size.
  */
-
 export type PriceTrend = "bullish" | "bearish" | "sideways" | "neutral";
 
 export interface PriceProfile {
