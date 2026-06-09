@@ -527,16 +527,19 @@ class ReportStorage {
 
     // Per-trade Sharpe Ratio (risk-free rate = 0). Sample stddev (N-1).
     // Per-trade ratios are gated by MIN_SIGNALS_FOR_RATIOS — below that, variance estimates
-    // are too noisy to publish (high chance of spurious ±Sharpe).
+    // are too noisy to publish (high chance of spurious ±Sharpe). When the gate fails the
+    // standard deviation itself is reported as null (NOT 0) so the report doesn't suggest
+    // a flat distribution for a small but variable sample.
     const canComputeRatios = returns.length >= MIN_SIGNALS_FOR_RATIOS;
-    const stdDev = canComputeRatios
+    const stdDev: number | null = canComputeRatios
       ? Math.sqrt(returns.reduce((sum, r) => sum + Math.pow(r - avgPnl, 2), 0) / (returns.length - 1))
-      : 0;
+      : null;
     // STDDEV_EPSILON guard — protects against float-artifact stdDev from identical
     // returns producing spuriously astronomical sharpe.
-    const sharpeRatio: number | null = canComputeRatios && stdDev > STDDEV_EPSILON
-      ? avgPnl / stdDev
-      : null;
+    const sharpeRatio: number | null =
+      canComputeRatios && stdDev !== null && stdDev > STDDEV_EPSILON
+        ? avgPnl / stdDev
+        : null;
     // Annualize only when gate passes; otherwise null.
     const annualizedSharpeRatio: number | null = canAnnualize && sharpeRatio !== null
       ? sharpeRatio * Math.sqrt(tradesPerYear)
