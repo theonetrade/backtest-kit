@@ -844,12 +844,15 @@ test("Statistical metrics are calculated correctly", async ({ pass, fail }) => {
     return;
   }
 
-  if (typeof stats.stdDev !== "number") {
-    fail(`stdDev should be a number, got ${typeof stats.stdDev}`);
+  // stdDev (and the ratios below) are gated by MIN_SIGNALS_FOR_RATIOS — null when the
+  // closed-signal count is under the threshold. This test closes only 3 signals, so
+  // null is the expected value; assert number-or-null, matching sharpe/certainty.
+  if (stats.stdDev !== null && typeof stats.stdDev !== "number") {
+    fail(`stdDev should be a number or null, got ${typeof stats.stdDev}`);
     return;
   }
 
-  if (stats.stdDev < 0) {
+  if (typeof stats.stdDev === "number" && stats.stdDev < 0) {
     fail(`stdDev should be positive, got ${stats.stdDev}`);
     return;
   }
@@ -869,6 +872,6 @@ test("Statistical metrics are calculated correctly", async ({ pass, fail }) => {
     return;
   }
 
-  pass(`All metrics calculated correctly: winRate=${stats.winRate.toFixed(2)}%, stdDev=${stats.stdDev.toFixed(2)}%`);
+  pass(`All metrics calculated correctly: winRate=${stats.winRate.toFixed(2)}%, stdDev=${stats.stdDev === null ? "N/A (N<MIN_SIGNALS_FOR_RATIOS)" : `${stats.stdDev.toFixed(2)}%`}`);
 
 });

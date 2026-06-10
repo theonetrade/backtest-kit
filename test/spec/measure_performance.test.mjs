@@ -112,7 +112,17 @@ test("performance: all-zero durations — pct guard, no NaN in report", async ({
   if (m.stdDev !== 0) return fail(`stdDev must be 0 for identical zeros, got ${m.stdDev}`);
 
   const md = await svc.getReport("ZEROS-PERF", STRATEGY, EXCHANGE, FRAME, true);
-  if (/NaN/.test(md)) return fail(`getReport contains "NaN" — pct guard regression. report:\n${md}`);
+  // The pct guard must keep "NaN" out of any RENDERED VALUE — the table rows
+  // (start with "|"), the metric lines (start with "**") and the Time
+  // Distribution bullets (start with "- "). The trailing annotation block (each
+  // line a single-"*" italic definition) legitimately uses the word "NaN" when
+  // describing the guard itself ("forced to 0 instead of NaN"), so scanning the
+  // whole document would false-positive on documentation. Scan only value lines.
+  const valueLines = md
+    .split("\n")
+    .filter((l) => l.startsWith("|") || l.startsWith("**") || l.startsWith("- "));
+  const nanLine = valueLines.find((l) => /NaN/.test(l));
+  if (nanLine) return fail(`rendered value contains "NaN" — pct guard regression:\n${nanLine}`);
   // Sanity: report must actually cover the live_tick metric, not just be the
   // empty-state message — otherwise the no-NaN check would pass vacuously.
   if (!/live_tick/.test(md)) return fail(`getReport must mention live_tick — empty report would pass the NaN check vacuously`);

@@ -45,14 +45,25 @@ test("markdown: gated metrics render as 'N/A' (Backtest, N=9)", async ({ pass, f
     }
   }
 
-  // The literal word "null" must NEVER appear (would indicate a regression
-  // where a null value was string-concatenated instead of formatted).
-  if (/\bnull\b/.test(md)) {
-    fail(`report contains literal "null":\n${md.slice(0, 800)}`);
+  // The literal "null"/"NaN" must NEVER appear in a VALUE the report renders —
+  // that would mean a null/NaN was string-concatenated instead of formatted to
+  // "N/A". The contract lives in the metric lines (start with "**") and the
+  // signal-table rows (start with "|"). The trailing annotation block (each line
+  // a single-"*" italic definition) legitimately uses the prose words
+  // "null"/"Null"/"NaN" to explain each metric's gating ("Null when the closed
+  // signal count < 10", "forced to 0 instead of NaN"), so scanning the whole
+  // document would false-positive on documentation. Scan only the value lines.
+  const valueLines = md
+    .split("\n")
+    .filter((l) => l.startsWith("**") || l.startsWith("|"));
+  const nullLine = valueLines.find((l) => /\bnull\b/i.test(l));
+  if (nullLine) {
+    fail(`metric/table line renders literal "null":\n${nullLine}`);
     return;
   }
-  if (/\bNaN\b/.test(md)) {
-    fail(`report contains "NaN":\n${md.slice(0, 800)}`);
+  const nanLine = valueLines.find((l) => /\bNaN\b/.test(l));
+  if (nanLine) {
+    fail(`metric/table line renders "NaN":\n${nanLine}`);
     return;
   }
   pass(`Gated metrics render as N/A, no literal 'null' or 'NaN'`);

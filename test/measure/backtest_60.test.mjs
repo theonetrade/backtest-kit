@@ -60,11 +60,12 @@ const assertSilent = (stats, countField) => {
   if (stats.calmarRatio !== null) {
     return `calmarRatio must be null, got ${stats.calmarRatio}`;
   }
-  // stdDev: service sets it to 0 (not null) when the ratio gate is closed —
-  // documented behaviour. The ratios themselves (sharpe, sortino) ARE null,
-  // which is what the user sees.
-  if (stats.stdDev !== 0) {
-    return `stdDev must be 0 when ratio gate is closed (documented), got ${stats.stdDev}`;
+  // stdDev: service reports it as null (NOT 0) when the ratio gate is closed
+  // (N < MIN_SIGNALS_FOR_RATIOS) — a null says "not enough data to estimate
+  // variance", whereas 0 would falsely suggest a flat (zero-variance) sample.
+  // The dependent ratios (sharpe, sortino) are null for the same reason.
+  if (stats.stdDev !== null) {
+    return `stdDev must be null when ratio gate is closed (N=3 < MIN_SIGNALS_FOR_RATIOS), got ${stats.stdDev}`;
   }
 
   // certaintyRatio — gated by N like the other ratios (N=3 < MIN_SIGNALS_FOR_RATIOS).

@@ -123,8 +123,11 @@ export const computePoolReference = (rows) => {
   const winRate = decisive > 0 ? (winCount / decisive) * 100 : 0;
 
   const canRatios = n >= MIN_SIGNALS_FOR_RATIOS;
-  const stdDev = canRatios ? sampleStdDev(returns) : 0;
-  const sharpe = canRatios && stdDev > STDDEV_EPSILON ? avgPnl / stdDev : null;
+  // null (not 0) below the gate — mirrors the services, which report stdDev as null
+  // when N < MIN_SIGNALS_FOR_RATIOS so the report doesn't suggest a flat distribution
+  // for a small-but-variable sample. (computeHeatReference already does this.)
+  const stdDev = canRatios ? sampleStdDev(returns) : null;
+  const sharpe = canRatios && stdDev !== null && stdDev > STDDEV_EPSILON ? avgPnl / stdDev : null;
 
   const firstPend = Math.min(...valid.map((r) => r.pendingAt));
   const lastClose = Math.max(...valid.map((r) => r.updatedAt));
