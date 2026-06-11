@@ -1105,8 +1105,8 @@ export class StrategyConnectionService implements TStrategy {
     await strategy.waitForInit();
     const tick = await strategy.tick(symbol, context.strategyName);
     {
-      this.priceMetaService.next(symbol, tick.currentPrice, context, backtest);
-      this.timeMetaService.next(symbol, tick.createdAt, context, backtest);
+      await this.priceMetaService.next(symbol, tick.currentPrice, context, backtest);
+      await this.timeMetaService.next(symbol, tick.createdAt, context, backtest);
     }
     {
       await CALL_SIGNAL_EMIT_FN(this, tick, context, backtest, symbol);

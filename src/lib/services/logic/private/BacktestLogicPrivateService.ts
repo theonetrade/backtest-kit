@@ -19,6 +19,8 @@ import { GLOBAL_CONFIG } from "../../../../config/params";
 import { and, errorData, getErrorMessage } from "functools-kit";
 import ActionCoreService from "../../core/ActionCoreService";
 import { Candle } from "../../../../classes/Candle";
+import TimeMetaService from "../../meta/TimeMetaService";
+import PriceMetaService from "../../meta/PriceMetaService";
 
 const ACTIVE_CANDLE_INCLUDED = 1;
 const SCHEDULE_ACTIVATION_CANDLE_SKIP = 1;
@@ -229,6 +231,11 @@ const RUN_INFINITY_CHUNK_LOOP_FN = async (
 
     if (chunkResult.action !== "active") {
       return chunkResult;
+    }
+
+    {
+      await self.priceMetaService.next(symbol, chunkResult.currentPrice, context, true);
+      await self.timeMetaService.next(symbol, chunkResult._backtestLastTimestamp, context, true);
     }
 
     lastChunkCandles = chunkCandles;
@@ -484,6 +491,11 @@ const RUN_OPENED_CHUNK_LOOP_FN = async (
       return chunkResult;
     }
 
+    {
+      await self.priceMetaService.next(symbol, chunkResult.currentPrice, context, true);
+      await self.timeMetaService.next(symbol, chunkResult._backtestLastTimestamp, context, true);
+    }
+
     lastChunkCandles = chunkCandles;
     chunkStart = new Date(chunkResult._backtestLastTimestamp + 60_000 - bufferMs);
   }
@@ -609,6 +621,12 @@ export class BacktestLogicPrivateService {
   );
   readonly actionCoreService = inject<ActionCoreService>(
     TYPES.actionCoreService
+  );
+  readonly timeMetaService = inject<TimeMetaService>(
+    TYPES.timeMetaService
+  );
+  readonly priceMetaService = inject<PriceMetaService>(
+    TYPES.priceMetaService
   );
 
   /**

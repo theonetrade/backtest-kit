@@ -34491,6 +34491,8 @@ declare class BacktestLogicPrivateService {
         readonly context: IMethodContext;
     };
     readonly actionCoreService: ActionCoreService;
+    readonly timeMetaService: TimeMetaService;
+    readonly priceMetaService: PriceMetaService;
     /**
      * Runs backtest for a symbol, streaming closed signals as async generator.
      *
@@ -34582,6 +34584,8 @@ type IBacktestLogicPrivateService = Omit<BacktestLogicPrivateService, keyof {
     frameCoreService: never;
     actionCoreService: never;
     methodContextService: never;
+    priceMetaService: never;
+    timeMetaService: never;
 }>;
 /**
  * Type definition for BacktestLogicPublicService.
