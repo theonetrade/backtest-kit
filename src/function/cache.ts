@@ -38,6 +38,7 @@ const ALIGN_TO_INTERVAL_FN = (
 const BAR_LENGTH = 30;
 const BAR_FILLED_CHAR = "\u2588";
 const BAR_EMPTY_CHAR = "\u2591";
+const LINE_WIDTH = 80;
 
 const PRINT_PROGRESS_FN = (
   fetched: number,
@@ -45,14 +46,19 @@ const PRINT_PROGRESS_FN = (
   symbol: string,
   interval: CandleInterval,
 ) => {
-  const percent = Math.round((fetched / total) * 100);
-  const filled = Math.round((fetched / total) * BAR_LENGTH);
+  if (total <= 0) {
+    return;
+  }
+  const ratio = Math.min(fetched / total, 1);
+  const percent = Math.round(ratio * 100);
+  const filled = Math.round(ratio * BAR_LENGTH);
   const empty = BAR_LENGTH - filled;
   const bar = BAR_FILLED_CHAR.repeat(filled) + BAR_EMPTY_CHAR.repeat(empty);
-  process.stdout.write(
-    `\r[${bar}] ${percent}% (${fetched}/${total}) ${symbol} ${interval}`,
-  );
-  if (fetched === total) {
+  // \u0424\u0438\u043a\u0441. \u0448\u0438\u0440\u0438\u043d\u0430: pad \u043f\u0440\u043e\u0431\u0435\u043b\u0430\u043c\u0438 + slice. \u0418\u043d\u0430\u0447\u0435 \u043f\u0440\u0438 \u0431\u043e\u043b\u0435\u0435 \u043a\u043e\u0440\u043e\u0442\u043a\u043e\u0439 \u043d\u043e\u0432\u043e\u0439 \u043c\u0435\u0442\u043a\u0435
+  // (SOLUSDT \u043f\u043e\u0441\u043b\u0435 FARTCOINUSDT) \r \u043d\u0435 \u0441\u0442\u0438\u0440\u0430\u0435\u0442 \u0445\u0432\u043e\u0441\u0442 \u2192 "BTCUSDTTUSDT".
+  const line = `[${bar}] ${percent}% (${fetched}/${total}) ${symbol} ${interval}`;
+  process.stdout.write("\r" + line.padEnd(LINE_WIDTH).slice(0, LINE_WIDTH));
+  if (fetched >= total) {
     process.stdout.write("\n");
   }
 };
