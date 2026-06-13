@@ -3,7 +3,8 @@ import * as backtest_kit from 'backtest-kit';
 import { CandleInterval, NotificationModel, IStorageSignalRow, ILogEntry, IPublicSignalRow, IRuntimeInfo } from 'backtest-kit';
 import * as functools_kit from 'functools-kit';
 
-declare function serve(host?: string, port?: number, cwd?: string): () => void;
+type CallbackFn = (error?: Error) => void;
+declare function serve(host?: string, port?: number, cwd?: string, callback?: CallbackFn): () => void;
 declare function getRouter(): http.RequestListener;
 
 interface ILogger {
