@@ -310,7 +310,7 @@ if (!model.certification.certified) {
 }
 ```
 
-**Per-asset training grids.** The default grid is deliberately small and asset-agnostic. The library ships tuned `TrainGrid`s per asset (fastest → slowest: Fartcoin, HYPE, SOL, TRX, TON, DOGE, BNB, ETH, XRP, LTC, ZEC, XLM, LINK, DOT, BTC), set from how each coin actually pumps — the unifying axis is **pump speed → everything else** (faster ⇒ shorter `staleMinutes`, tighter `hardStop`, shorter cascade window, looser matrix thresholds, more aggressive squeeze handling). A grid only steers *where* the search looks; the 1-SE rule and `certification` still decide what is tradeable.
+**Per-asset training grids.** The default grid is deliberately small and asset-agnostic. The library ships tuned `TrainGrid`s per asset (fastest → slowest: HYPE, SOL, TRX, TON, DOGE, BNB, ETH, XRP, LTC, ZEC, XLM, LINK, DOT, BTC), set from how each coin actually pumps — the unifying axis is **pump speed → everything else** (faster ⇒ shorter `staleMinutes`, tighter `hardStop`, shorter cascade window, looser matrix thresholds, more aggressive squeeze handling). A grid only steers *where* the search looks; the 1-SE rule and `certification` still decide what is tradeable.
 
 See the [pump-anomaly npm page](https://www.npmjs.com/package/pump-anomaly) for the full API reference, the `TradeSignal`/`BacktestResult` contracts, the exit tensor, the liquidation-cascade detector, and the meta-overfitting ledger.
 
