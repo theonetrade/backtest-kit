@@ -19,23 +19,38 @@ import dotenv from "dotenv";
 import { getEntrySubject } from "../config/emitters";
 import notifyKill, { kill } from "../utils/notifyKill";
 
-type Mode = "backtest" | "live" | "paper" | "walker";
+type Mode = "backtest" | "live" | "paper" | "walker" | "main";
 
 const MODE_MODULE: Record<Mode, string> = {
   backtest: "backtest.module",
   live: "live.module",
   paper: "paper.module",
   walker: "walker.module",
+  main: "main.module",
 };
 
+const MODE_LIST: Mode[] = ["backtest", "live", "paper", "walker", "main"];
+
 const resolveMode = (values: Record<string, unknown>): Mode | null => {
-  const enabled = (<Mode[]>["backtest", "live", "paper", "walker"]).filter(
-    (mode) => Boolean(values[mode]),
-  );
-  if (enabled.length !== 1) {
+  if (MODE_LIST.filter((mode) => values[mode]).length > 1) {
     return null;
   }
-  return enabled[0];
+  if (values.main) {
+    return "main";
+  }
+  if (values.backtest) {
+    return "backtest";
+  }
+  if (values.live) {
+    return "live";
+  }
+  if (values.paper) {
+    return "paper";
+  }
+  if (values.walker) {
+    return "walker";
+  }
+  return null;
 };
 
 const stopBacktestList = async () => {
@@ -72,11 +87,18 @@ const stopWalkerList = async () => {
   }
 };
 
+const stopMain = async () => {
+  await stopBacktestList();
+  await stopLiveList();
+  await stopWalkerList();
+};
+
 const MODE_STOP: Record<Mode, () => Promise<void>> = {
   backtest: stopBacktestList,
   live: stopLiveList,
   paper: stopLiveList,
   walker: stopWalkerList,
+  main: stopMain,
 };
 
 const listenFinish = singleshot(() => {
@@ -129,7 +151,7 @@ export const main = async () => {
 
   if (!mode) {
     console.error(
-      "--entry requires exactly one of --backtest, --live, --paper, --walker",
+      "--entry requires exactly one of --backtest, --live, --paper, --walker, --main",
     );
     kill(1);
     return;
@@ -137,7 +159,7 @@ export const main = async () => {
 
   const entryPoints = getPositionals();
 
-  if (!entryPoints.length) {
+  if (mode !== "main" && !entryPoints.length) {
     throw new Error("At least one entry point is required");
   }
 
@@ -193,13 +215,21 @@ export const main = async () => {
   await cli.moduleConnectionService.loadModule(MODE_MODULE[mode]);
 
   listenFinish();
-  createGracefulShutdown(mode)();
+
+  {
+    const listenShutdown = createGracefulShutdown(mode);
+    listenShutdown();
+  }
 
   let absolutePath: string;
-  
+
   for (const entryPoint of entryPoints) {
     absolutePath = path.resolve(cwd, entryPoint);
     await cli.resolveService.attachEntry(absolutePath);
+  }
+
+  if (mode === "main") {
+    return;
   }
 
   await getEntrySubject().next(absolutePath);

@@ -84,6 +84,10 @@ export const getArgs = singleshot(() => {
         type: "boolean",
         default: false,
       },
+      main: {
+        type: "boolean",
+        default: false,
+      },
       cacheInterval: {
         type: "string",
         default: "1m, 15m, 30m, 4h",
