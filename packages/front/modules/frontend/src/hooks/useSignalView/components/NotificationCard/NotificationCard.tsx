@@ -446,7 +446,8 @@ const hasOriginalPriceOpen = (
   return (
     "originalPriceOpen" in item &&
     "priceOpen" in item &&
-    item.originalPriceOpen !== item.priceOpen
+    item.originalPriceOpen != null &&
+    Number(item.originalPriceOpen).toFixed(6) !== Number(item.priceOpen).toFixed(6)
   );
 };
 
