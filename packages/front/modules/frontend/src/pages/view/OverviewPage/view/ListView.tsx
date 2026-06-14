@@ -223,7 +223,7 @@ export const ListView = ({
                                             Entry:
                                         </Box>
                                         {formatAmount(item.priceOpen)}$
-                                        {item.originalPriceOpen !== item.priceOpen && (
+                                        {item.originalPriceOpen != null && Number(item.originalPriceOpen).toFixed(6) !== Number(item.priceOpen).toFixed(6) && (
                                             <Box
                                                 component="span"
                                                 sx={{
@@ -255,7 +255,7 @@ export const ListView = ({
                                             TP:
                                         </Box>
                                         {formatAmount(item.priceTakeProfit)}$
-                                        {item.originalPriceTakeProfit !== item.priceTakeProfit && (
+                                        {item.originalPriceTakeProfit != null && Number(item.originalPriceTakeProfit).toFixed(6) !== Number(item.priceTakeProfit).toFixed(6) && (
                                             <Box
                                                 component="span"
                                                 sx={{
@@ -287,7 +287,7 @@ export const ListView = ({
                                             SL:
                                         </Box>
                                         {formatAmount(item.priceStopLoss)}$
-                                        {item.originalPriceStopLoss !== item.priceStopLoss && (
+                                        {item.originalPriceStopLoss != null && Number(item.originalPriceStopLoss).toFixed(6) !== Number(item.priceStopLoss).toFixed(6) && (
                                             <Box
                                                 component="span"
                                                 sx={{
