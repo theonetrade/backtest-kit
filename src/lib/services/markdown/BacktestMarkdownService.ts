@@ -1,8 +1,10 @@
 import {
+  IStorageSignalRow,
   IStrategyTickResult,
   IStrategyTickResultClosed,
   StrategyName,
 } from "../../../interfaces/Strategy.interface";
+import { StorageBacktest, StorageLive } from "../../../classes/Storage";
 import { inject } from "../../../lib/core/di";
 import LoggerService, { TLoggerService } from "../base/LoggerService";
 import TYPES from "../../../lib/core/types";
@@ -138,6 +140,75 @@ const STDDEV_EPSILON = 1e-9;
 
 
 /**
+ * Maps a persisted closed storage row to the in-memory closed-tick shape used by
+ * ReportStorage. The row already carries every IPublicSignalRow field (it extends
+ * it), plus the closeReason/closeTimestamp/currentPrice mirrors persisted on close.
+ *
+ * @param row - Closed storage signal row read from disk
+ * @param backtest - Which adapter the row came from (StorageBacktest -> true)
+ * @returns Equivalent IStrategyTickResultClosed for statistics/reporting
+ */
+const STORAGE_ROW_TO_CLOSED_FN = (
+  row: IStorageSignalRow & { status: "closed" },
+  backtest: boolean
+): IStrategyTickResultClosed => ({
+  action: "closed",
+  signal: row,
+  currentPrice: row.currentPrice,
+  closeReason: row.closeReason,
+  closeTimestamp: row.closeTimestamp,
+  pnl: row.pnl,
+  strategyName: row.strategyName,
+  exchangeName: row.exchangeName,
+  frameName: row.frameName,
+  symbol: row.symbol,
+  backtest,
+  createdAt: row.createdAt,
+});
+
+/**
+ * Loads persisted closed signals from BOTH live and backtest storage adapters,
+ * keeping only the rows matching the given report context.
+ *
+ * Uses the StorageLive / StorageBacktest singletons directly so the read bypasses
+ * StorageAdapter.enable() — reports must work even when event capture is disabled.
+ *
+ * @param symbol - Trading pair symbol
+ * @param strategyName - Strategy identifier
+ * @param exchangeName - Exchange identifier
+ * @param frameName - Frame identifier
+ * @returns Closed tick results for this context, oldest first
+ */
+const LOAD_PERSISTED_CLOSED_FN = async (
+  symbol: string,
+  strategyName: StrategyName,
+  exchangeName: ExchangeName,
+  frameName: FrameName
+): Promise<IStrategyTickResultClosed[]> => {
+  const [liveRows, backtestRows] = await Promise.all([
+    StorageLive.list(),
+    StorageBacktest.list(),
+  ]);
+  const matches = (row: IStorageSignalRow): boolean =>
+    row.status === "closed" &&
+    row.symbol === symbol &&
+    row.strategyName === strategyName &&
+    row.exchangeName === exchangeName &&
+    row.frameName === frameName;
+  const result: IStrategyTickResultClosed[] = [];
+  for (const row of liveRows) {
+    if (matches(row)) result.push(STORAGE_ROW_TO_CLOSED_FN(row as IStorageSignalRow & { status: "closed" }, false));
+  }
+  for (const row of backtestRows) {
+    if (matches(row)) result.push(STORAGE_ROW_TO_CLOSED_FN(row as IStorageSignalRow & { status: "closed" }, true));
+  }
+  // Oldest first so the newest-first _signalList stays chronologically consistent
+  // once history is unshifted in.
+  result.sort((a, b) => a.closeTimestamp - b.closeTimestamp);
+  return result;
+};
+
+/**
  * Storage class for accumulating closed signals per strategy.
  * Maintains a list of all closed signals and provides methods to generate reports.
  */
@@ -151,6 +222,37 @@ class ReportStorage {
     readonly exchangeName: ExchangeName,
     readonly frameName: FrameName
   ) {}
+
+  /**
+   * Lazily loads persisted closed-signal history from disk (live + backtest
+   * adapters) into _signalList on first access. Guarded by singleshot so it runs
+   * exactly once; every read/write path (addSignal, getData, getReport, dump)
+   * awaits it first, so accumulated tick data is layered on top of history rather
+   * than racing it.
+   */
+  public waitForInit = singleshot(async () => {
+    const persisted = await LOAD_PERSISTED_CLOSED_FN(
+      this.symbol,
+      this.strategyName,
+      this.exchangeName,
+      this.frameName
+    );
+    if (persisted.length === 0) {
+      return;
+    }
+    const seen = new Set(this._signalList.map((s) => s.signal.id));
+    // _signalList is newest-first (addSignal unshifts); append older history to the
+    // tail, skipping ids already present from live ticks.
+    for (const closed of persisted) {
+      if (!seen.has(closed.signal.id)) {
+        this._signalList.push(closed);
+        seen.add(closed.signal.id);
+      }
+    }
+    if (this._signalList.length > GLOBAL_CONFIG.CC_MAX_BACKTEST_MARKDOWN_ROWS) {
+      this._signalList.length = GLOBAL_CONFIG.CC_MAX_BACKTEST_MARKDOWN_ROWS;
+    }
+  });
 
   /**
    * Adds a closed signal to the storage.
@@ -173,6 +275,7 @@ class ReportStorage {
    * @returns Statistical data (empty object if no signals)
    */
   public async getData(): Promise<BacktestStatisticsModel> {
+    await this.waitForInit();
     if (this._signalList.length === 0) {
       return {
         signalList: [],
@@ -577,6 +680,7 @@ class ReportStorage {
     strategyName: StrategyName,
     columns: Columns[] = COLUMN_CONFIG.backtest_columns
   ): Promise<string> {
+    await this.waitForInit();
     const stats = await this.getData();
 
     if (stats.totalSignals === 0) {
@@ -772,6 +876,7 @@ export class BacktestMarkdownService {
     }
 
     const storage = this.getStorage(data.symbol, data.strategyName, data.exchangeName, data.frameName, true);
+    await storage.waitForInit();
     storage.addSignal(data);
   };
 

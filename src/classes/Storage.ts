@@ -215,6 +215,7 @@ export class StoragePersistBacktestUtils implements IStorageUtils {
       ...tick.signal,
       status: "opened",
       priority: Date.now(),
+      currentPrice: tick.currentPrice,
       createdAt: lastStorage ? lastStorage.createdAt : tick.createdAt,
       updatedAt: tick.createdAt,
     });
@@ -241,6 +242,9 @@ export class StoragePersistBacktestUtils implements IStorageUtils {
       status: "closed",
       priority: Date.now(),
       pnl: tick.pnl,
+      currentPrice: tick.currentPrice,
+      closeReason: tick.closeReason,
+      closeTimestamp: tick.closeTimestamp,
       createdAt: lastStorage ? lastStorage.createdAt : tick.createdAt,
       updatedAt: tick.createdAt,
     });
@@ -266,6 +270,7 @@ export class StoragePersistBacktestUtils implements IStorageUtils {
       ...tick.signal,
       status: "scheduled",
       priority: Date.now(),
+      currentPrice: tick.currentPrice,
       createdAt: lastStorage ? lastStorage.createdAt : tick.createdAt,
       updatedAt: tick.createdAt,
     });
@@ -428,6 +433,7 @@ export class StorageMemoryBacktestUtils implements IStorageUtils {
       ...tick.signal,
       status: "opened",
       priority: Date.now(),
+      currentPrice: tick.currentPrice,
       createdAt: lastStorage ? lastStorage.createdAt : tick.createdAt,
       updatedAt: tick.createdAt,
     });
@@ -452,6 +458,9 @@ export class StorageMemoryBacktestUtils implements IStorageUtils {
       status: "closed",
       priority: Date.now(),
       pnl: tick.pnl,
+      currentPrice: tick.currentPrice,
+      closeReason: tick.closeReason,
+      closeTimestamp: tick.closeTimestamp,
       createdAt: lastStorage ? lastStorage.createdAt : tick.createdAt,
       updatedAt: tick.createdAt,
     });
@@ -475,6 +484,7 @@ export class StorageMemoryBacktestUtils implements IStorageUtils {
       ...tick.signal,
       status: "scheduled",
       priority: Date.now(),
+      currentPrice: tick.currentPrice,
       createdAt: lastStorage ? lastStorage.createdAt : tick.createdAt,
       updatedAt: tick.createdAt,
     });
@@ -732,6 +742,7 @@ export class StoragePersistLiveUtils implements IStorageUtils {
       ...tick.signal,
       status: "opened",
       priority: Date.now(),
+      currentPrice: tick.currentPrice,
       createdAt: lastStorage ? lastStorage.createdAt : tick.createdAt,
       updatedAt: tick.createdAt,
     });
@@ -758,6 +769,9 @@ export class StoragePersistLiveUtils implements IStorageUtils {
       status: "closed",
       priority: Date.now(),
       pnl: tick.pnl,
+      currentPrice: tick.currentPrice,
+      closeReason: tick.closeReason,
+      closeTimestamp: tick.closeTimestamp,
       createdAt: lastStorage ? lastStorage.createdAt : tick.createdAt,
       updatedAt: tick.createdAt,
     });
@@ -783,6 +797,7 @@ export class StoragePersistLiveUtils implements IStorageUtils {
       ...tick.signal,
       status: "scheduled",
       priority: Date.now(),
+      currentPrice: tick.currentPrice,
       createdAt: lastStorage ? lastStorage.createdAt : tick.createdAt,
       updatedAt: tick.createdAt,
     });
@@ -945,6 +960,7 @@ export class StorageMemoryLiveUtils implements IStorageUtils {
       ...tick.signal,
       status: "opened",
       priority: Date.now(),
+      currentPrice: tick.currentPrice,
       createdAt: lastStorage ? lastStorage.createdAt : tick.createdAt,
       updatedAt: tick.createdAt,
     });
@@ -969,6 +985,9 @@ export class StorageMemoryLiveUtils implements IStorageUtils {
       status: "closed",
       priority: Date.now(),
       pnl: tick.pnl,
+      currentPrice: tick.currentPrice,
+      closeReason: tick.closeReason,
+      closeTimestamp: tick.closeTimestamp,
       createdAt: lastStorage ? lastStorage.createdAt : tick.createdAt,
       updatedAt: tick.createdAt,
     });
@@ -992,6 +1011,7 @@ export class StorageMemoryLiveUtils implements IStorageUtils {
       ...tick.signal,
       status: "scheduled",
       priority: Date.now(),
+      currentPrice: tick.currentPrice,
       createdAt: lastStorage ? lastStorage.createdAt : tick.createdAt,
       updatedAt: tick.createdAt,
     });

@@ -2686,6 +2686,8 @@ interface IStorageSignalRowBase extends IPublicSignalRow {
 interface IStorageSignalRowOpened extends IStorageSignalRowBase {
     /** Current status of the signal */
     status: "opened";
+    /** VWAP price at signal open (mirrors IStrategyTickResultOpened.currentPrice) */
+    currentPrice: number;
 }
 /**
  * Storage signal row for scheduled status.
@@ -2693,6 +2695,8 @@ interface IStorageSignalRowOpened extends IStorageSignalRowBase {
 interface IStorageSignalRowScheduled extends IStorageSignalRowBase {
     /** Current status of the signal */
     status: "scheduled";
+    /** VWAP price when the scheduled signal was created (mirrors IStrategyTickResultScheduled.currentPrice) */
+    currentPrice: number;
 }
 /**
  * Storage signal row for closed status.
@@ -2703,6 +2707,12 @@ interface IStorageSignalRowClosed extends IStorageSignalRowBase {
     status: "closed";
     /** Profit and loss value for the signal when closed */
     pnl: IStrategyPnL;
+    /** Final VWAP price at close (mirrors IStrategyTickResultClosed.currentPrice) */
+    currentPrice: number;
+    /** Why the signal closed (mirrors IStrategyTickResultClosed.closeReason) */
+    closeReason: StrategyCloseReason;
+    /** Unix timestamp in milliseconds when the signal closed (mirrors IStrategyTickResultClosed.closeTimestamp) */
+    closeTimestamp: number;
 }
 /**
  * Storage signal row for cancelled status.

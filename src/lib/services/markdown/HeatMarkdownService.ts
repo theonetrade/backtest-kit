@@ -1,9 +1,11 @@
 import { MarkdownWriter } from "../../../classes/Writer";
 import {
+  IStorageSignalRow,
   IStrategyTickResult,
   IStrategyTickResultClosed,
   StrategyName,
 } from "../../../interfaces/Strategy.interface";
+import { StorageBacktest, StorageLive } from "../../../classes/Storage";
 import { inject } from "../../../lib/core/di";
 import LoggerService, { TLoggerService } from "../base/LoggerService";
 import TYPES from "../../../lib/core/types";
@@ -133,6 +135,69 @@ const STDDEV_EPSILON = 1e-9;
 
 
 /**
+ * Maps a persisted closed storage row to the closed-tick shape. The row already
+ * carries every IPublicSignalRow field (it extends it), plus the
+ * closeReason/closeTimestamp/currentPrice mirrors persisted on close.
+ *
+ * @param row - Closed storage signal row read from disk
+ * @param backtest - Which adapter the row came from (StorageBacktest -> true)
+ * @returns Equivalent IStrategyTickResultClosed for the heatmap aggregator
+ */
+const STORAGE_ROW_TO_CLOSED_FN = (
+  row: IStorageSignalRow & { status: "closed" },
+  backtest: boolean
+): IStrategyTickResultClosed => ({
+  action: "closed",
+  signal: row,
+  currentPrice: row.currentPrice,
+  closeReason: row.closeReason,
+  closeTimestamp: row.closeTimestamp,
+  pnl: row.pnl,
+  strategyName: row.strategyName,
+  exchangeName: row.exchangeName,
+  frameName: row.frameName,
+  symbol: row.symbol,
+  backtest,
+  createdAt: row.createdAt,
+});
+
+/**
+ * Loads persisted closed signals for a heatmap context. A heatmap aggregates ALL
+ * symbols of one (exchangeName, frameName, backtest) tuple, so the read targets the
+ * matching adapter only (StorageBacktest for backtest, StorageLive for live) and
+ * filters by exchange + frame — NOT by symbol.
+ *
+ * Uses the StorageLive / StorageBacktest singletons directly so the read bypasses
+ * StorageAdapter.enable() — reports must work even when event capture is disabled.
+ *
+ * @param exchangeName - Exchange identifier
+ * @param frameName - Frame identifier
+ * @param backtest - Which storage adapter to read from
+ * @returns Closed tick results for this context, oldest first
+ */
+const LOAD_PERSISTED_CLOSED_FN = async (
+  exchangeName: ExchangeName,
+  frameName: FrameName,
+  backtest: boolean
+): Promise<IStrategyTickResultClosed[]> => {
+  const rows = backtest ? await StorageBacktest.list() : await StorageLive.list();
+  const result: IStrategyTickResultClosed[] = [];
+  for (const row of rows) {
+    if (
+      row.status === "closed" &&
+      row.exchangeName === exchangeName &&
+      row.frameName === frameName
+    ) {
+      result.push(STORAGE_ROW_TO_CLOSED_FN(row as IStorageSignalRow & { status: "closed" }, backtest));
+    }
+  }
+  // Oldest first so each symbol's newest-first queue stays chronologically
+  // consistent once history is replayed through addSignal (which unshifts).
+  result.sort((a, b) => a.closeTimestamp - b.closeTimestamp);
+  return result;
+};
+
+/**
  * Storage class for accumulating closed signals per strategy and generating heatmap.
  * Maintains symbol-level statistics and provides portfolio-wide metrics.
  */
@@ -145,6 +210,34 @@ class HeatmapStorage {
     readonly frameName: FrameName,
     readonly backtest: boolean
   ) {}
+
+  /**
+   * Lazily loads persisted closed-signal history from disk into the per-symbol
+   * queues on first access, so heatmap math survives a process restart. Guarded by
+   * singleshot; every read/write path (tick/addSignal, getData, getReport, dump)
+   * awaits it first, so live tick data layers on top of history rather than racing
+   * it. Reads only the adapter matching this storage's backtest flag.
+   */
+  public waitForInit = singleshot(async () => {
+    const persisted = await LOAD_PERSISTED_CLOSED_FN(
+      this.exchangeName,
+      this.frameName,
+      this.backtest
+    );
+    if (persisted.length === 0) {
+      return;
+    }
+    const seen = new Set<string>();
+    for (const signals of this.symbolData.values()) {
+      for (const s of signals) seen.add(s.signal.id);
+    }
+    for (const closed of persisted) {
+      if (!seen.has(closed.signal.id)) {
+        this.addSignal(closed);
+        seen.add(closed.signal.id);
+      }
+    }
+  });
 
   /**
    * Adds a closed signal to the per-symbol queue.
@@ -677,6 +770,7 @@ class HeatmapStorage {
    * @returns Promise resolving to `HeatmapStatisticsModel`
    */
   public async getData(): Promise<HeatmapStatisticsModel> {
+    await this.waitForInit();
     const symbols: IHeatmapRow[] = [];
 
     // Calculate per-symbol statistics
@@ -1319,6 +1413,7 @@ export class HeatMarkdownService {
     }
 
     const storage = this.getStorage(data.exchangeName, data.frameName, data.backtest);
+    await storage.waitForInit();
     storage.addSignal(data);
   };
 
