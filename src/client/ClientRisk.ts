@@ -202,6 +202,14 @@ export const WAIT_FOR_INIT_FN = async (when: Date, self: ClientRisk): Promise<vo
     self.params.exchangeName,
     when,
   );
+  // JSON serializes Infinity as null, so an eternal-hold position
+  // (minuteEstimatedTime: Infinity) reads back as null. Restore it so cross-strategy
+  // risk checks see the original lifetime (guards custom persist adapters too).
+  for (const [, position] of persistedPositions) {
+    if (position && position.minuteEstimatedTime == null) {
+      position.minuteEstimatedTime = Infinity;
+    }
+  }
   self._activePositions = new Map(persistedPositions);
 };
 

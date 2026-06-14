@@ -988,7 +988,15 @@ export class PersistRiskInstance implements IPersistRiskInstance {
    */
   async readPositionData(_when: Date): Promise<RiskData> {
     if (await this._storage.hasValue(PersistRiskInstance.STORAGE_KEY)) {
-      return await this._storage.readValue(PersistRiskInstance.STORAGE_KEY);
+      const riskData = await this._storage.readValue(PersistRiskInstance.STORAGE_KEY);
+      // JSON serializes Infinity as null, so an eternal-hold position
+      // (minuteEstimatedTime: Infinity) reads back as null — restore it.
+      for (const [, position] of riskData) {
+        if (position && position.minuteEstimatedTime == null) {
+          position.minuteEstimatedTime = Infinity;
+        }
+      }
+      return riskData;
     }
     return [];
   }
@@ -2539,6 +2547,11 @@ export class PersistStorageInstance implements IPersistStorageInstance {
     const signals: IStorageSignalRow[] = [];
     for await (const signalId of this._storage.keys()) {
       const signal = await this._storage.readValue(signalId);
+      // JSON serializes Infinity as null, so an eternal-hold signal
+      // (minuteEstimatedTime: Infinity) reads back as null — restore it.
+      if (signal && signal.minuteEstimatedTime == null) {
+        signal.minuteEstimatedTime = Infinity;
+      }
       signals.push(signal);
     }
     return signals;
@@ -2793,6 +2806,16 @@ export class PersistNotificationInstance implements IPersistNotificationInstance
     const notifications: NotificationModel[] = [];
     for await (const notificationId of this._storage.keys()) {
       const notification = await this._storage.readValue(notificationId);
+      // JSON serializes Infinity as null, so an eternal-hold signal
+      // (minuteEstimatedTime: Infinity) reads back as null — restore it on the
+      // notification variants that carry the field.
+      if (
+        notification &&
+        "minuteEstimatedTime" in notification &&
+        (notification as { minuteEstimatedTime: number | null }).minuteEstimatedTime == null
+      ) {
+        (notification as { minuteEstimatedTime: number }).minuteEstimatedTime = Infinity;
+      }
       notifications.push(notification);
     }
     return notifications;
@@ -4466,7 +4489,13 @@ export class PersistRecentInstance implements IPersistRecentInstance {
    */
   async readRecentData(): Promise<IPublicSignalRow | null> {
     if (await this._storage.hasValue(this.symbol)) {
-      return await this._storage.readValue(this.symbol);
+      const signalRow = await this._storage.readValue(this.symbol);
+      // JSON serializes Infinity as null, so an eternal-hold signal
+      // (minuteEstimatedTime: Infinity) reads back as null — restore it.
+      if (signalRow && signalRow.minuteEstimatedTime == null) {
+        signalRow.minuteEstimatedTime = Infinity;
+      }
+      return signalRow;
     }
     return null;
   }
