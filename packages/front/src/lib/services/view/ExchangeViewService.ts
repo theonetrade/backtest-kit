@@ -6,6 +6,7 @@ import {
   CandleInterval,
   Live,
   alignToInterval,
+  intervalStepMs,
   listExchangeSchema,
 } from "backtest-kit";
 import StorageViewService from "./StorageViewService";
@@ -81,12 +82,13 @@ export class ExchangeViewService {
     }
     const { pendingAt, scheduledAt } = signal;
     const eventAt = pendingAt || scheduledAt;
+    const startAt = eventAt - intervalStepMs("1m") * HISTORY_LAST_CANDLES_LIMIT;
     const updatedAt =
       await this.signalViewService.getLastUpdateTimestamp(signalId);
     return await this.exchangeService.getRangeCandles({
       symbol: signal.symbol,
       exchangeName: signal.exchangeName,
-      signalStartTime: eventAt,
+      signalStartTime: startAt,
       signalStopTime: alignToInterval(new Date(updatedAt), interval).getTime(),
       interval,
     });
