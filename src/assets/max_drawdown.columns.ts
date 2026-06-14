@@ -48,7 +48,7 @@ export const max_drawdown_columns: ColumnModel<MaxDrawdownEvent>[] = [
   {
     key: "pnlCost",
     label: "PNL (USD)",
-    format: (data) => `${data.pnl.pnlCost > 0 ? "+" : ""}${data.pnl.pnlCost.toFixed(2)} USD`,
+    format: (data) => `${data.pnl.pnlCost > 0 ? "+" : ""}${data.pnl.pnlCost.toFixed(getPriceScale(data.pnl.pnlCost))} USD`,
     isVisible: () => true,
   },
   {

@@ -355,7 +355,7 @@ export const signal_fields: TypedField[] = [
                         isVisible: (obj) => !!obj.cost,
                         compute: (obj) =>
                             !!obj.cost
-                                ? `${obj.cost.toFixed(2)}$`
+                                ? `${obj.cost.toFixed(getPriceScale(obj.cost))}$`
                                 : "Not specified",
                     },
                 ],
@@ -428,7 +428,7 @@ export const signal_fields: TypedField[] = [
                             const v = obj.pnl?.pnlCost;
                             if (v == null) return "N/A";
                             const sign = v >= 0 ? "+" : "";
-                            return `${sign}${v.toFixed(2)}$`;
+                            return `${sign}${v.toFixed(getPriceScale(v))}$`;
                         },
                     },
                     {
@@ -442,7 +442,7 @@ export const signal_fields: TypedField[] = [
                         readonly: true,
                         compute: (obj) =>
                             !!obj.pnl?.pnlEntries
-                                ? `${obj.pnl.pnlEntries.toFixed(2)}$`
+                                ? `${obj.pnl.pnlEntries.toFixed(getPriceScale(obj.pnl.pnlEntries))}$`
                                 : "N/A",
                     },
                 ],
@@ -487,7 +487,7 @@ export const signal_fields: TypedField[] = [
                             const v = obj.peakProfit?.pnlCost;
                             if (v == null) return "N/A";
                             const sign = v >= 0 ? "+" : "";
-                            return `${sign}${v.toFixed(2)}$`;
+                            return `${sign}${v.toFixed(getPriceScale(v))}$`;
                         },
                     },
                     {
@@ -529,7 +529,7 @@ export const signal_fields: TypedField[] = [
                         readonly: true,
                         compute: (obj) =>
                             obj.peakProfit?.pnlEntries
-                                ? `${obj.peakProfit.pnlEntries.toFixed(2)}$`
+                                ? `${obj.peakProfit.pnlEntries.toFixed(getPriceScale(obj.peakProfit.pnlEntries))}$`
                                 : "N/A",
                     },
                 ],
@@ -574,7 +574,7 @@ export const signal_fields: TypedField[] = [
                             const v = obj.maxDrawdown?.pnlCost;
                             if (v == null) return "N/A";
                             const sign = v >= 0 ? "+" : "";
-                            return `${sign}${v.toFixed(2)}$`;
+                            return `${sign}${v.toFixed(getPriceScale(v))}$`;
                         },
                     },
                     {
@@ -616,7 +616,7 @@ export const signal_fields: TypedField[] = [
                         readonly: true,
                         compute: (obj) =>
                             obj.maxDrawdown?.pnlEntries
-                                ? `${obj.maxDrawdown.pnlEntries.toFixed(2)}$`
+                                ? `${obj.maxDrawdown.pnlEntries.toFixed(getPriceScale(obj.maxDrawdown.pnlEntries))}$`
                                 : "N/A",
                     },
                 ],

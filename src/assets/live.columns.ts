@@ -182,7 +182,7 @@ export const live_columns: ColumnModel<TickEvent>[] = [
     label: "PNL (USD)",
     format: (data) =>
       data.pnlCost !== undefined
-        ? `${data.pnlCost > 0 ? "+" : ""}${data.pnlCost.toFixed(2)} USD`
+        ? `${data.pnlCost > 0 ? "+" : ""}${data.pnlCost.toFixed(getPriceScale(data.pnlCost))} USD`
         : "N/A",
     isVisible: () => true,
   },

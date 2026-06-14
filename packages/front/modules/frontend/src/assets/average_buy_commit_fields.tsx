@@ -247,7 +247,7 @@ export const average_buy_commit_fields: TypedField[] = [
                         isVisible: (obj) => !!obj.cost,
                         compute: (obj) =>
                             !!obj.cost
-                                ? `${obj.cost.toFixed(2)}$`
+                                ? `${obj.cost.toFixed(getPriceScale(obj.cost))}$`
                                 : "Not specified",
                     },
                     {
@@ -304,7 +304,7 @@ export const average_buy_commit_fields: TypedField[] = [
                             const v = obj.pnlCost;
                             if (v == null) return "N/A";
                             const sign = v >= 0 ? "+" : "";
-                            return `${sign}${v.toFixed(2)}$`;
+                            return `${sign}${v.toFixed(getPriceScale(v))}$`;
                         },
                     },
                     {
@@ -318,7 +318,7 @@ export const average_buy_commit_fields: TypedField[] = [
                         readonly: true,
                         compute: (obj) =>
                             !!obj.pnlEntries
-                                ? `${obj.pnlEntries.toFixed(2)}$`
+                                ? `${obj.pnlEntries.toFixed(getPriceScale(obj.pnlEntries))}$`
                                 : "N/A",
                     },
                     {
@@ -460,7 +460,7 @@ export const average_buy_commit_fields: TypedField[] = [
                             const v = obj.peakProfitCost;
                             if (v == null) return "N/A";
                             const sign = v >= 0 ? "+" : "";
-                            return `${sign}${v.toFixed(2)}$`;
+                            return `${sign}${v.toFixed(getPriceScale(v))}$`;
                         },
                     },
                     {
@@ -502,7 +502,7 @@ export const average_buy_commit_fields: TypedField[] = [
                         readonly: true,
                         compute: (obj) =>
                             obj.peakProfitEntries
-                                ? `${obj.peakProfitEntries.toFixed(2)}$`
+                                ? `${obj.peakProfitEntries.toFixed(getPriceScale(obj.peakProfitEntries))}$`
                                 : "N/A",
                     },
                 ],
@@ -547,7 +547,7 @@ export const average_buy_commit_fields: TypedField[] = [
                             const v = obj.maxDrawdownCost;
                             if (v == null) return "N/A";
                             const sign = v >= 0 ? "+" : "";
-                            return `${sign}${v.toFixed(2)}$`;
+                            return `${sign}${v.toFixed(getPriceScale(v))}$`;
                         },
                     },
                     {
@@ -589,7 +589,7 @@ export const average_buy_commit_fields: TypedField[] = [
                         readonly: true,
                         compute: (obj) =>
                             obj.maxDrawdownEntries
-                                ? `${obj.maxDrawdownEntries.toFixed(2)}$`
+                                ? `${obj.maxDrawdownEntries.toFixed(getPriceScale(obj.maxDrawdownEntries))}$`
                                 : "N/A",
                     },
                 ],

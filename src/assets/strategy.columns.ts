@@ -117,7 +117,7 @@ export const strategy_columns: ColumnModel<StrategyEvent>[] = [
   {
     key: "cost",
     label: "Cost (USD)",
-    format: (data) => (data.cost !== undefined ? `${data.cost.toFixed(2)} USD` : "N/A"),
+    format: (data) => (data.cost !== undefined ? `${data.cost.toFixed(getPriceScale(data.cost))} USD` : "N/A"),
     isVisible: () => true,
   },
   {

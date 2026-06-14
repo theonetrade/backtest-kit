@@ -15,6 +15,8 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 
+import getPriceScale from "../utils/getPriceScale";
+
 import IndicatorValueWidget from "../widgets/IndicatorValueWidget";
 import StatusWidget from "../widgets/StatusWidget";
 import AveragingWidget from "../widgets/AveragingWidget";
@@ -78,7 +80,7 @@ export const status_fields: TypedField[] = [
                             outlinePaper={payload.outlinePaper}
                             color={pnlColor(pnlCost)}
                             label="PNL $"
-                            value={`${pnlCost >= 0 ? "+" : "-"}${Math.abs(pnlCost).toFixed(2)}$`}
+                            value={`${pnlCost >= 0 ? "+" : "-"}${Math.abs(pnlCost).toFixed(getPriceScale(pnlCost))}$`}
                             icon={Analytics}
                         />
                     ),
@@ -100,7 +102,7 @@ export const status_fields: TypedField[] = [
                             outlinePaper={payload.outlinePaper}
                             color={COLOR_BLUE}
                             label="Invested $"
-                            value={`$${pnlEntries.toFixed(2)}`}
+                            value={`$${pnlEntries.toFixed(getPriceScale(pnlEntries))}`}
                             icon={AccountBalance}
                         />
                     ),
@@ -300,7 +302,7 @@ export const status_fields: TypedField[] = [
                                     color={pnlColor(pnlPercentage)}
                                     outlinePaper={payload.outlinePaper}
                                     label="Average Price"
-                                    value={priceOpen.toFixed(2)}
+                                    value={priceOpen.toFixed(getPriceScale(priceOpen))}
                                     icon={RequestQuote}
                                 />
                             ),
