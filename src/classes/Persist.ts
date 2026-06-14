@@ -697,7 +697,13 @@ export class PersistSignalInstance implements IPersistSignalInstance {
    */
   async readSignalData(): Promise<ISignalRow | null> {
     if (await this._storage.hasValue(this.symbol)) {
-      return await this._storage.readValue(this.symbol);
+      const signalRow = await this._storage.readValue(this.symbol);
+      // JSON serializes Infinity as null, so an eternal-hold signal
+      // (minuteEstimatedTime: Infinity) reads back as null — restore it.
+      if (signalRow && signalRow.minuteEstimatedTime == null) {
+        signalRow.minuteEstimatedTime = Infinity;
+      }
+      return signalRow;
     }
     return null;
   }
@@ -1258,7 +1264,13 @@ export class PersistScheduleInstance implements IPersistScheduleInstance {
    */
   async readScheduleData(): Promise<IScheduledSignalRow | null> {
     if (await this._storage.hasValue(this.symbol)) {
-      return await this._storage.readValue(this.symbol);
+      const scheduledRow = await this._storage.readValue(this.symbol);
+      // JSON serializes Infinity as null, so an eternal-hold signal
+      // (minuteEstimatedTime: Infinity) reads back as null — restore it.
+      if (scheduledRow && scheduledRow.minuteEstimatedTime == null) {
+        scheduledRow.minuteEstimatedTime = Infinity;
+      }
+      return scheduledRow;
     }
     return null;
   }

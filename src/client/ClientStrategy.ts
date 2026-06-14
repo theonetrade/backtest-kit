@@ -793,6 +793,12 @@ const WAIT_FOR_INIT_FN = async (self: ClientStrategy) => {
     if (pendingSignal.strategyName !== self.params.method.context.strategyName) {
       return;
     }
+    // JSON serializes Infinity as null: an eternal-hold signal (minuteEstimatedTime:
+    // Infinity) reads back as null. Restore it so the position is not immediately
+    // time-expired on restore (guards custom persist adapters too).
+    if (pendingSignal.minuteEstimatedTime == null) {
+      pendingSignal.minuteEstimatedTime = Infinity;
+    }
     self._pendingSignal = pendingSignal;
 
     // Call onActive callback for restored signal
@@ -822,6 +828,12 @@ const WAIT_FOR_INIT_FN = async (self: ClientStrategy) => {
     }
     if (scheduledSignal.strategyName !== self.params.method.context.strategyName) {
       return;
+    }
+    // JSON serializes Infinity as null: an eternal-hold signal (minuteEstimatedTime:
+    // Infinity) reads back as null. Restore it so the position is not immediately
+    // time-expired on activation (guards custom persist adapters too).
+    if (scheduledSignal.minuteEstimatedTime == null) {
+      scheduledSignal.minuteEstimatedTime = Infinity;
     }
     self._scheduledSignal = scheduledSignal;
 
