@@ -1,5 +1,5 @@
 import backtest from "../lib";
-import { IPublicSignalRow, StrategyName, CommitPayload } from "../interfaces/Strategy.interface";
+import { IPublicSignalRow, StrategyName, CommitPayload, ISignalDto, StrategyStatus } from "../interfaces/Strategy.interface";
 import { exitEmitter, doneBacktestSubject } from "../config/emitters";
 import { GLOBAL_CONFIG } from "../config/params";
 import {
@@ -110,6 +110,8 @@ const BACKTEST_METHOD_NAME_GET_POSITION_PARTIAL_OVERLAP =
 const BACKTEST_METHOD_NAME_BREAKEVEN = "Backtest.commitBreakeven";
 const BACKTEST_METHOD_NAME_CANCEL_SCHEDULED = "Backtest.commitCancelScheduled";
 const BACKTEST_METHOD_NAME_CLOSE_PENDING = "Backtest.commitClosePending";
+const BACKTEST_METHOD_NAME_CREATE_SIGNAL = "Backtest.createSignal";
+const BACKTEST_METHOD_NAME_GET_STRATEGY_STATUS = "Backtest.getStrategyStatus";
 const BACKTEST_METHOD_NAME_PARTIAL_PROFIT = "BacktestUtils.commitPartialProfit";
 const BACKTEST_METHOD_NAME_PARTIAL_LOSS = "BacktestUtils.commitPartialLoss";
 const BACKTEST_METHOD_NAME_PARTIAL_PROFIT_COST =
@@ -3406,6 +3408,107 @@ export class BacktestUtils {
       symbol,
       context,
       payload,
+    );
+  };
+
+  /**
+   * Queues a user-supplied signal DTO to be consumed by the next backtest tick instead of
+   * params.getSignal.
+   *
+   * priceOpen decides the outcome via the existing pipeline: omitted → opens immediately at the
+   * current price; provided → opens immediately if already reached, otherwise registers a
+   * scheduled signal. Validated, and rejected if a signal or deferred action is already in flight.
+   *
+   * @param symbol - Trading pair symbol
+   * @param context - Execution context with strategyName, exchangeName, and frameName
+   * @param dto - Signal DTO to open (priceOpen optional)
+   * @returns Promise that resolves when the DTO is queued
+   */
+  public createSignal = async (
+    symbol: string,
+    context: {
+      strategyName: StrategyName;
+      exchangeName: ExchangeName;
+      frameName: FrameName;
+    },
+    dto: ISignalDto,
+  ): Promise<void> => {
+    backtest.loggerService.info(BACKTEST_METHOD_NAME_CREATE_SIGNAL, {
+      symbol,
+      context,
+    });
+    backtest.strategyValidationService.validate(
+      context.strategyName,
+      BACKTEST_METHOD_NAME_CREATE_SIGNAL,
+    );
+    backtest.exchangeValidationService.validate(
+      context.exchangeName,
+      BACKTEST_METHOD_NAME_CREATE_SIGNAL,
+    );
+
+    {
+      const { riskName, riskList, actions } =
+        backtest.strategySchemaService.get(context.strategyName);
+      riskName &&
+        backtest.riskValidationService.validate(
+          riskName,
+          BACKTEST_METHOD_NAME_CREATE_SIGNAL,
+        );
+      riskList &&
+        riskList.forEach((riskName) =>
+          backtest.riskValidationService.validate(
+            riskName,
+            BACKTEST_METHOD_NAME_CREATE_SIGNAL,
+          ),
+        );
+      actions &&
+        actions.forEach((actionName) =>
+          backtest.actionValidationService.validate(
+            actionName,
+            BACKTEST_METHOD_NAME_CREATE_SIGNAL,
+          ),
+        );
+    }
+
+    await backtest.strategyCoreService.createSignal(
+      true,
+      symbol,
+      dto,
+      context,
+    );
+  };
+
+  /**
+   * Returns the in-memory deferred strategy-state snapshot for the current backtest iteration.
+   *
+   * @param symbol - Trading pair symbol
+   * @param context - Execution context with strategyName, exchangeName, and frameName
+   * @returns Promise resolving to the current StrategyStatus snapshot
+   */
+  public getStrategyStatus = async (
+    symbol: string,
+    context: {
+      strategyName: StrategyName;
+      exchangeName: ExchangeName;
+      frameName: FrameName;
+    },
+  ): Promise<StrategyStatus> => {
+    backtest.loggerService.info(BACKTEST_METHOD_NAME_GET_STRATEGY_STATUS, {
+      symbol,
+      context,
+    });
+    backtest.strategyValidationService.validate(
+      context.strategyName,
+      BACKTEST_METHOD_NAME_GET_STRATEGY_STATUS,
+    );
+    backtest.exchangeValidationService.validate(
+      context.exchangeName,
+      BACKTEST_METHOD_NAME_GET_STRATEGY_STATUS,
+    );
+    return await backtest.strategyCoreService.getStatus(
+      true,
+      symbol,
+      context,
     );
   };
 

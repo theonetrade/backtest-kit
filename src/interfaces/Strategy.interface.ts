@@ -19,6 +19,36 @@ import { SignalSyncContract } from "../contract/SignalSync.contract";
 export type RuntimeData = Record<string, unknown>;
 
 /**
+ * Type for persisted deferred strategy state.
+ * Snapshot of the in-flight commit queue and deferred user actions that have not yet
+ * been forwarded to the broker. Restored on waitForInit after a live crash so the
+ * pending broker operations are not silently lost.
+ */
+export type StrategyStatus = {
+  /**
+   * Id of the pending signal these deferred operations belong to (from _pendingSignal.id),
+   * or null if there was no pending signal when the snapshot was written. On restore, the
+   * deferred fields are applied only when this matches the restored _pendingSignal.id —
+   * otherwise the snapshot belongs to a different/stale position and is discarded.
+   */
+  pendingSignalId: string | null;
+  /**
+   * User-supplied signal DTO scheduled to be consumed by the next getSignal tick instead
+   * of params.getSignal (set via createPending / createScheduled), or null if none queued.
+   * createPending and createScheduled overwrite the same slot, so only the latest wins.
+   */
+  createSignal: ISignalDto | null;
+  /** Queued commit events (average-buy / partial-* / trailing-* / breakeven) not yet drained */
+  commitQueue: ICommitRow[];
+  /** Deferred user-initiated close (closePending), or null if none pending */
+  closedSignal: ISignalCloseRow | null;
+  /** Deferred user-initiated scheduled cancel (cancelScheduled), or null if none pending */
+  cancelledSignal: IScheduledSignalCancelRow | null;
+  /** Deferred user-initiated scheduled activate (activateScheduled), or null if none pending */
+  activatedSignal: IScheduledSignalActivateRow | null;
+};
+
+/**
  * Commit payload for strategy commits.
  * Used in activateScheduled, closePending, cancelScheduled
  */
@@ -1141,6 +1171,31 @@ export interface IStrategy {
    * ```
    */
   closePending: (symbol: string, backtest: boolean, payload: Partial<CommitPayload>) => Promise<void>;
+
+  /**
+   * Queues a user-supplied signal DTO to be consumed by the next tick instead of
+   * params.getSignal. Works out of the async-hooks execution context. The DTO is validated
+   * (reusing validateCommonSignal with priceOpen defaulting to currentPrice) before being
+   * stored, and the call is rejected if a signal or deferred action is already in flight.
+   * priceOpen is optional — when omitted the position opens immediately at currentPrice;
+   * when provided the pipeline decides immediate-vs-scheduled.
+   *
+   * @param symbol - Trading pair symbol (e.g., "BTCUSDT")
+   * @param currentPrice - Current market price (priceOpen fallback for immediate signals)
+   * @param dto - Signal DTO to open
+   * @returns Promise that resolves when the DTO is queued
+   */
+  createSignal: (symbol: string, currentPrice: number, dto: ISignalDto) => Promise<void>;
+
+  /**
+   * Returns the deferred strategy-state snapshot held in memory for this iteration — exactly
+   * what would be written to persist (queued createSignal, commit queue, deferred user-action
+   * flags and the current pending signal id). Synchronous in-memory read; works out of context.
+   *
+   * @param symbol - Trading pair symbol (e.g., "BTCUSDT")
+   * @returns The current StrategyData snapshot
+   */
+  getStatus: (symbol: string) => Promise<StrategyStatus>;
 
   /**
    * Executes partial close at profit level (moving toward TP).

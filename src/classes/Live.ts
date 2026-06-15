@@ -4,6 +4,8 @@ import {
   IStrategyTickResultOpened,
   StrategyName,
   CommitPayload,
+  ISignalDto,
+  StrategyStatus,
 } from "../interfaces/Strategy.interface";
 import backtest from "../lib";
 import { exitEmitter, doneLiveSubject } from "../config/emitters";
@@ -85,6 +87,8 @@ const LIVE_METHOD_NAME_GET_POSITION_PARTIAL_OVERLAP = "LiveUtils.getPositionPart
 const LIVE_METHOD_NAME_BREAKEVEN = "Live.commitBreakeven";
 const LIVE_METHOD_NAME_CANCEL_SCHEDULED = "Live.cancelScheduled";
 const LIVE_METHOD_NAME_CLOSE_PENDING = "Live.closePending";
+const LIVE_METHOD_NAME_CREATE_SIGNAL = "Live.createSignal";
+const LIVE_METHOD_NAME_GET_STRATEGY_STATUS = "Live.getStrategyStatus";
 const LIVE_METHOD_NAME_PARTIAL_PROFIT = "LiveUtils.commitPartialProfit";
 const LIVE_METHOD_NAME_PARTIAL_LOSS = "LiveUtils.commitPartialLoss";
 const LIVE_METHOD_NAME_PARTIAL_PROFIT_COST =
@@ -3358,6 +3362,113 @@ export class LiveUtils {
         frameName: "",
       },
       payload,
+    );
+  };
+
+  /**
+   * Queues a user-supplied signal DTO to be consumed by the next live tick instead of
+   * params.getSignal.
+   *
+   * priceOpen decides the outcome via the existing pipeline: omitted → opens immediately at the
+   * current price; provided → opens immediately if already reached, otherwise registers a
+   * scheduled signal. Validated, and rejected if a signal or deferred action is already in flight.
+   *
+   * @param symbol - Trading pair symbol
+   * @param context - Execution context with strategyName and exchangeName
+   * @param dto - Signal DTO to open (priceOpen optional)
+   * @returns Promise that resolves when the DTO is queued
+   */
+  public createSignal = async (
+    symbol: string,
+    context: {
+      strategyName: StrategyName;
+      exchangeName: ExchangeName;
+    },
+    dto: ISignalDto,
+  ): Promise<void> => {
+    backtest.loggerService.info(LIVE_METHOD_NAME_CREATE_SIGNAL, {
+      symbol,
+      context,
+    });
+    backtest.strategyValidationService.validate(
+      context.strategyName,
+      LIVE_METHOD_NAME_CREATE_SIGNAL,
+    );
+    backtest.exchangeValidationService.validate(
+      context.exchangeName,
+      LIVE_METHOD_NAME_CREATE_SIGNAL,
+    );
+
+    {
+      const { riskName, riskList, actions } =
+        backtest.strategySchemaService.get(context.strategyName);
+      riskName &&
+        backtest.riskValidationService.validate(
+          riskName,
+          LIVE_METHOD_NAME_CREATE_SIGNAL,
+        );
+      riskList &&
+        riskList.forEach((riskName) =>
+          backtest.riskValidationService.validate(
+            riskName,
+            LIVE_METHOD_NAME_CREATE_SIGNAL,
+          ),
+        );
+      actions &&
+        actions.forEach((actionName) =>
+          backtest.actionValidationService.validate(
+            actionName,
+            LIVE_METHOD_NAME_CREATE_SIGNAL,
+          ),
+        );
+    }
+
+    await backtest.strategyCoreService.createSignal(
+      false,
+      symbol,
+      dto,
+      {
+        strategyName: context.strategyName,
+        exchangeName: context.exchangeName,
+        frameName: "",
+      },
+    );
+  };
+
+  /**
+   * Returns the in-memory deferred strategy-state snapshot for the current live iteration.
+   *
+   * @param symbol - Trading pair symbol
+   * @param context - Execution context with strategyName and exchangeName
+   * @returns Promise resolving to the current StrategyStatus snapshot
+   */
+  public getStrategyStatus = async (
+    symbol: string,
+    context: {
+      strategyName: StrategyName;
+      exchangeName: ExchangeName;
+    },
+  ): Promise<StrategyStatus> => {
+    backtest.loggerService.info(LIVE_METHOD_NAME_GET_STRATEGY_STATUS, {
+      symbol,
+      context,
+    });
+    backtest.strategyValidationService.validate(
+      context.strategyName,
+      LIVE_METHOD_NAME_GET_STRATEGY_STATUS,
+    );
+    backtest.exchangeValidationService.validate(
+      context.exchangeName,
+      LIVE_METHOD_NAME_GET_STRATEGY_STATUS,
+    );
+    return await backtest.strategyCoreService.getStatus(
+      false,
+      symbol,
+      {
+        strategyName: context.strategyName,
+        exchangeName: context.exchangeName,
+        frameName: "",
+      },
     );
   };
 

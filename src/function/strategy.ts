@@ -15,7 +15,7 @@ import { Broker } from "../classes/Broker";
 import { GLOBAL_CONFIG } from "../config/params";
 import { not } from "functools-kit";
 import { IPositionOverlapLadder, POSITION_OVERLAP_LADDER_DEFAULT } from "../config/ladder";
-import { IPublicSignalRow, CommitPayload } from "../interfaces/Strategy.interface";
+import { IPublicSignalRow, CommitPayload, ISignalDto, StrategyStatus } from "../interfaces/Strategy.interface";
 import { SignalNotificationPayload } from "../lib/services/helpers/NotificationHelperService";
 
 const CANCEL_SCHEDULED_METHOD_NAME = "strategy.commitCancelScheduled";
@@ -74,6 +74,8 @@ const GET_POSITION_PARTIAL_OVERLAP_METHOD_NAME = "strategy.getPositionPartialOve
 const HAS_NO_PENDING_SIGNAL_METHOD_NAME = "strategy.hasNoPendingSignal";
 const HAS_NO_SCHEDULED_SIGNAL_METHOD_NAME = "strategy.hasNoScheduledSignal";
 const COMMIT_SIGNAL_NOTIFY_METHOD_NAME = "strategy.commitSignalNotify";
+const CREATE_SIGNAL_METHOD_NAME = "strategy.createSignal";
+const GET_STRATEGY_STATUS_METHOD_NAME = "strategy.getStrategyStatus";
 
 /**
  * Cancels the scheduled signal without stopping the strategy.
@@ -2739,5 +2741,82 @@ export async function commitSignalNotify(
     currentPrice,
     { strategyName, exchangeName, frameName },
     isBacktest,
+  );
+}
+
+/**
+ * Queues a user-supplied signal DTO to be consumed by the next tick instead of params.getSignal.
+ *
+ * priceOpen decides the outcome via the existing pipeline: omitted → opens immediately at the
+ * current price; provided → opens immediately if already reached, otherwise registers a
+ * scheduled (priceOpen-awaiting) signal. The DTO is validated (reusing validateSignal) and the
+ * call is rejected if a signal or deferred action is already in flight.
+ *
+ * Automatically detects backtest/live mode from execution context.
+ *
+ * @param symbol - Trading pair symbol
+ * @param dto - Signal DTO to open (priceOpen optional)
+ * @returns Promise that resolves when the DTO is queued
+ *
+ * @example
+ * ```typescript
+ * import { createSignal } from "backtest-kit";
+ *
+ * // Open immediately at current price
+ * await createSignal("BTCUSDT", { position: "long", priceTakeProfit: 110, priceStopLoss: 90 });
+ * ```
+ */
+export async function createSignal(
+  symbol: string,
+  dto: ISignalDto,
+): Promise<void> {
+  backtest.loggerService.info(CREATE_SIGNAL_METHOD_NAME, { symbol });
+  if (!ExecutionContextService.hasContext()) {
+    throw new Error("createSignal requires an execution context");
+  }
+  if (!MethodContextService.hasContext()) {
+    throw new Error("createSignal requires a method context");
+  }
+  const { backtest: isBacktest } = backtest.executionContextService.context;
+  const { exchangeName, frameName, strategyName } = backtest.methodContextService.context;
+  await backtest.strategyCoreService.createSignal(
+    isBacktest,
+    symbol,
+    dto,
+    { exchangeName, frameName, strategyName },
+  );
+}
+
+/**
+ * Returns the in-memory deferred strategy-state snapshot for the current iteration: the queued
+ * createSignal, commit queue and deferred user-action flags, plus the current pending signal id.
+ *
+ * Automatically detects backtest/live mode from execution context.
+ *
+ * @param symbol - Trading pair symbol
+ * @returns Promise resolving to the current StrategyStatus snapshot
+ *
+ * @example
+ * ```typescript
+ * import { getStrategyStatus } from "backtest-kit";
+ *
+ * const status = await getStrategyStatus("BTCUSDT");
+ * console.log(status.pendingSignalId, status.commitQueue.length);
+ * ```
+ */
+export async function getStrategyStatus(symbol: string): Promise<StrategyStatus> {
+  backtest.loggerService.info(GET_STRATEGY_STATUS_METHOD_NAME, { symbol });
+  if (!ExecutionContextService.hasContext()) {
+    throw new Error("getStrategyStatus requires an execution context");
+  }
+  if (!MethodContextService.hasContext()) {
+    throw new Error("getStrategyStatus requires a method context");
+  }
+  const { backtest: isBacktest } = backtest.executionContextService.context;
+  const { exchangeName, frameName, strategyName } = backtest.methodContextService.context;
+  return await backtest.strategyCoreService.getStatus(
+    isBacktest,
+    symbol,
+    { exchangeName, frameName, strategyName },
   );
 }

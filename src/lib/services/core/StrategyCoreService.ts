@@ -4,6 +4,7 @@ import TYPES from "../../core/types";
 import ExecutionContextService from "../context/ExecutionContextService";
 import {
   ISignalRow,
+  ISignalDto,
   IScheduledSignalRow,
   IStrategyBacktestResult,
   IStrategyTickResult,
@@ -14,6 +15,7 @@ import {
   IStrategyTickResultActive,
   IPublicSignalRow,
   CommitPayload,
+  StrategyStatus,
 } from "../../../interfaces/Strategy.interface";
 import StrategyConnectionService from "../connection/StrategyConnectionService";
 import { ExchangeName, ICandleData } from "../../../interfaces/Exchange.interface";
@@ -656,6 +658,49 @@ export class StrategyCoreService implements TStrategy {
     });
     await this.validate(context);
     return await this.strategyConnectionService.closePending(backtest, symbol, context, payload);
+  };
+
+  /**
+   * Queues a user-supplied signal DTO to be consumed by the next tick instead of getSignal.
+   *
+   * Validates the context, then delegates to StrategyConnectionService.createSignal().
+   * Rejected if a signal or deferred action is already in flight. Does not require execution context.
+   *
+   * @param backtest - Whether running in backtest mode
+   * @param symbol - Trading pair symbol
+   * @param dto - Signal DTO to open
+   * @param context - Context with strategyName, exchangeName, frameName
+   * @returns Promise that resolves when the DTO is queued
+   */
+  public createSignal = async (backtest: boolean, symbol: string, dto: ISignalDto, context: { strategyName: StrategyName; exchangeName: ExchangeName; frameName: FrameName }): Promise<void> => {
+    this.loggerService.log("strategyCoreService createSignal", {
+      symbol,
+      context,
+      backtest,
+    });
+    await this.validate(context);
+    return await this.strategyConnectionService.createSignal(backtest, symbol, dto, context);
+  };
+
+  /**
+   * Returns the in-memory deferred strategy-state snapshot for this iteration.
+   *
+   * Validates the context, then delegates to StrategyConnectionService.getStatus().
+   * Does not require execution context.
+   *
+   * @param backtest - Whether running in backtest mode
+   * @param symbol - Trading pair symbol
+   * @param context - Context with strategyName, exchangeName, frameName
+   * @returns Promise resolving to the current StrategyStatus snapshot
+   */
+  public getStatus = async (backtest: boolean, symbol: string, context: { strategyName: StrategyName; exchangeName: ExchangeName; frameName: FrameName }): Promise<StrategyStatus> => {
+    this.loggerService.log("strategyCoreService getStatus", {
+      symbol,
+      context,
+      backtest,
+    });
+    await this.validate(context);
+    return await this.strategyConnectionService.getStatus(backtest, symbol, context);
   };
 
   /**

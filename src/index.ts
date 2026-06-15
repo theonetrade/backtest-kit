@@ -18,6 +18,7 @@ export {
   waitForReady,
 } from "./function/init";
 export {
+  createSignal,
   commitCancelScheduled,
   commitClosePending,
   commitPartialLoss,
@@ -35,6 +36,7 @@ export {
   getPendingSignal,
   getScheduledSignal,
   getBreakeven,
+  getStrategyStatus,
   getTotalPercentClosed,
   getTotalCostClosed,
   getPositionEffectivePrice,
@@ -261,6 +263,7 @@ export {
   IStrategyPnL,
   CommitPayload,
   RuntimeData,
+  StrategyStatus,
 } from "./interfaces/Strategy.interface";
 
 export {

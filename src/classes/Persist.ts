@@ -13,6 +13,7 @@ import { join } from "path";
 import { writeFileAtomic } from "../utils/writeFileAtomic";
 import {
   ISignalRow,
+  ISignalDto,
   IScheduledSignalRow,
   IPublicSignalRow,
   StrategyName,
@@ -1498,6 +1499,12 @@ export type StrategyData = {
    * otherwise the snapshot belongs to a different/stale position and is discarded.
    */
   pendingSignalId: string | null;
+  /**
+   * User-supplied signal DTO scheduled to be consumed by the next getSignal tick instead
+   * of params.getSignal (set via createPending / createScheduled), or null if none queued.
+   * createPending and createScheduled overwrite the same slot, so only the latest wins.
+   */
+  createSignal: ISignalDto | null;
   /** Queued commit events (average-buy / partial-* / trailing-* / breakeven) not yet drained */
   commitQueue: ICommitRow[];
   /** Deferred user-initiated close (closePending), or null if none pending */

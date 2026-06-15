@@ -17,6 +17,8 @@ import {
   IStrategyTickResultActive,
   IPublicSignalRow,
   CommitPayload,
+  StrategyStatus,
+  ISignalDto,
 } from "../../../interfaces/Strategy.interface";
 import StrategySchemaService from "../schema/StrategySchemaService";
 import ExchangeConnectionService from "./ExchangeConnectionService";
@@ -1891,6 +1893,58 @@ export class StrategyConnectionService implements TStrategy {
     });
     const strategy = this.getStrategy(symbol, context.strategyName, context.exchangeName, context.frameName, backtest);
     await strategy.closePending(symbol, backtest, payload);
+  };
+
+  /**
+   * Queues a user-supplied signal DTO to be consumed by the next tick instead of getSignal.
+   *
+   * Delegates to ClientStrategy.createSignal(). Validated and rejected if a signal/deferred
+   * action is already in flight. Works out of the async-hooks execution context.
+   *
+   * @param backtest - Whether running in backtest mode
+   * @param symbol - Trading pair symbol
+   * @param dto - Signal DTO to open
+   * @param context - Context with strategyName, exchangeName, frameName
+   * @returns Promise that resolves when the DTO is queued
+   */
+  public createSignal = async (
+    backtest: boolean,
+    symbol: string,
+    dto: ISignalDto,
+    context: { strategyName: StrategyName; exchangeName: ExchangeName; frameName: FrameName }
+  ): Promise<void> => {
+    this.loggerService.log("strategyConnectionService createSignal", {
+      symbol,
+      context,
+      backtest,
+    });
+    const strategy = this.getStrategy(symbol, context.strategyName, context.exchangeName, context.frameName, backtest);
+    const currentPrice = await this.priceMetaService.getCurrentPrice(symbol, context, backtest);
+    await strategy.createSignal(symbol, currentPrice, dto);
+  };
+
+  /**
+   * Returns the in-memory deferred strategy-state snapshot for this iteration.
+   *
+   * Delegates to ClientStrategy.getStatus(). Synchronous in-memory read; works out of context.
+   *
+   * @param backtest - Whether running in backtest mode
+   * @param symbol - Trading pair symbol
+   * @param context - Context with strategyName, exchangeName, frameName
+   * @returns Promise resolving to the current StrategyData snapshot
+   */
+  public getStatus = async (
+    backtest: boolean,
+    symbol: string,
+    context: { strategyName: StrategyName; exchangeName: ExchangeName; frameName: FrameName }
+  ): Promise<StrategyStatus> => {
+    this.loggerService.log("strategyConnectionService getStatus", {
+      symbol,
+      context,
+      backtest,
+    });
+    const strategy = this.getStrategy(symbol, context.strategyName, context.exchangeName, context.frameName, backtest);
+    return await strategy.getStatus(symbol);
   };
 
   /**

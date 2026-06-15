@@ -32,6 +32,7 @@ import {
   ICommitRow,
   CommitPayload,
   IStrategyPnL,
+  StrategyStatus,
 } from "../interfaces/Strategy.interface";
 import toProfitLossDto from "../helpers/toProfitLossDto";
 import { getEffectivePriceOpen as GET_EFFECTIVE_PRICE_OPEN } from "../helpers/getEffectivePriceOpen";
@@ -45,6 +46,7 @@ import beginTime from "../utils/beginTime";
 import { StrategyCommitContract } from "../contract/StrategyCommit.contract";
 import validatePendingSignal from "../validation/validatePendingSignal";
 import validateScheduledSignal from "../validation/validateScheduledSignal";
+import validateSignal from "../validation/validateSignal";
 
 const INTERVAL_MINUTES: Record<SignalInterval, number> = {
   "1m": 1,
@@ -583,15 +585,32 @@ const GET_SIGNAL_FN = trycatch(
     const currentPrice = await self.params.exchange.getAveragePrice(
       self.params.execution.context.symbol
     );
-    const timeoutMs = GLOBAL_CONFIG.CC_MAX_SIGNAL_GENERATION_SECONDS * 1_000;
-    const signal = await Promise.race([
-      self.params.getSignal(
-        self.params.execution.context.symbol,
-        self.params.execution.context.when,
-        currentPrice,
-      ),
-      sleep(timeoutMs).then(() => TIMEOUT_SYMBOL),
-    ]);
+    // PRIORITY: a user-queued createPending/createScheduled DTO (set out of async-hooks
+    // context) takes precedence over params.getSignal. When present it is consumed once
+    // here — the slot is cleared and the snapshot rewritten — and then flows through the
+    // exact same pipeline (risk check, priceOpen branching, onSignalSync on open) as a
+    // signal returned by getSignal would.
+    let signal: ISignalDto | null | symbol;
+
+    {
+      if (!self._userSignal) {
+        const timeoutMs = GLOBAL_CONFIG.CC_MAX_SIGNAL_GENERATION_SECONDS * 1_000;
+        signal = await Promise.race([
+          self.params.getSignal(
+            self.params.execution.context.symbol,
+            self.params.execution.context.when,
+            currentPrice,
+          ),
+          sleep(timeoutMs).then(() => TIMEOUT_SYMBOL),
+        ]);
+      }
+      if (self._userSignal) {
+        signal = self._userSignal;
+        await PERSIST_STRATEGY_FN(self);
+      }
+      self._userSignal = null;
+    }
+
     if (typeof signal === "symbol") {
       throw new Error(`Timeout for ${self.params.method.context.strategyName} symbol=${self.params.execution.context.symbol}`);
     }
@@ -796,7 +815,9 @@ const WAIT_FOR_INIT_FN = async (self: ClientStrategy) => {
   if (strategyData) {
     // Deferred user actions are restored unconditionally: a deferred close belongs to
     // an already-cleared _pendingSignal, and cancel/activate belong to the scheduled
-    // signal — none of them are tied to the currently-pending signal's id.
+    // signal — none of them are tied to the currently-pending signal's id. A queued
+    // createSignal is a not-yet-consumed signal source and likewise stands on its own.
+    self._userSignal = strategyData.createSignal;
     self._closedSignal = strategyData.closedSignal;
     self._cancelledSignal = strategyData.cancelledSignal;
     self._activatedSignal = strategyData.activatedSignal;
@@ -922,6 +943,7 @@ const PERSIST_STRATEGY_FN = async (self: ClientStrategy): Promise<void> => {
   await PersistStrategyAdapter.writeStrategyData(
     {
       pendingSignalId: self._pendingSignal?.id ?? null,
+      createSignal: self._userSignal,
       commitQueue: self._commitQueue,
       closedSignal: self._closedSignal,
       cancelledSignal: self._cancelledSignal,
@@ -4400,6 +4422,14 @@ export class ClientStrategy implements IStrategy {
   _closedSignal: ISignalCloseRow | null = null;
   _activatedSignal: IScheduledSignalActivateRow | null = null;
 
+  /**
+   * User-supplied signal DTO to be consumed by the next GET_SIGNAL_FN tick instead of
+   * params.getSignal. Set via createSignal. When non-null, params.getSignal is NOT called
+   * and the existing pipeline (priceOpen decides pending vs scheduled, onSignalSync on open)
+   * is reused.
+   */
+  _userSignal: ISignalDto | null = null;
+
   /** Queue for commit events to be processed in tick()/backtest() with proper timestamp */
   _commitQueue: ICommitRow[] = [];
 
@@ -6489,6 +6519,97 @@ export class ClientStrategy implements IStrategy {
     await PERSIST_STRATEGY_FN(this);
 
     // Commit will be emitted in tick() with correct currentTime
+  }
+
+  /**
+   * Queues a user-supplied signal DTO to be consumed by the next tick instead of
+   * params.getSignal.
+   *
+   * Works OUT of the async-hooks execution context (uses this.params.symbol directly).
+   * priceOpen decides the outcome in the existing pipeline: when omitted the position opens
+   * immediately at currentPrice; when provided the pipeline opens immediately if priceOpen is
+   * already reached, otherwise registers a scheduled (priceOpen-awaiting) signal. On the next
+   * tick GET_SIGNAL_FN consumes _userSignal and runs the normal pipeline, so onSignalSync
+   * delivery is checked by OPEN_NEW_PENDING_SIGNAL_FN exactly as for a getSignal-produced signal.
+   *
+   * Validation (BEFORE any state mutation — a rejected call stores nothing):
+   * - The DTO must pass the intrinsic shape/price checks.
+   * - There must be NO signal already in flight: no active pending signal, no scheduled signal,
+   *   no already-queued createSignal, and no deferred activate/close/cancel awaiting drain.
+   *   Creating a new signal on top of an existing one is rejected.
+   *
+   * @param symbol - Trading pair symbol (e.g., "BTCUSDT")
+   * @param currentPrice - Current market price (priceOpen fallback for immediate signals)
+   * @param dto - Signal DTO to open (priceOpen optional)
+   * @returns Promise that resolves when the DTO is queued (and persisted in live mode)
+   * @throws {Error} If the DTO is invalid or a signal/deferred action is already in flight
+   */
+  public async createSignal(symbol: string, currentPrice: number, dto: ISignalDto): Promise<void> {
+    this.params.logger.debug("ClientStrategy createSignal", { symbol, currentPrice });
+
+    // Validate BEFORE mutating state — a bad DTO or a busy strategy must store nothing.
+    // Reuse validateSignal (the canonical getSignal-output validator, branching
+    // pending-vs-scheduled by the same rule as GET_SIGNAL_FN). It forwards to
+    // validateCommonSignal which requires priceOpen and minuteEstimatedTime, so normalize the
+    // DTO to the defaults GET_SIGNAL_FN would apply (priceOpen → currentPrice for an immediate
+    // signal, minuteEstimatedTime → CC_MAX_SIGNAL_LIFETIME_MINUTES). The original dto stored in
+    // _userSignal is left untouched so GET_SIGNAL_FN applies its own defaults on consume.
+    if (!validateSignal(
+      {
+        ...dto,
+        priceOpen: dto.priceOpen ?? currentPrice,
+        minuteEstimatedTime: dto.minuteEstimatedTime ?? GLOBAL_CONFIG.CC_MAX_SIGNAL_LIFETIME_MINUTES,
+      },
+      currentPrice,
+    )) {
+      throw new Error(`ClientStrategy createSignal: invalid signal DTO for symbol=${symbol}`);
+    }
+
+    // Reject if any signal is already in flight or any deferred action is awaiting drain.
+    if (this._pendingSignal) {
+      throw new Error(`ClientStrategy createSignal: a pending signal already exists for symbol=${symbol}`);
+    }
+    if (this._scheduledSignal) {
+      throw new Error(`ClientStrategy createSignal: a scheduled signal already exists for symbol=${symbol}`);
+    }
+    if (this._userSignal) {
+      throw new Error(`ClientStrategy createSignal: a signal is already queued for creation for symbol=${symbol}`);
+    }
+    if (this._activatedSignal) {
+      throw new Error(`ClientStrategy createSignal: a scheduled activation is pending for symbol=${symbol}`);
+    }
+    if (this._closedSignal) {
+      throw new Error(`ClientStrategy createSignal: a pending close is awaiting for symbol=${symbol}`);
+    }
+    if (this._cancelledSignal) {
+      throw new Error(`ClientStrategy createSignal: a scheduled cancel is awaiting for symbol=${symbol}`);
+    }
+
+    this._userSignal = dto;
+
+    await PERSIST_STRATEGY_FN(this);
+  }
+
+  /**
+   * Returns the deferred strategy-state snapshot exactly as it would be written to persist on
+   * this iteration: the in-memory _userSignal, _commitQueue and deferred user-action flags,
+   * plus the current pending signal id.
+   *
+   * Synchronous in-memory read (no disk access), so it works OUT of the async-hooks context.
+   *
+   * @param symbol - Trading pair symbol (e.g., "BTCUSDT")
+   * @returns The current StrategyData snapshot held in memory
+   */
+  public async getStatus(symbol: string): Promise<StrategyStatus> {
+    this.params.logger.debug("ClientStrategy getStatus", { symbol });
+    return {
+      pendingSignalId: this._pendingSignal?.id ?? null,
+      createSignal: this._userSignal,
+      commitQueue: this._commitQueue,
+      closedSignal: this._closedSignal,
+      cancelledSignal: this._cancelledSignal,
+      activatedSignal: this._activatedSignal,
+    };
   }
 
   /**
