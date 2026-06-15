@@ -111,7 +111,7 @@ export class StrategySchemaService {
       );
     }
 
-    if (typeof strategySchema.getSignal !== "function") {
+    if (strategySchema.getSignal && typeof strategySchema.getSignal !== "function") {
       throw new Error(
         `strategy schema validation failed: missing getSignal for strategyName=${strategySchema.strategyName}`
       );

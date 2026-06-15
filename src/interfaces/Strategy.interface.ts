@@ -536,6 +536,12 @@ export type ICommitRow =
  * Combines schema with runtime dependencies.
  */
 export interface IStrategyParams extends IStrategySchema {
+  /**
+   * Signal generation function (returns null if no signal, validated DTO if signal).
+   * If priceOpen is provided - becomes scheduled signal waiting for price to reach entry point.
+   * If priceOpen is omitted - opens immediately at current price.
+   */
+  getSignal: (symbol: string, when: Date, currentPrice: number) => Promise<ISignalDto | null>;
   /** Exchange name (e.g., "binance") */
   exchangeName: ExchangeName;
   /** Time frame name for tracking (e.g., "1m", "5m") */
@@ -636,7 +642,7 @@ export interface IStrategySchema {
    * If priceOpen is provided - becomes scheduled signal waiting for price to reach entry point.
    * If priceOpen is omitted - opens immediately at current price.
    */
-  getSignal: (symbol: string, when: Date, currentPrice: number) => Promise<ISignalDto | null>;
+  getSignal?: (symbol: string, when: Date, currentPrice: number) => Promise<ISignalDto | null>;
   /** Optional lifecycle event callbacks (onOpen, onClose) */
   callbacks?: Partial<IStrategyCallbacks>;
   /** Optional risk profile identifier for risk management */

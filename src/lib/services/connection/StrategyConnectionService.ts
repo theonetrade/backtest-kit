@@ -52,6 +52,9 @@ import PriceMetaService from "../meta/PriceMetaService";
 /** Default interval for strategies that do not specify one */
 const STRATEGY_DEFAULT_INTERVAL = "1m";
 
+/** If not specified strategy will not open positions until createSignal is called manually */
+const STRATEGY_DEFAULT_SIGNAL = () => null;
+
 /**
  * If syncSubject listener or any registered action throws, it means the signal was not properly synchronized
  * to the exchange (e.g. limit order failed to fill).
@@ -629,7 +632,7 @@ export class StrategyConnectionService implements TStrategy {
       const {
         riskName = "",
         riskList = [],
-        getSignal,
+        getSignal = STRATEGY_DEFAULT_SIGNAL,
         interval = STRATEGY_DEFAULT_INTERVAL,
         callbacks,
       } = this.strategySchemaService.get(strategyName);
