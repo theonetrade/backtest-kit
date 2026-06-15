@@ -1,4 +1,4 @@
-import { Breadcrumbs2, Breadcrumbs2Type, IBreadcrumbs2Action, IBreadcrumbs2Option, IOutletProps, RecordView, useAsyncValue, useOnce } from "react-declarative";
+import { Breadcrumbs2, Breadcrumbs2Type, IBreadcrumbs2Action, IBreadcrumbs2Option, IOutletProps, RecordView, useActualCallback, useAsyncValue, useOnce } from "react-declarative";
 import IconWrapper from "../../../../components/common/IconWrapper";
 import { Download, KeyboardArrowLeft, Refresh } from "@mui/icons-material";
 import { get } from "lodash";
@@ -45,7 +45,7 @@ const options: IBreadcrumbs2Option[] = [
     {
         type: Breadcrumbs2Type.Link,
         action: "back-action",
-        label: "Control",
+        label: "Manual Control",
     },
 ];
 
@@ -102,9 +102,22 @@ export const ControlView = ({ params }: IOutletProps) => {
 
     useOnce(reloadSubject.subscribe(execute));
 
+    const handleDownload = useActualCallback(async () => {
+        if (!data) {
+            return;
+        }
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        ioc.layoutService.downloadFile(url, `manual_control_${Date.now()}.json`);
+    })
+
+
     const handleAction = async (action: string) => {
         if (action === "back-action") {
             ioc.routerService.push(`/status/${params.id}`);
+        }
+        if (action === "download-action") {
+            handleDownload();
         }
         if (action === "update-now") {
             await reloadSubject.next();
