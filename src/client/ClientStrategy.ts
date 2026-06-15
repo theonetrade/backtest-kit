@@ -3547,7 +3547,7 @@ const CLOSE_USER_PENDING_SIGNAL_IN_BACKTEST_FN = async (
   closedSignal: ISignalCloseRow,
   averagePrice: number,
   closeTimestamp: number
-): Promise<IStrategyTickResultClosed> => {
+): Promise<IStrategyTickResultClosed | null> => {
   const syncCloseAllowed = await CALL_SIGNAL_SYNC_CLOSE_FN(
     closeTimestamp,
     averagePrice,
@@ -3557,16 +3557,15 @@ const CLOSE_USER_PENDING_SIGNAL_IN_BACKTEST_FN = async (
   );
 
   if (!syncCloseAllowed) {
-    self.params.logger.info("ClientStrategy backtest: user-closed signal rejected by sync, will retry", {
+    // Sync close rejected (e.g. broker rejected the order) — keep _closedSignal intact
+    // and return null so the candle loop re-attempts on the next candle. Mirrors live
+    // tick, which keeps _closedSignal and returns idle on a rejected user close,
+    // re-trying on the following tick.
+    self.params.logger.info("ClientStrategy backtest: user-closed signal rejected by sync, will retry on next candle", {
       symbol: self.params.execution.context.symbol,
       signalId: closedSignal.id,
     });
-    self._closedSignal = null;
-    self._pendingSignal = closedSignal;
-    throw new Error(
-      `ClientStrategy backtest: signal close rejected by sync (signalId=${closedSignal.id}). ` +
-      `Retry backtest() with new candle data.`
-    );
+    return null;
   }
 
   self._closedSignal = null;
@@ -3978,7 +3977,15 @@ const PROCESS_PENDING_SIGNAL_CANDLES_FN = async (
 
     // КРИТИЧНО: Проверяем был ли сигнал закрыт пользователем через closePending()
     if (self._closedSignal) {
-      return await CLOSE_USER_PENDING_SIGNAL_IN_BACKTEST_FN(self, self._closedSignal, averagePrice, currentCandleTimestamp);
+      const userCloseResult = await CLOSE_USER_PENDING_SIGNAL_IN_BACKTEST_FN(self, self._closedSignal, averagePrice, currentCandleTimestamp);
+      // Sync close accepted — position closed, return. If rejected, _closedSignal is
+      // kept and we skip this candle: live tick returns idle on a rejected user close
+      // (it does NOT fall into the TP/SL or active-monitoring path), so the candle is
+      // skipped here and the close is re-attempted on the next candle.
+      if (userCloseResult) {
+        return userCloseResult;
+      }
+      continue;
     }
 
     let shouldClose = false;
@@ -5914,7 +5921,10 @@ export class ClientStrategy implements IStrategy {
 
       const closeTimestamp = this.params.execution.context.when.getTime();
 
-      // Sync close: if external system rejects — restore _pendingSignal, retry on next backtest() call
+      // Sync close: if external system rejects — keep the close pending and re-attempt
+      // it inside the candle loop below (PROCESS_PENDING_SIGNAL_CANDLES_FN handles
+      // _closedSignal per candle). Mirrors live tick, which keeps _closedSignal and
+      // retries on the next tick instead of failing.
       const syncCloseAllowed = await CALL_SIGNAL_SYNC_CLOSE_FN(
         closeTimestamp,
         currentPrice,
@@ -5924,16 +5934,18 @@ export class ClientStrategy implements IStrategy {
       );
 
       if (!syncCloseAllowed) {
-        this.params.logger.info("ClientStrategy backtest: user-closed signal rejected by sync, will retry", {
+        this.params.logger.info("ClientStrategy backtest: user-closed signal rejected by sync, will retry in candle loop", {
           symbol: this.params.execution.context.symbol,
           signalId: closedSignal.id,
         });
-        // Restore _pendingSignal so next backtest() call can process it normally
-        this._closedSignal = null;
+        // Restore _pendingSignal so the candle loop processes the position normally;
+        // _closedSignal is kept so the loop re-attempts the close on each candle.
         this._pendingSignal = closedSignal;
-        throw new Error(
-          `ClientStrategy backtest: signal close rejected by sync (signalId=${closedSignal.id}). ` +
-          `Retry backtest() with new candle data.`
+        return await PROCESS_PENDING_SIGNAL_CANDLES_FN(
+          this,
+          this._pendingSignal,
+          candles,
+          frameEndTime
         );
       }
 
