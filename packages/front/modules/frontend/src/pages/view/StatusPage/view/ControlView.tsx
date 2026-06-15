@@ -1,11 +1,17 @@
-import { Breadcrumbs2, Breadcrumbs2Type, IBreadcrumbs2Action, IBreadcrumbs2Option, IOutletProps, useAsyncValue } from "react-declarative";
+import { Breadcrumbs2, Breadcrumbs2Type, IBreadcrumbs2Action, IBreadcrumbs2Option, IOutletProps, RecordView, useAsyncValue, useOnce } from "react-declarative";
 import IconWrapper from "../../../../components/common/IconWrapper";
 import { Download, KeyboardArrowLeft, Refresh } from "@mui/icons-material";
 import { get } from "lodash";
 import ioc from "../../../../lib";
-import { Container } from "@mui/material";
+import { Box, Container, Paper } from "@mui/material";
 import { reloadSubject } from "../../../../config/emitters";
 import { Background } from "../../../../components/common/Background";
+
+type Payload = {
+    symbol: string;
+    strategyName: string;
+    exchangeName: string;
+}
 
 const options: IBreadcrumbs2Option[] = [
     {
@@ -54,11 +60,10 @@ const actions: IBreadcrumbs2Action[] = [
 
 export const ControlView = ({ params }: IOutletProps) => {
 
-
     const [payload] = useAsyncValue(
         async () => {
             const statusMap = await ioc.statusViewService.getStatusMap();
-            return get(statusMap, params.id, null);
+            return get(statusMap, params.id, null) as unknown as Payload;
         },
         {
             onLoadStart: () => ioc.layoutService.setAppbarLoader(true),
@@ -66,6 +71,28 @@ export const ControlView = ({ params }: IOutletProps) => {
             deps: [params.id],
         },
     )
+
+    const [data, { loading, execute }] = useAsyncValue(
+        async () => {
+            if (!payload) {
+                return null;
+            }
+            return await ioc.controlViewService.getStrategyStatus(
+                payload.symbol,
+                {
+                    strategyName: payload.strategyName,
+                    exchangeName: payload.exchangeName,
+                }
+            );
+        }, 
+        {
+            onLoadStart: () => ioc.layoutService.setAppbarLoader(true),
+            onLoadEnd: () => ioc.layoutService.setAppbarLoader(false),
+            deps: [payload],
+        }
+    )
+
+    useOnce(reloadSubject.subscribe(execute));
 
     const handleAction = async (action: string) => {
         if (action === "back-action") {
@@ -77,7 +104,19 @@ export const ControlView = ({ params }: IOutletProps) => {
     }
 
     const renderInner = () => {
-        return null;
+        if (!data) {
+            return null;
+        }
+        if (loading) {
+            return null;
+        }
+        return (
+            <RecordView
+                component={Paper}
+                sx={{ p: 1, minHeight: "calc(100dvh - 175px)" }}
+                data={data}
+            />
+        )
     }
 
     return (
@@ -89,6 +128,7 @@ export const ControlView = ({ params }: IOutletProps) => {
                 onAction={handleAction}
             />
             {renderInner()}
+            <Box sx={{ paddingBottom: "24px" }} />
             <Background />
         </Container>
     );
