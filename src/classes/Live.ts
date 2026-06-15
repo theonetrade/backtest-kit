@@ -87,7 +87,7 @@ const LIVE_METHOD_NAME_GET_POSITION_PARTIAL_OVERLAP = "LiveUtils.getPositionPart
 const LIVE_METHOD_NAME_BREAKEVEN = "Live.commitBreakeven";
 const LIVE_METHOD_NAME_CANCEL_SCHEDULED = "Live.cancelScheduled";
 const LIVE_METHOD_NAME_CLOSE_PENDING = "Live.closePending";
-const LIVE_METHOD_NAME_CREATE_SIGNAL = "Live.createSignal";
+const LIVE_METHOD_NAME_COMMIT_CREATE_SIGNAL = "Live.commitCreateSignal";
 const LIVE_METHOD_NAME_GET_STRATEGY_STATUS = "Live.getStrategyStatus";
 const LIVE_METHOD_NAME_PARTIAL_PROFIT = "LiveUtils.commitPartialProfit";
 const LIVE_METHOD_NAME_PARTIAL_LOSS = "LiveUtils.commitPartialLoss";
@@ -3378,7 +3378,7 @@ export class LiveUtils {
    * @param dto - Signal DTO to open (priceOpen optional)
    * @returns Promise that resolves when the DTO is queued
    */
-  public createSignal = async (
+  public commitCreateSignal = async (
     symbol: string,
     context: {
       strategyName: StrategyName;
@@ -3386,17 +3386,17 @@ export class LiveUtils {
     },
     dto: ISignalDto,
   ): Promise<void> => {
-    backtest.loggerService.info(LIVE_METHOD_NAME_CREATE_SIGNAL, {
+    backtest.loggerService.info(LIVE_METHOD_NAME_COMMIT_CREATE_SIGNAL, {
       symbol,
       context,
     });
     backtest.strategyValidationService.validate(
       context.strategyName,
-      LIVE_METHOD_NAME_CREATE_SIGNAL,
+      LIVE_METHOD_NAME_COMMIT_CREATE_SIGNAL,
     );
     backtest.exchangeValidationService.validate(
       context.exchangeName,
-      LIVE_METHOD_NAME_CREATE_SIGNAL,
+      LIVE_METHOD_NAME_COMMIT_CREATE_SIGNAL,
     );
 
     {
@@ -3405,20 +3405,20 @@ export class LiveUtils {
       riskName &&
         backtest.riskValidationService.validate(
           riskName,
-          LIVE_METHOD_NAME_CREATE_SIGNAL,
+          LIVE_METHOD_NAME_COMMIT_CREATE_SIGNAL,
         );
       riskList &&
         riskList.forEach((riskName) =>
           backtest.riskValidationService.validate(
             riskName,
-            LIVE_METHOD_NAME_CREATE_SIGNAL,
+            LIVE_METHOD_NAME_COMMIT_CREATE_SIGNAL,
           ),
         );
       actions &&
         actions.forEach((actionName) =>
           backtest.actionValidationService.validate(
             actionName,
-            LIVE_METHOD_NAME_CREATE_SIGNAL,
+            LIVE_METHOD_NAME_COMMIT_CREATE_SIGNAL,
           ),
         );
     }

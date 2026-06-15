@@ -110,7 +110,7 @@ const BACKTEST_METHOD_NAME_GET_POSITION_PARTIAL_OVERLAP =
 const BACKTEST_METHOD_NAME_BREAKEVEN = "Backtest.commitBreakeven";
 const BACKTEST_METHOD_NAME_CANCEL_SCHEDULED = "Backtest.commitCancelScheduled";
 const BACKTEST_METHOD_NAME_CLOSE_PENDING = "Backtest.commitClosePending";
-const BACKTEST_METHOD_NAME_CREATE_SIGNAL = "Backtest.createSignal";
+const BACKTEST_METHOD_NAME_COMMIT_CREATE_SIGNAL = "Backtest.commitCreateSignal";
 const BACKTEST_METHOD_NAME_GET_STRATEGY_STATUS = "Backtest.getStrategyStatus";
 const BACKTEST_METHOD_NAME_PARTIAL_PROFIT = "BacktestUtils.commitPartialProfit";
 const BACKTEST_METHOD_NAME_PARTIAL_LOSS = "BacktestUtils.commitPartialLoss";
@@ -3424,7 +3424,7 @@ export class BacktestUtils {
    * @param dto - Signal DTO to open (priceOpen optional)
    * @returns Promise that resolves when the DTO is queued
    */
-  public createSignal = async (
+  public commitCreateSignal = async (
     symbol: string,
     context: {
       strategyName: StrategyName;
@@ -3433,17 +3433,17 @@ export class BacktestUtils {
     },
     dto: ISignalDto,
   ): Promise<void> => {
-    backtest.loggerService.info(BACKTEST_METHOD_NAME_CREATE_SIGNAL, {
+    backtest.loggerService.info(BACKTEST_METHOD_NAME_COMMIT_CREATE_SIGNAL, {
       symbol,
       context,
     });
     backtest.strategyValidationService.validate(
       context.strategyName,
-      BACKTEST_METHOD_NAME_CREATE_SIGNAL,
+      BACKTEST_METHOD_NAME_COMMIT_CREATE_SIGNAL,
     );
     backtest.exchangeValidationService.validate(
       context.exchangeName,
-      BACKTEST_METHOD_NAME_CREATE_SIGNAL,
+      BACKTEST_METHOD_NAME_COMMIT_CREATE_SIGNAL,
     );
 
     {
@@ -3452,20 +3452,20 @@ export class BacktestUtils {
       riskName &&
         backtest.riskValidationService.validate(
           riskName,
-          BACKTEST_METHOD_NAME_CREATE_SIGNAL,
+          BACKTEST_METHOD_NAME_COMMIT_CREATE_SIGNAL,
         );
       riskList &&
         riskList.forEach((riskName) =>
           backtest.riskValidationService.validate(
             riskName,
-            BACKTEST_METHOD_NAME_CREATE_SIGNAL,
+            BACKTEST_METHOD_NAME_COMMIT_CREATE_SIGNAL,
           ),
         );
       actions &&
         actions.forEach((actionName) =>
           backtest.actionValidationService.validate(
             actionName,
-            BACKTEST_METHOD_NAME_CREATE_SIGNAL,
+            BACKTEST_METHOD_NAME_COMMIT_CREATE_SIGNAL,
           ),
         );
     }

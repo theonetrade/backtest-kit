@@ -74,7 +74,7 @@ const GET_POSITION_PARTIAL_OVERLAP_METHOD_NAME = "strategy.getPositionPartialOve
 const HAS_NO_PENDING_SIGNAL_METHOD_NAME = "strategy.hasNoPendingSignal";
 const HAS_NO_SCHEDULED_SIGNAL_METHOD_NAME = "strategy.hasNoScheduledSignal";
 const COMMIT_SIGNAL_NOTIFY_METHOD_NAME = "strategy.commitSignalNotify";
-const CREATE_SIGNAL_METHOD_NAME = "strategy.createSignal";
+const COMMIT_CREATE_SIGNAL_METHOD_NAME = "strategy.commitCreateSignal";
 const GET_STRATEGY_STATUS_METHOD_NAME = "strategy.getStrategyStatus";
 
 /**
@@ -2763,14 +2763,14 @@ export async function commitSignalNotify(
  * import { createSignal } from "backtest-kit";
  *
  * // Open immediately at current price
- * await createSignal("BTCUSDT", { position: "long", priceTakeProfit: 110, priceStopLoss: 90 });
+ * await commitCreateSignal("BTCUSDT", { position: "long", priceTakeProfit: 110, priceStopLoss: 90 });
  * ```
  */
-export async function createSignal(
+export async function commitCreateSignal(
   symbol: string,
   dto: ISignalDto,
 ): Promise<void> {
-  backtest.loggerService.info(CREATE_SIGNAL_METHOD_NAME, { symbol });
+  backtest.loggerService.info(COMMIT_CREATE_SIGNAL_METHOD_NAME, { symbol });
   if (!ExecutionContextService.hasContext()) {
     throw new Error("createSignal requires an execution context");
   }

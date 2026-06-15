@@ -18,7 +18,7 @@ export {
   waitForReady,
 } from "./function/init";
 export {
-  createSignal,
+  commitCreateSignal,
   commitCancelScheduled,
   commitClosePending,
   commitPartialLoss,
