@@ -6588,7 +6588,7 @@ export class ClientStrategy implements IStrategy {
     // Call onWrite callback for testing persist storage
     if (this.params.callbacks?.onWrite) {
       this.params.callbacks.onWrite(
-        this.params.execution.context.symbol,
+        this.params.symbol,
         TO_PUBLIC_SIGNAL("pending", this._pendingSignal, currentPrice),
         backtest
       );
@@ -6597,7 +6597,7 @@ export class ClientStrategy implements IStrategy {
     if (!backtest) {
       await PersistSignalAdapter.writeSignalData(
         this._pendingSignal,
-        this.params.execution.context.symbol,
+        this.params.symbol,
         this.params.strategyName,
         this.params.exchangeName,
       );
@@ -6817,7 +6817,7 @@ export class ClientStrategy implements IStrategy {
     // Call onWrite callback for testing persist storage
     if (this.params.callbacks?.onWrite) {
       this.params.callbacks.onWrite(
-        this.params.execution.context.symbol,
+        this.params.symbol,
         TO_PUBLIC_SIGNAL("pending", this._pendingSignal, currentPrice),
         backtest
       );
@@ -6826,7 +6826,7 @@ export class ClientStrategy implements IStrategy {
     if (!backtest) {
       await PersistSignalAdapter.writeSignalData(
         this._pendingSignal,
-        this.params.execution.context.symbol,
+        this.params.symbol,
         this.params.strategyName,
         this.params.exchangeName,
       );
@@ -7041,7 +7041,7 @@ export class ClientStrategy implements IStrategy {
     if (this.params.callbacks?.onWrite) {
       const publicSignal = TO_PUBLIC_SIGNAL("pending", this._pendingSignal, currentPrice);
       this.params.callbacks.onWrite(
-        this.params.execution.context.symbol,
+        this.params.symbol,
         publicSignal,
         backtest
       );
@@ -7050,7 +7050,7 @@ export class ClientStrategy implements IStrategy {
     if (!backtest) {
       await PersistSignalAdapter.writeSignalData(
         this._pendingSignal,
-        this.params.execution.context.symbol,
+        this.params.symbol,
         this.params.strategyName,
         this.params.exchangeName,
       );
@@ -7333,7 +7333,7 @@ export class ClientStrategy implements IStrategy {
     if (this.params.callbacks?.onWrite) {
       const publicSignal = TO_PUBLIC_SIGNAL("pending", this._pendingSignal, currentPrice);
       this.params.callbacks.onWrite(
-        this.params.execution.context.symbol,
+        this.params.symbol,
         publicSignal,
         backtest
       );
@@ -7342,7 +7342,7 @@ export class ClientStrategy implements IStrategy {
     if (!backtest) {
       await PersistSignalAdapter.writeSignalData(
         this._pendingSignal,
-        this.params.execution.context.symbol,
+        this.params.symbol,
         this.params.strategyName,
         this.params.exchangeName,
       );
@@ -7612,7 +7612,7 @@ export class ClientStrategy implements IStrategy {
     if (this.params.callbacks?.onWrite) {
       const publicSignal = TO_PUBLIC_SIGNAL("pending", this._pendingSignal, currentPrice);
       this.params.callbacks.onWrite(
-        this.params.execution.context.symbol,
+        this.params.symbol,
         publicSignal,
         backtest
       );
@@ -7621,7 +7621,7 @@ export class ClientStrategy implements IStrategy {
     if (!backtest) {
       await PersistSignalAdapter.writeSignalData(
         this._pendingSignal,
-        this.params.execution.context.symbol,
+        this.params.symbol,
         this.params.strategyName,
         this.params.exchangeName
       );
@@ -7735,7 +7735,7 @@ export class ClientStrategy implements IStrategy {
     // Call onWrite callback for testing persist storage
     if (this.params.callbacks?.onWrite) {
       this.params.callbacks.onWrite(
-        this.params.execution.context.symbol,
+        this.params.symbol,
         TO_PUBLIC_SIGNAL("pending", this._pendingSignal, currentPrice),
         backtest
       );
@@ -7744,7 +7744,7 @@ export class ClientStrategy implements IStrategy {
     if (!backtest) {
       await PersistSignalAdapter.writeSignalData(
         this._pendingSignal,
-        this.params.execution.context.symbol,
+        this.params.symbol,
         this.params.strategyName,
         this.params.exchangeName,
       );
