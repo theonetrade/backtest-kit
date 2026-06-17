@@ -337,9 +337,16 @@ export interface IActionCallbacks {
    * Called on every live tick while a pending signal is monitored, BEFORE TP/SL/time evaluation,
    * to confirm the order is still pending (open) on the exchange.
    *
+   * Query the exchange by `event.signalId` and THROW ONLY when the order is NOT FOUND by that id
+   * (filled, cancelled, or liquidated externally) — the framework then closes the position with
+   * closeReason "closed".
+   *
+   * CRITICAL: swallow transient/network errors (timeout, 5xx, rate limit, disconnect) — return
+   * normally instead of throwing, otherwise a connectivity blip would wrongly close an open
+   * position. Throw exclusively on a confirmed "order not found by id" result.
+   *
    * NOTE: Like onSignalSync, exceptions from this method are NOT swallowed. They propagate up to
-   * CREATE_SYNC_PENDING_FN which catches them and returns false. Throw (or return) to signal the
-   * order is no longer open — framework closes the position with closeReason "closed".
+   * CREATE_SYNC_PENDING_FN which catches them and returns false.
    *
    * @deprecated This callback is not recommended for use. Exchange integration should be implemented
    * in Broker.useBrokerAdapter (the infrastructure domain layer) via onOrderPing instead.
@@ -637,7 +644,14 @@ export interface IAction {
   /**
    * Called on every live tick while a pending signal is monitored, BEFORE TP/SL/time evaluation,
    * to confirm the order is still pending (open) on the exchange.
-   * Throw to signal the order is no longer open — framework closes the position with closeReason "closed".
+   *
+   * Query the exchange by `event.signalId` and THROW ONLY when the order is NOT FOUND by that id
+   * (filled, cancelled, or liquidated externally) — the framework then closes the position with
+   * closeReason "closed".
+   *
+   * CRITICAL: swallow transient/network errors (timeout, 5xx, rate limit, disconnect) — return
+   * normally instead of throwing, otherwise a connectivity blip would wrongly close an open
+   * position. Throw exclusively on a confirmed "order not found by id" result.
    *
    * NOTE: Exceptions are NOT swallowed here — they propagate to CREATE_SYNC_PENDING_FN.
    *

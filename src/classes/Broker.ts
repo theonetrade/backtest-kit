@@ -148,10 +148,14 @@ export type BrokerSignalClosePayload = {
  * monitored, BEFORE the framework evaluates TP/SL/time. Forwarded to the registered IBroker
  * adapter via `onOrderPing`.
  *
- * The adapter should query the exchange and THROW if the order is no longer open (filled,
- * cancelled, or liquidated externally). A throw propagates to CREATE_SYNC_PENDING_FN, which
- * makes the framework close the pending signal with closeReason "closed". Returning normally
- * keeps the position under normal TP/SL monitoring.
+ * The adapter should query the exchange by `signalId` and THROW ONLY when the order is
+ * definitively NOT FOUND by that id (filled, cancelled, or liquidated externally). A throw
+ * propagates to CREATE_SYNC_PENDING_FN, which makes the framework close the pending signal with
+ * closeReason "closed". Returning normally keeps the position under normal TP/SL monitoring.
+ *
+ * CRITICAL: transient/network errors (timeout, 5xx, rate limit, disconnect) must be SWALLOWED —
+ * return normally instead of throwing. A thrown network error would wrongly close an open
+ * position. Only a confirmed "order not found by id" response is a valid reason to throw.
  *
  * @example
  * ```typescript
@@ -506,8 +510,13 @@ export interface IBroker {
 
   /**
    * Called on every live tick while a pending signal is monitored, BEFORE TP/SL/time evaluation.
-   * Query the exchange and THROW if the order is no longer open — the framework will then close
-   * the position with closeReason "closed". Return normally to keep monitoring.
+   * Query the exchange by `payload.signalId` and THROW ONLY when the order is NOT FOUND by that id
+   * — the framework will then close the position with closeReason "closed". Return normally to keep
+   * monitoring.
+   *
+   * CRITICAL: swallow transient/network errors (timeout, 5xx, rate limit, disconnect) — return
+   * normally instead of throwing, otherwise a connectivity blip would wrongly close an open
+   * position. Throw exclusively on a confirmed "order not found by id" result.
    */
   onOrderPing(payload: BrokerSignalPendingPayload): Promise<void>;
 
@@ -597,9 +606,12 @@ export class BrokerProxy implements IBroker {
    *
    * If the adapter does not implement `onOrderPing`, the call is silently skipped
    * (the order is assumed still open). When implemented, exceptions propagate — a throw means
-   * the order is no longer open and the framework closes the position with closeReason "closed".
+   * the order was NOT FOUND by `payload.signalId` and the framework closes the position with
+   * closeReason "closed". The adapter must throw ONLY on a confirmed "order not found by id"
+   * result and SWALLOW transient/network errors (return normally), otherwise a connectivity blip
+   * would wrongly close an open position.
    *
-   * @param payload - Pending ping details: symbol, position, prices, pnl, context, backtest flag.
+   * @param payload - Pending ping details: symbol, signalId, position, prices, pnl, context, backtest flag.
    */
   public async onOrderPing(
     payload: BrokerSignalPendingPayload,
@@ -1451,20 +1463,31 @@ class BrokerBase implements IBroker {
   /**
    * Called on every live tick while a pending signal is monitored, BEFORE TP/SL/time evaluation.
    *
-   * Override to query the exchange for the order backing this position and THROW when it is no
-   * longer open (filled, cancelled, or liquidated externally) — the framework then closes the
-   * position with closeReason "closed". The default implementation logs and returns normally,
-   * which keeps the position under normal TP/SL monitoring.
+   * Override to query the exchange for the order by `payload.signalId` and THROW ONLY when it is
+   * definitively NOT FOUND by that id (filled, cancelled, or liquidated externally) — the framework
+   * then closes the position with closeReason "closed". The default implementation logs and returns
+   * normally, which keeps the position under normal TP/SL monitoring.
    *
-   * @param payload - Pending ping details: symbol, position, prices, pnl, context, backtest
+   * CRITICAL: swallow transient/network errors (timeout, 5xx, rate limit, disconnect) — return
+   * normally instead of throwing. A thrown network error would wrongly close an open position; only
+   * a confirmed "order not found by id" response is a valid reason to throw.
+   *
+   * @param payload - Pending ping details: symbol, signalId, position, prices, pnl, context, backtest
    *
    * @example
    * ```typescript
    * async onOrderPing(payload: BrokerSignalPendingPayload) {
    *   super.onOrderPing(payload); // Keep parent logging
-   *   const order = await this.exchange.getOpenOrder(payload.symbol);
+   *   let order: Order | null;
+   *   try {
+   *     order = await this.exchange.getOrderById(payload.signalId);
+   *   } catch (networkError) {
+   *     // Transient/network error — swallow and keep the position open, retry next tick
+   *     return;
+   *   }
    *   if (!order) {
-   *     throw new Error(`Order for ${payload.symbol} is no longer open on the exchange`);
+   *     // Confirmed not found by id — close the position
+   *     throw new Error(`Order ${payload.signalId} not found on the exchange`);
    *   }
    * }
    * ```
