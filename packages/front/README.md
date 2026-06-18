@@ -2,7 +2,7 @@
 
 # 📊 @backtest-kit/ui
 
-> Full-stack UI framework for visualizing cryptocurrency trading signals, backtests, and real-time market data. Combines a Node.js backend server with a React dashboard - all in one package.
+> The web cockpit for [backtest-kit](https://www.npmjs.com/package/backtest-kit). A self-hosted dashboard that turns a running backtest or live session into screens you can read: portfolio cards, KPI boards, candlestick charts with signal overlays, a notification feed, a strategy heatmap, markdown reports, a dump-file explorer, a live manual-control panel, and an in-browser Pine Script editor.
 
 ![screenshot](https://raw.githubusercontent.com/tripolskypetr/backtest-kit/HEAD/assets/screenshots/screenshot16.png)
 
@@ -14,241 +14,272 @@ Interactive dashboard for backtest-kit with signal visualization, candle charts,
 
 📚 **[Backtest Kit Docs](https://backtest-kit.github.io/documents/article_07_ai_news_trading_signals.html)** | 🌟 **[GitHub](https://github.com/tripolskypetr/backtest-kit)**
 
-> **New to backtest-kit?** The fastest way to get a real, production-ready setup is to clone the [reference implementation](https://github.com/tripolskypetr/backtest-kit/tree/master/example) — a fully working news-sentiment AI trading system with LLM forecasting, multi-timeframe data, and a documented February 2026 backtest. Start there instead of from scratch.
-
-## ✨ Features
-
-- 📈 **Interactive Charts**: Candlestick visualization with Lightweight Charts (1m, 15m, 1h timeframes)
-- 🎯 **Signal Tracking**: View opened, closed, scheduled, and cancelled signals with full details
-- 📊 **Risk Analysis**: Monitor risk rejections and position management
-- 🔔 **Notifications**: Real-time notification system for all trading events
-- 💹 **Trailing & Breakeven**: Visualize trailing stop/take and breakeven events
-- 🌐 **Multi-Exchange**: Support for 100+ exchanges via CCXT integration
-- 🎨 **Material Design**: Beautiful UI with MUI 5 and Mantine components
-- 🌍 **i18n Ready**: Internationalization support built-in
-
-## 📋 What It Does
-
-`@backtest-kit/ui` provides both backend API and frontend dashboard:
-
-| Component | Description |
-|-----------|-------------|
-| **`serve()`** | Start HTTP server with REST API endpoints |
-| **`getRouter()`** | Get expressjs-compatible router for custom middleware integration |
-
-## 🚀 Installation
 
 ```bash
-npm install @backtest-kit/ui backtest-kit ccxt
+npm install @backtest-kit/ui backtest-kit
 ```
-
-## 📖 Usage
-
-### Quick Start - Launch Dashboard
 
 ```typescript
-import { serve } from '@backtest-kit/ui';
-
-// Start the UI server
-serve('0.0.0.0', 60050);
-
-// Dashboard available at http://localhost:60050
+import { serve } from "@backtest-kit/ui";
+serve("0.0.0.0", 60050); // → http://localhost:60050
 ```
 
-### Custom Logger Integration
+One call boots the server and serves the dashboard. Everything below describes **what each screen shows you** — the layout, the data on it, and what you can do there.
 
-```typescript
-import { setLogger } from '@backtest-kit/ui';
+---
 
-setLogger({
-  log: (msg) => console.log(`[UI] ${msg}`),
-  warn: (msg) => console.warn(`[UI] ${msg}`),
-  error: (msg) => console.error(`[UI] ${msg}`),
-});
-```
+## The shell
 
-## 📐 Dashboard Revenue Math
+![screenshot](https://raw.githubusercontent.com/tripolskypetr/backtest-kit/HEAD/assets/screenshots/screenshot19.png)
 
-The **Revenue** metrics on the dashboard are calculated in **dollar terms** by summing the `pnlCost` field from all closed signals within each time window.
+Every page sits inside a common frame: a top **app bar** with the logo (click to toggle home), a horizontally-scrollable row of section tabs, a live **notification bell**, a fullscreen toggle, and a GitHub link. A thin **progress bar** under the app bar animates whenever a screen is loading data. Below the bar, most screens open with a **breadcrumb strip** (Main › Section › …) that doubles as the action bar — refresh, download, print, and mode-switch buttons live there.
 
-### Dollar PnL formula
+The home screen (`/main`) is a **launchpad**: three labelled groups of large colored tiles, each tile a doorway to one section, with a status banner up top summarizing the engine. The groups:
 
-```
-revenue[window] = Σ signal.pnl.pnlCost   (for all closed signals in that window)
-```
+- **Application** — Portfolio Overview, PNL Performance, System Logs
+- **Live** — Notifications, Pending Status, Dump Explorer
+- **Other** — Markdown Reports, Price Charts, Heatmap
 
-`pnlCost` is computed by the backend (`toProfitLossDto`) as:
+---
 
-```
-pnlCost = (pnlPercentage / 100) × pnlEntries
-```
+## Portfolio Overview — `/overview`
 
-| Field | Source | Description |
-|-------|--------|-------------|
-| `pnl.pnlCost` | `IStorageSignalRow` | Absolute P&L in USD — the only value summed for revenue |
-| `pnl.pnlPercentage` | `IStorageSignalRow` | Percentage P&L (accounts for DCA-weighted entry price, slippage, and fees) |
-| `pnl.pnlEntries` | `IStorageSignalRow` | Total invested capital in USD — sum of all entry costs (`Σ entry.cost`) |
+![screenshot](https://raw.githubusercontent.com/tripolskypetr/backtest-kit/HEAD/assets/screenshots/screenshot1.png)
 
-**Example** (1 DCA entry at $100, position closed +5%):
+Closed trading signals, grouped by symbol, split across **Backtest** and **Live** tabs at the top.
 
-| DCA entries | `pnlEntries` | `pnlPercentage` | `pnlCost` |
-|:-----------:|-------------:|----------------:|----------:|
-| 1 | $100 | 5 % | +$5.00 |
-| 2 | $200 | 5 % | +$10.00 |
-| 3 | $300 | 5 % | +$15.00 |
+<details>
+<summary>What's on the page</summary>
 
-### Time windows
+Each symbol gets a section of cards; every card is one closed signal showing position type (long/short), entry price, take-profit and stop-loss levels, and the realized **PNL in both amount and percent**. Where a position used dollar-cost averaging or partial closes, the card displays the **DCA entry count** and **partial-close count**. A Backtest/Live tab toggle switches the dataset; the list supports **JSON export** and manual refresh. Layout is a scrollable tabbed container with a decorative background.
 
-The anchor point depends on execution mode:
+</details>
 
-- **Backtest mode** — latest `updatedAt` across all closed signals (time windows are relative to the end of the run)
-- **Live mode** — `Date.now()` (wall-clock time)
+## PNL Performance (Dashboard) — `/dashboard` · `/dashboard/:mode`
 
-| Window | Range |
-|--------|-------|
-| Today | `>= startOf(anchorDay)` |
-| Yesterday | `[anchorDay − 1d, anchorDay)` |
-| 7 days | `>= anchorDay − 7d` |
-| 31 days | `>= anchorDay − 31d` |
+![screenshot](https://raw.githubusercontent.com/tripolskypetr/backtest-kit/HEAD/assets/screenshots/screenshot13.png)
 
-Revenue and signal count are tracked separately for each window and aggregated across all symbols on the Dashboard.
+The KPI board. Aggregates trading performance **across all symbols** for the chosen mode.
 
-## 📐 Position PNL Math
+<details>
+<summary>What's on the page</summary>
 
-### Effective entry price (DCA-weighted)
+Inside a breadcrumb header (`KPI BACKTEST` / `KPI LIVE`) the body is a declarative field grid (`dashboard_fields`) of live widgets fed by four aggregated measures pulled per-symbol and summed:
 
-When multiple DCA entries exist, the effective open price is a **cost-weighted harmonic mean**:
+- **Four revenue cards** (`SingleValueWidget`) — Today / Yesterday / 7 days / 31 days, each showing profit in USDT with a trade-count caption, **color-coded** red (loss) / green (profit) / orange (flat).
+- **Trade-performance donut** (`SpeedDonutWidget`) — Failed vs. Successful vs. Total signal counts.
+- **Daily-trades chart** (`ChartWidget`) — a per-day series of total / resolved / rejected trades.
+- **Success-rate panel** (`SuccessRateWidget`) — per symbol (icon + display name), broken into take-profit / stop-loss / close-resolved / close-rejected counts.
+- **Signal grid** (`SignalGridWidget`) — the paginated signal table for the active mode.
 
-```
-effectivePrice = Σcost / Σ(cost / price)
-```
+The breadcrumb actions: **Download** (exports the raw signals as a timestamped JSON blob), **Switch to LIVE / BACKTEST** (jumps between modes), and **Refresh manually** (clears the signal cache and reloads). A modal loader covers the board while it recomputes.
 
-This is the correct formula for fixed-dollar entries (not simple average), because buying $100 worth at different prices gives different coin quantities.
+</details>
 
-### Partial closes (PP/PL)
+## System Logs — `/logs`
 
-Each partial stores a `costBasisAtClose` snapshot — the running dollar cost-basis **before** that partial fired. This avoids replaying the full entry history on every call.
+![screenshot](https://raw.githubusercontent.com/tripolskypetr/backtest-kit/HEAD/assets/screenshots/screenshot14.png)
 
-**Cost-basis replay:**
+A virtualized, filterable feed of the engine's runtime log.
 
-```
-for each partial[i]:
-    closedDollar      += (percent[i] / 100) × costBasisAtClose[i]
-    remainingCostBasis = costBasisAtClose[i] × (1 - percent[i] / 100)
+<details>
+<summary>What's on the page</summary>
 
-# DCA entries added AFTER the last partial are appended:
-remainingCostBasis += Σ entry.cost for entries[lastEntryCount..]
+Each entry is a row with a **type badge** (Debug / Info / Warn / Log), the log **topic**, a **timestamp**, and the raw JSON arguments rendered in monospace. A search prompt filters by **keyword or regex**. The whole log exports as a JSON file. Virtualized so it stays smooth over very long histories.
 
-totalClosedPercent = closedDollar / totalInvested × 100
-```
+</details>
 
-**Effective price through partials** is computed iteratively so that a partial sell does not change the entry price of the remaining coins:
+## Notifications — `/notifications`
 
-```
-# partial[0]:
-  effPrice = costBasisAtClose[0] / Σ(cost/price for entries[0..cnt[0]])
+![screenshot](https://raw.githubusercontent.com/tripolskypetr/backtest-kit/HEAD/assets/screenshots/screenshot9.png)
 
-# partial[j]:
-  remainingCB = prev.costBasisAtClose × (1 - prev.percent / 100)
-  oldCoins    = remainingCB / effPrice        ← coins still held
-  newCoins    = Σ(cost/price for DCA entries between j-1 and j)
-  effPrice    = (remainingCB + newCost) / (oldCoins + newCoins)
-```
+The event feed for the entire signal lifecycle.
 
-### toProfitLossDto — weighted PNL with slippage & fees
+<details>
+<summary>What's on the page</summary>
 
-**Without partials:**
+Color-coded cards, one per event — **opens, closes, schedules, errors** — each showing symbol, position, PNL, and the entry / exit / TP / SL prices. **Infinite-scroll** pagination loads more as you go; clicking a card opens a **detailed modal** for that event. Manual refresh pulls the latest activity. The same notifications drive the bell badge in the app bar.
 
-```
-priceOpenSlip  = effectivePrice × (1 ± slippage)
-priceCloseSlip = priceClose     × (1 ∓ slippage)
+</details>
 
-pnlPercentage = (priceCloseSlip - priceOpenSlip) / priceOpenSlip × 100
-fee           = CC_PERCENT_FEE × (1 + priceCloseSlip / priceOpenSlip)
-pnlPercentage -= fee
-```
+## Pending Status — `/status` → `/status/:id` → `/status/:id/control`
 
-**With partials — dollar-weighted sum:**
+![screenshot](https://raw.githubusercontent.com/tripolskypetr/backtest-kit/HEAD/assets/screenshots/screenshot18.png)
 
-```
-weight[i] = (percent[i] / 100 × costBasisAtClose[i]) / totalInvested
+A three-level drill-down for *live* positions: list → detail → manual control.
 
-totalWeightedPnl = Σ weight[i] × pnl[i]           # each partial at its own effectivePrice
-                 + remainingWeight × pnlRemaining   # rest closed at final priceClose
+<details>
+<summary>What's on the page</summary>
 
-fee = CC_PERCENT_FEE                                              # open (once)
-    + Σ CC_PERCENT_FEE × weight[i] × (closeSlip[i] / openSlip[i])  # per partial
-    + CC_PERCENT_FEE × remainingWeight × (closeSlip / openSlip)     # final close
+**List (`/status`)** — active signals grouped by strategy, rendered as a grid of strategy buttons; click one to inspect it.
 
-pnlPercentage = totalWeightedPnl - fee
-pnlCost       = pnlPercentage / 100 × totalInvested
-```
+**Detail (`/status/:id`)** — the full state of one pending signal as a structured field view (`status_fields`): entry, exit, effective (blended) price, DCA entry count and partial-close count, and live PnL. Header actions: **Manual Control**, **Print** (renders the signal's fields to a downloadable PDF/markdown), **Download** (JSON), **Refresh**. Empty states read *"Loading…"* or *"No pending signal."*
 
-| Field | Description |
-|-------|-------------|
-| `totalInvested` | `Σ entry.cost` (or `CC_POSITION_ENTRY_COST` if no `_entry`) |
-| `weight[i]` | Real dollar share of each partial relative to `totalInvested` |
-| `effectivePrice` at partial `i` | Computed via iterative `costBasisAtClose` replay up to `partials[i]` |
-| `priceOpen` in result | `getEffectivePriceOpen(signal)` — DCA-weighted harmonic mean across all entries |
+**Manual Control (`/status/:id/control`)** — an operator panel (`RecordView`, expand-all) where you intervene in a live position by hand through four **multi-step wizard modals**: **Open Pending**, **Average Buy**, **Close Pending**, and **Breakeven**. Each is launched from the panel via an emitter, walks you through *Briefing → Input → Submit*, fires the commit, and reloads the record. Export to JSON is available. (See **The modal system** below for how these are built.)
 
-## 🖥️ Dashboard Views
+</details>
 
-The frontend provides specialized views for different trading events:
+## Markdown Reports — `/report`
 
-| View | Description |
-|------|-------------|
-| **Signal Opened** | Entry details with chart visualization |
-| **Signal Closed** | Exit details with PnL analysis |
-| **Signal Scheduled** | Pending orders awaiting activation |
-| **Signal Cancelled** | Cancelled orders with reasons |
-| **Risk Rejection** | Signals rejected by risk management |
-| **Partial Profit/Loss** | Partial position closures |
-| **Trailing Stop/Take** | Trailing adjustments visualization |
-| **Breakeven** | Breakeven level adjustments |
+![screenshot](https://raw.githubusercontent.com/tripolskypetr/backtest-kit/HEAD/assets/screenshots/screenshot20.png)
 
-Each view includes:
-- 📋 Detailed information form
-- 📈 1m, 15m, 1h candlestick charts
-- 📥 JSON export for all data
+Rendered strategy-performance reports for Backtest and Live runs.
 
-## 💡 Why Use @backtest-kit/ui?
+<details>
+<summary>What's on the page</summary>
 
-Instead of building custom dashboards:
+A grid of strategy buttons, **grouped by type and sorted by signal volume**; selecting one renders its markdown report inline. Each report downloads as **markdown, PDF, or raw JSON**. Manual refresh regenerates the content. This is the human-facing view of the engine's analytics (strategy / breakeven / risk / partial / drawdown / schedule / performance / sync reports).
 
-**Without backtest-kit**
+</details>
 
-```typescript
-// ❌ Without @backtest-kit/ui
-// Build your own React app
-// Implement chart components
-// Create signal visualization
-// Handle notifications
-// Write API endpoints
-// ... weeks of development
-```
+## Price Charts — `/price_chart` → `/price_chart/:symbol` → `/price_chart/:symbol/:interval`
 
-**With backtest-kit**
+![screenshot](https://raw.githubusercontent.com/tripolskypetr/backtest-kit/HEAD/assets/screenshots/screenshot33.png)
 
-```typescript
-// ✅ With @backtest-kit/ui
-import { serve } from '@backtest-kit/ui';
+Interactive candlesticks powered by TradingView Lightweight Charts.
 
-serve(); // Full dashboard ready!
-```
+<details>
+<summary>What's on the page</summary>
 
-**Benefits:**
+You navigate **by symbol, then by interval** (1m / 15m / 1h) to view price history. The chart overlays the active signal's lines: **entry**, **take-profit (green)**, and **stop-loss (red)**. Supports chart-image export and clicking through to signal detail. Built on the shared `ChartWidget`.
 
-- 📊 Production-ready trading dashboard out of the box
-- 📈 Professional chart visualization with price lines and markers
-- 🔔 Complete notification system for all trading events
-- 🎨 Beautiful Material Design interface
-- ⚡ Fast development - focus on strategy, not UI
-- 🛡️ Full TypeScript support
+</details>
 
-## 🤝 Contribute
+## Heatmap — `/heat`
 
-Fork/PR on [GitHub](https://github.com/tripolskypetr/backtest-kit).
+![screenshot](https://raw.githubusercontent.com/tripolskypetr/backtest-kit/HEAD/assets/screenshots/screenshot31.png)
 
-## 📜 License
+A color-coded performance matrix across every tracked symbol.
 
-MIT © [tripolskypetr](https://github.com/tripolskypetr)
+<details>
+<summary>What's on the page</summary>
+
+Cells are colored by performance; each shows **win rate, profit factor, Sharpe ratio** and other aggregated metrics per symbol. The whole heatmap exports as **JSON, markdown report, or PDF**, with manual refresh to recalculate the statistics. (The same heat report download lives on the home screen's action bar.)
+
+</details>
+
+## Dump Explorer — `/dump` · `/dump/:search`
+
+![screenshot](https://raw.githubusercontent.com/tripolskypetr/backtest-kit/HEAD/assets/screenshots/screenshot12.png)
+
+A file browser for everything the engine wrote to disk.
+
+<details>
+<summary>What's on the page</summary>
+
+A **tree-structured** browser of backtest output and artifact files. Icons mark file type — image, JSON, plain text, or generic. Clicking a file opens a **full-screen preview modal**. Keyword search filters the tree; manual refresh rebuilds it. Backed by the `FileTreeWidget`.
+
+</details>
+
+## Pine Editor — `/pine_page`
+
+![screenshot](https://raw.githubusercontent.com/tripolskypetr/backtest-kit/HEAD/assets/screenshots/screenshot32.png)
+
+A focused, chrome-free Pine Script workspace.
+
+<details>
+<summary>What's on the page</summary>
+
+A code editor wrapped in its own state providers — **code, from-date, to-date, limit, symbol, timeframe** — so you can edit a Pine v5/v6 strategy and run it against a chosen symbol/timeframe window right in the browser, seeing the resulting signal. Rendered without the app header for maximum editing space.
+
+</details>
+
+## About & Setup — `/about` · `/about/setup`
+
+![screenshot](https://raw.githubusercontent.com/tripolskypetr/backtest-kit/HEAD/assets/screenshots/screenshot36.png)
+
+Framework information (`/about`) and a **Setup** view (`/about/setup`) showing the resolved configuration / environment of the running instance.
+
+---
+
+## Widgets — the reusable pieces screens are built from
+
+![screenshot](https://raw.githubusercontent.com/tripolskypetr/backtest-kit/HEAD/assets/screenshots/screenshot8.png)
+
+<details>
+<summary>The building blocks</summary>
+
+- **ChartWidget** — Lightweight Charts candlestick/line rendering with signal overlays (Price Charts, signal detail).
+- **SignalGridWidget** — the paginated signal table (offset pagination + async item iterator).
+- **StatusWidget** — live workload status tiles.
+- **SuccessRateWidget** / **SpeedDonutWidget** — donut gauges for win-rate and throughput.
+- **SingleValueWidget** / **IndicatorValueWidget** — single-KPI and indicator-value cards.
+- **AveragingWidget** — DCA-ladder / effective-price visualization.
+- **PartialWidget** — partial-close breakdown.
+- **FileTreeWidget** — the dump-explorer tree.
+
+Shared chrome lives in `components/common/`: `AppHeader`, a `Markdown` renderer, the `CodeEditor`, `NotificationView`, `Tooltip`, `IconPhoto`, `ErrorView`, decorative `Background` / `BottomImage`. Providers (`AlertProvider`, `ErrorProvider`, `LayoutModalProvider`, `StatusInfo`, `Translate`) wrap the app for alerts, error boundaries, modal stacking, the status banner, and i18n.
+
+</details>
+
+## The modal system — a window manager with navigation history
+
+![screenshot](https://raw.githubusercontent.com/tripolskypetr/backtest-kit/HEAD/assets/screenshots/screenshot26.png)
+
+The dashboard is, at its core, a **modal window manager**. Two complementary mechanisms sit on top of [react-declarative](https://github.com/react-declarative)'s `useModalManager` / `useWizardModal`, both of which keep their own **navigation history** so modals stack, go back, and close as a managed stack rather than ad-hoc dialogs.
+
+### 1. Global modal registry — tabbed detail modals on a managed stack
+
+One provider wraps the whole app and registers **~25 detail modals** — one per signal-lifecycle event and commit type — each wired to a `layoutService` subject. Anywhere in the app, pushing to a subject (e.g. `pickSignalSubject.next(signal)`) `push`es the matching modal onto the **managed stack**; because the stack tracks depth, opening a modal *from inside* another (e.g. clicking a related signal) stacks it, and the title-bar **Back** arrow `pop`s you to the previous one. `closeModalSubject` / `ctx.clear()` tears the whole stack down centrally. The provider also hosts global **prompt**, **alert**, and **document-download/preview** (`useOpenDocument`) flows.
+
+These are the modals that open when you click a notification card, a signal in a grid, or a risk event — every point in a position's life has a dedicated, fielded modal, each with the same Back / Print / Search / Copy / **ActionMenu** / Close title bar and the same StockChart candle tabs.
+
+<details>
+<summary>What's registered (every modal hook)</summary>
+
+Each hook below is a `pick*` opener subscribed to its `layoutService.pick*Subject`; the hook renders a modal that displays the event's DTO through its `assets/*_fields.tsx` schema, inside the tabbed shell + `<ActionMenu />` title bar described above:
+
+| Hook | Opens a modal for |
+|---|---|
+| `useSignalView` | a generic signal (`signal_fields`) |
+| `useRiskView` | a risk rejection (`risk_fields`) |
+| `useSignalOpenedView` / `useSignalClosedView` / `useSignalScheduledView` / `useSignalCancelledView` | the four signal-notification kinds |
+| `useSignalNotifyView` | an info notification |
+| `useSignalSyncOpenView` / `useSignalSyncCloseView` | broker-sync open/close |
+| `useActivateScheduledView` | a scheduled signal activating |
+| `useAverageBuyCommitView` | a DCA-rung commit |
+| `useClosePendingView` / `useCancelScheduledView` | close / cancel commits |
+| `usePartialProfitAvailableView` / `usePartialProfitCommitView` | partial-profit available + committed |
+| `usePartialLossAvailableView` / `usePartialLossCommitView` | partial-loss available + committed |
+| `useBreakevenAvailableView` / `useBreakevenCommitView` | breakeven available + committed |
+| `useTrailingStopView` / `useTrailingTakeView` | trailing stop / take |
+| `useDumpContentView` | a dump-file preview |
+
+These are the modals that open when you click a notification card, a signal in a grid, or a risk event — every point in a position's life has a dedicated, fielded modal, each with the same Back / Print / Search / Copy / **ActionMenu** / Close title bar.
+
+</details>
+
+### 2. Manual-control wizard modals (per-operation, own history)
+
+The four operations on the Manual Control screen are **multi-step wizards**, each built with `useWizardModal` over a private `createMemoryHistory()` — so each modal has its *own* back/forward navigation through three routed steps.
+
+<details>
+<summary>The wizard anatomy (shared by all four)</summary>
+
+Folders: `useOpenPendingModal`, `useAverageBuyModal`, `useClosePendingModal`, `useBreakevenModal`. Each contains `useXModal.tsx` (the `useWizardModal` config — title, fullscreen size request, close button, `onSubmit` → reload), `routes.tsx` (three `IWizardModal` routes), `steps.ts` (the stepper labels), `view/{BriefView,FormView,SubmitView}.tsx`, and `components/StatusCard.tsx`. The page (`ControlView`) subscribes to four emitters (`commitOpenPendingEmitter`, `commitAverageBuyEmitter`, `commitClosePendingEmitter`, `commitBreakevenEmitter`) and calls `pickData()` to launch the matching wizard.
+
+The three steps (Open Position example):
+
+1. **Brief** — fetches and shows the symbol + current effective price (`controlViewService.getAveragePrice`) with a *"verify the symbol AND the price"* warning. `Next → /form`, `Close` dismisses.
+2. **Form** — collects direction (long/short), amount in USDT, and a note; **live-computes coin quantity** = amount ÷ price as a read-only field; warns that the position opens *immediately*. `Back → /brief`, `Next → /submit`.
+3. **Submit** — fires the commit (`controlViewService.commitOpenPending` / `commitAverageBuy` / `commitClosePending` / `commitBreakeven`) and shows a `StatusCard` in **loading → success / error** state; `Close` finalizes (`beginSave`) and the underlying record reloads.
+
+Average Buy, Close Pending, and Breakeven follow the same Brief→Form→Submit shape with operation-specific form fields and StatusCard copy.
+
+</details>
+
+## Field schemas (`assets/*_fields.tsx`) — every DTO rendered as a real form
+
+The 24 files in `assets/` are the **declarative field schemas** that drive both the detail pages and every modal above. Each exports a default `TypedField[]` array (react-declarative), so a DTO is shown with typed, labeled, validated, grouped fields — and, where useful, live widgets — instead of a raw JSON dump. Nothing in a signal's life is hidden from the operator.
+
+<details>
+<summary>The schemas and who imports them</summary>
+
+- **`dashboard_fields`** (→ `DashboardPage`) — not a text form but a **widget grid**: revenue cards, donut, daily-trades chart, success-rate panel, signal grid (see PNL Performance above).
+- **`signal_fields`** (→ `StatusView` detail + print, `useSignalView`) and **`status_fields`** (→ `StatusView`) — the full pending/closed signal record.
+- **`risk_fields`** (→ `useRiskView`), **`setup_fields`** (→ About/Setup view).
+- **Lifecycle/commit schemas** (each → its `use*View` hook in the global registry): `signal_opened_fields`, `signal_closed_fields`, `signal_scheduled_fields`, `signal_cancelled_fields`, `signal_notify_fields`, `signal_sync_open_fields`, `signal_sync_close_fields`, `activate_scheduled_fields`, `average_buy_commit_fields`, `close_pending_commit_fields`, `cancel_scheduled_commit_fields`, `breakeven_available_fields`, `breakeven_commit_fields`, `partial_profit_available_fields`, `partial_profit_commit_fields`, `partial_loss_available_fields`, `partial_loss_commit_fields`, `trailing_stop_fields`, `trailing_take_fields`.
+
+These are the largest source files in the package (most 27–37 KB) precisely because they describe every field of every lifecycle DTO — the schemas *are* the UI's knowledge of the engine's data model.
+
+</details>
