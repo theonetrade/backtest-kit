@@ -799,7 +799,7 @@ Every claim above opens into **The Code / The Math / The Proof** precisely so yo
 
 ## 👨‍💼 Commercial support
 
-Built with Claude Code over a year of live trading and run in production at **[TheOneTrade](https://theonetrade.github.io)** — the commercial vendor behind the framework, offering paid support, custom strategy development, managed accounts, team training, and enterprise licensing for engagements outside the MIT scope.
+Built over a year of live trading and run in production at **[TheOneTrade](https://theonetrade.github.io)** — the commercial vendor behind the framework, offering paid support, custom strategy development, managed accounts, team training, and enterprise licensing for engagements outside the MIT scope.
 
 ## 📜 License
 
