@@ -9,7 +9,7 @@ import {
     Typography,
 } from "@mui/material";
 import { makeStyles } from "../../styles";
-import { ActionMenu, Center, IOption, openBlank } from "react-declarative";
+import { ActionMenu, Center, IOption, openBlank, useModalManager } from "react-declarative";
 import { Fullscreen, FullscreenExit, GitHub } from "@mui/icons-material";
 import { ioc } from "../../lib";
 import IconWrapper from "./IconWrapper";
@@ -38,12 +38,14 @@ const useStyles = makeStyles()((theme) => ({
     root: {
         position: "sticky",
         top: 0,
-        zIndex: 99999,
         height: HEADER_HEIGHT,
         display: "flex",
         alignItems: "stretch",
         justifyContent: "stretch",
         flexDirection: "column",
+    },
+    appBar: {
+        zIndex: 99999,
     },
     container: {
         flex: 1,
@@ -154,6 +156,8 @@ export const AppHeader = ({
     loading,
 }: IAppHeaderProps) => {
     const { classes, cx } = useStyles();
+
+    const { total } = useModalManager();
 
     const { activeTabPath, tabs } = useMemo(() => {
         if (!routeItem.tabs) {
@@ -289,7 +293,11 @@ export const AppHeader = ({
     };
 
     return (
-        <Box className={classes.root}>
+        <Box 
+            className={cx(classes.root, {
+                [classes.appBar]: !total,
+            })}
+        >
             <Box className={classes.container}>
                 <Center
                     onClick={() => {
