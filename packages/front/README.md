@@ -92,7 +92,7 @@ Each entry is a row with a **type badge** (Debug / Info / Warn / Log), the log *
 
 ## Notifications — `/notifications`
 
-![screenshot](https://raw.githubusercontent.com/tripolskypetr/backtest-kit/HEAD/assets/screenshots/screenshot9.png)
+![screenshot](https://raw.githubusercontent.com/tripolskypetr/backtest-kit/HEAD/assets/screenshots/screenshot46.png)
 
 The event feed for the entire signal lifecycle.
 
