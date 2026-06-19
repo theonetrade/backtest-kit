@@ -47,6 +47,20 @@ export type StrategyStatus = {
   cancelledSignal: IScheduledSignalCancelRow | null;
   /** Deferred user-initiated scheduled activate (activateScheduled), or null if none pending */
   activatedSignal: IScheduledSignalActivateRow | null;
+  /**
+   * Deferred broker-confirmed take-profit fill (createTakeProfit), or null if none pending.
+   * Set when the external order management system reports the position's TP order was actually
+   * filled on the exchange (e.g. by candle high/low) — independent of the VWAP-based TP check.
+   * Drained on the next tick/backtest to close the position with closeReason "take_profit".
+   */
+  takeProfitSignal: ISignalCloseRow | null;
+  /**
+   * Deferred broker-confirmed stop-loss fill (createStopLoss), or null if none pending.
+   * Set when the external order management system reports the position's SL order was actually
+   * filled on the exchange (e.g. by candle high/low) — independent of the VWAP-based SL check.
+   * Drained on the next tick/backtest to close the position with closeReason "stop_loss".
+   */
+  stopLossSignal: ISignalCloseRow | null;
 };
 
 /**
@@ -1201,6 +1215,46 @@ export interface IStrategy {
    * @returns Promise that resolves when the DTO is queued
    */
   createSignal: (symbol: string, currentPrice: number, dto: ISignalDto) => Promise<void>;
+
+  /**
+   * Reports that the pending position's take-profit order was actually filled on the exchange
+   * (e.g. by candle high/low), forcing a close that does not wait for the VWAP-based TP check.
+   *
+   * The exchange and the strategy are parallel states: ClientStrategy evaluates TP/SL against
+   * VWAP, but the real order may close on high/low. This method bridges that gap — the broker
+   * confirms the fill out of the async-hooks execution context, and the close is deferred:
+   * a snapshot of the current pending signal is stored and drained on the next tick/backtest,
+   * which closes the position with closeReason "take_profit" at the effective take-profit level.
+   *
+   * No-op if no pending signal exists. Persisted (live mode only) so a crash before the next
+   * tick does not lose the deferred close.
+   *
+   * @param symbol - Trading pair symbol (e.g., "BTCUSDT")
+   * @param backtest - Whether running in backtest mode
+   * @param payload - Optional commit id/note attached to the close
+   * @returns Promise that resolves when the take-profit fill is queued
+   */
+  createTakeProfit: (symbol: string, backtest: boolean, payload: Partial<CommitPayload>) => Promise<void>;
+
+  /**
+   * Reports that the pending position's stop-loss order was actually filled on the exchange
+   * (e.g. by candle high/low), forcing a close that does not wait for the VWAP-based SL check.
+   *
+   * The exchange and the strategy are parallel states: ClientStrategy evaluates TP/SL against
+   * VWAP, but the real order may close on high/low. This method bridges that gap — the broker
+   * confirms the fill out of the async-hooks execution context, and the close is deferred:
+   * a snapshot of the current pending signal is stored and drained on the next tick/backtest,
+   * which closes the position with closeReason "stop_loss" at the effective stop-loss level.
+   *
+   * No-op if no pending signal exists. Persisted (live mode only) so a crash before the next
+   * tick does not lose the deferred close.
+   *
+   * @param symbol - Trading pair symbol (e.g., "BTCUSDT")
+   * @param backtest - Whether running in backtest mode
+   * @param payload - Optional commit id/note attached to the close
+   * @returns Promise that resolves when the stop-loss fill is queued
+   */
+  createStopLoss: (symbol: string, backtest: boolean, payload: Partial<CommitPayload>) => Promise<void>;
 
   /**
    * Returns the deferred strategy-state snapshot held in memory for this iteration — exactly

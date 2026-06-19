@@ -1965,6 +1965,62 @@ export class StrategyConnectionService implements TStrategy {
   };
 
   /**
+   * Reports that the pending position's take-profit order was actually filled on the exchange
+   * (e.g. by candle high/low), forcing a close that bypasses the VWAP-based TP check.
+   *
+   * Delegates to ClientStrategy.createTakeProfit(). The close is deferred and emitted with
+   * closeReason "take_profit" on the next tick()/backtest(). Works out of the execution context.
+   *
+   * @param backtest - Whether running in backtest mode
+   * @param symbol - Trading pair symbol
+   * @param context - Context with strategyName, exchangeName, frameName
+   * @param payload - Optional commit payload with id and note
+   * @returns Promise that resolves when the take-profit fill is queued
+   */
+  public createTakeProfit = async (
+    backtest: boolean,
+    symbol: string,
+    context: { strategyName: StrategyName; exchangeName: ExchangeName; frameName: FrameName },
+    payload: Partial<CommitPayload> = {}
+  ): Promise<void> => {
+    this.loggerService.log("strategyConnectionService createTakeProfit", {
+      symbol,
+      context,
+      payload,
+    });
+    const strategy = this.getStrategy(symbol, context.strategyName, context.exchangeName, context.frameName, backtest);
+    await strategy.createTakeProfit(symbol, backtest, payload);
+  };
+
+  /**
+   * Reports that the pending position's stop-loss order was actually filled on the exchange
+   * (e.g. by candle high/low), forcing a close that bypasses the VWAP-based SL check.
+   *
+   * Delegates to ClientStrategy.createStopLoss(). The close is deferred and emitted with
+   * closeReason "stop_loss" on the next tick()/backtest(). Works out of the execution context.
+   *
+   * @param backtest - Whether running in backtest mode
+   * @param symbol - Trading pair symbol
+   * @param context - Context with strategyName, exchangeName, frameName
+   * @param payload - Optional commit payload with id and note
+   * @returns Promise that resolves when the stop-loss fill is queued
+   */
+  public createStopLoss = async (
+    backtest: boolean,
+    symbol: string,
+    context: { strategyName: StrategyName; exchangeName: ExchangeName; frameName: FrameName },
+    payload: Partial<CommitPayload> = {}
+  ): Promise<void> => {
+    this.loggerService.log("strategyConnectionService createStopLoss", {
+      symbol,
+      context,
+      payload,
+    });
+    const strategy = this.getStrategy(symbol, context.strategyName, context.exchangeName, context.frameName, backtest);
+    await strategy.createStopLoss(symbol, backtest, payload);
+  };
+
+  /**
    * Returns the in-memory deferred strategy-state snapshot for this iteration.
    *
    * Delegates to ClientStrategy.getStatus(). Synchronous in-memory read; works out of context.

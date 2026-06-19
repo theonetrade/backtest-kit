@@ -890,6 +890,10 @@ const WAIT_FOR_INIT_FN = async (self: ClientStrategy) => {
     self._closedSignal = strategyData.closedSignal;
     self._cancelledSignal = strategyData.cancelledSignal;
     self._activatedSignal = strategyData.activatedSignal;
+    // Deferred broker-confirmed TP/SL fills snapshot the pending signal and clear it (like
+    // _closedSignal), so they stand on their own and are restored unconditionally too.
+    self._takeProfitSignal = strategyData.takeProfitSignal;
+    self._stopLossSignal = strategyData.stopLossSignal;
   }
 
   // Restore pending signal
@@ -1017,6 +1021,8 @@ const PERSIST_STRATEGY_FN = async (self: ClientStrategy): Promise<void> => {
       closedSignal: self._closedSignal,
       cancelledSignal: self._cancelledSignal,
       activatedSignal: self._activatedSignal,
+      takeProfitSignal: self._takeProfitSignal,
+      stopLossSignal: self._stopLossSignal,
     },
     self.params.symbol,
     self.params.strategyName,
@@ -3913,6 +3919,126 @@ const CLOSE_USER_PENDING_SIGNAL_IN_BACKTEST_FN = async (
   return result;
 };
 
+/**
+ * Closes a deferred broker-confirmed TP/SL fill (createTakeProfit / createStopLoss).
+ *
+ * The exchange and the strategy are parallel states: ClientStrategy evaluates TP/SL against VWAP,
+ * but the real order may fill on candle high/low. When the broker confirms such a fill out of
+ * context, the pending signal is snapshotted into _takeProfitSignal / _stopLossSignal and the next
+ * tick()/backtest() drains it here, closing with the matching closeReason at the effective TP/SL
+ * level (trailing override if set) — bypassing the VWAP completion check.
+ *
+ * Shared by live tick and backtest: the caller passes the close timestamp explicitly (execution
+ * context when in live, candle timestamp in backtest). Mirrors CLOSE_USER_PENDING_SIGNAL_IN_BACKTEST_FN
+ * (commit action "close-pending", carrying closeId/note) but with closeReason take_profit / stop_loss.
+ *
+ * Like the deferred close, the fill snapshot is already established by the broker, so it does NOT
+ * re-confirm via onSignalSync. _takeProfitSignal / _stopLossSignal is cleared and re-persisted by
+ * the caller after draining.
+ */
+const CLOSE_PENDING_SIGNAL_AS_FILL_FN = async (
+  self: ClientStrategy,
+  filledSignal: ISignalCloseRow,
+  closeReason: "take_profit" | "stop_loss",
+  closeTimestamp: number
+): Promise<IStrategyTickResultClosed> => {
+  const closePrice = closeReason === "take_profit"
+    ? (filledSignal._trailingPriceTakeProfit ?? filledSignal.priceTakeProfit)
+    : (filledSignal._trailingPriceStopLoss ?? filledSignal.priceStopLoss);
+
+  const publicSignal = TO_PUBLIC_SIGNAL("pending", filledSignal, closePrice);
+
+  self.params.logger.info(`ClientStrategy signal ${closeReason} by broker-confirmed fill (createTakeProfit/createStopLoss)`, {
+    symbol: self.params.execution.context.symbol,
+    signalId: filledSignal.id,
+    closeReason,
+    priceClose: closePrice,
+    pnlPercentage: publicSignal.pnl.pnlPercentage,
+  });
+
+  await CALL_COMMIT_FN(self, {
+    action: "close-pending",
+    symbol: self.params.execution.context.symbol,
+    strategyName: self.params.strategyName,
+    exchangeName: self.params.exchangeName,
+    frameName: self.params.frameName,
+    signalId: filledSignal.id,
+    backtest: self.params.execution.context.backtest,
+    closeId: filledSignal.closeId,
+    timestamp: closeTimestamp,
+    totalEntries: filledSignal._entry?.length ?? 1,
+    totalPartials: filledSignal._partial?.length ?? 0,
+    originalPriceOpen: filledSignal.priceOpen,
+    pnl: publicSignal.pnl,
+    maxDrawdown: publicSignal.maxDrawdown,
+    peakProfit: publicSignal.peakProfit,
+    signal: publicSignal,
+    note: filledSignal.closeNote ?? filledSignal.note,
+  });
+
+  await CALL_CLOSE_CALLBACKS_FN(
+    self,
+    self.params.execution.context.symbol,
+    filledSignal,
+    closePrice,
+    closeTimestamp,
+    self.params.execution.context.backtest
+  );
+
+  // КРИТИЧНО: Очищаем состояние ClientPartial при закрытии позиции
+  await CALL_PARTIAL_CLEAR_FN(
+    self,
+    self.params.execution.context.symbol,
+    filledSignal,
+    closePrice,
+    closeTimestamp,
+    self.params.execution.context.backtest
+  );
+
+  // КРИТИЧНО: Очищаем состояние ClientBreakeven при закрытии позиции
+  await CALL_BREAKEVEN_CLEAR_FN(
+    self,
+    self.params.execution.context.symbol,
+    filledSignal,
+    closePrice,
+    closeTimestamp,
+    self.params.execution.context.backtest
+  );
+
+  await CALL_RISK_REMOVE_SIGNAL_FN(
+    self,
+    self.params.execution.context.symbol,
+    closeTimestamp,
+    self.params.execution.context.backtest
+  );
+
+  const result: IStrategyTickResultClosed = {
+    action: "closed",
+    signal: publicSignal,
+    currentPrice: closePrice,
+    closeReason,
+    closeTimestamp,
+    pnl: publicSignal.pnl,
+    strategyName: self.params.method.context.strategyName,
+    exchangeName: self.params.method.context.exchangeName,
+    frameName: self.params.method.context.frameName,
+    symbol: self.params.execution.context.symbol,
+    backtest: self.params.execution.context.backtest,
+    closeId: filledSignal.closeId,
+    createdAt: closeTimestamp,
+  };
+
+  await CALL_TICK_CALLBACKS_FN(
+    self,
+    self.params.execution.context.symbol,
+    result,
+    closeTimestamp,
+    self.params.execution.context.backtest
+  );
+
+  return result;
+};
+
 type ScheduledProcessResult =
   | { outcome: "activated"; activationIndex: number }
   | { outcome: "cancelled"; result: IStrategyTickResultCancelled }
@@ -4246,6 +4372,22 @@ const PROCESS_PENDING_SIGNAL_CANDLES_FN = async (
         return userCloseResult;
       }
       continue;
+    }
+
+    // КРИТИЧНО: Проверяем broker-confirmed TP fill через createTakeProfit() (напр. из onActivePing).
+    // Закрываем по эффективному уровню TP, минуя VWAP-проверку. Sync не пере-подтверждается.
+    if (self._takeProfitSignal) {
+      const filledSignal = self._takeProfitSignal;
+      self._takeProfitSignal = null;
+      return await CLOSE_PENDING_SIGNAL_AS_FILL_FN(self, filledSignal, "take_profit", currentCandleTimestamp);
+    }
+
+    // КРИТИЧНО: Проверяем broker-confirmed SL fill через createStopLoss() (напр. из onActivePing).
+    // Закрываем по эффективному уровню SL, минуя VWAP-проверку. Sync не пере-подтверждается.
+    if (self._stopLossSignal) {
+      const filledSignal = self._stopLossSignal;
+      self._stopLossSignal = null;
+      return await CLOSE_PENDING_SIGNAL_AS_FILL_FN(self, filledSignal, "stop_loss", currentCandleTimestamp);
     }
 
     let shouldClose = false;
@@ -4609,6 +4751,21 @@ export class ClientStrategy implements IStrategy {
   _activatedSignal: IScheduledSignalActivateRow | null = null;
 
   /**
+   * Deferred broker-confirmed take-profit fill (set via createTakeProfit). When non-null, the
+   * exchange reported the TP order was actually filled (e.g. by candle high/low) — the next
+   * tick()/backtest() drains it and closes the pending position with closeReason "take_profit"
+   * at the effective take-profit level, bypassing the VWAP-based TP check.
+   */
+  _takeProfitSignal: ISignalCloseRow | null = null;
+  /**
+   * Deferred broker-confirmed stop-loss fill (set via createStopLoss). When non-null, the
+   * exchange reported the SL order was actually filled (e.g. by candle high/low) — the next
+   * tick()/backtest() drains it and closes the pending position with closeReason "stop_loss"
+   * at the effective stop-loss level, bypassing the VWAP-based SL check.
+   */
+  _stopLossSignal: ISignalCloseRow | null = null;
+
+  /**
    * User-supplied signal DTO to be consumed by the next GET_SIGNAL_FN tick instead of
    * params.getSignal. Set via createSignal. When non-null, params.getSignal is NOT called
    * and the existing pipeline (priceOpen decides pending vs scheduled, onSignalSync on open)
@@ -4677,6 +4834,11 @@ export class ClientStrategy implements IStrategy {
     // - при null: сигнал закрыт по TP/SL/timeout, флаг больше не нужен
     // - при новом сигнале: флаг от предыдущего сигнала не должен влиять на новый
     this._closedSignal = null;
+
+    // КРИТИЧНО: Так же сбрасываем отложенные broker-confirmed TP/SL fills — закрытие позиции
+    // любым путём делает их неактуальными, а новая позиция не должна унаследовать чужой fill.
+    this._takeProfitSignal = null;
+    this._stopLossSignal = null;
 
     // ЗАЩИТА ИНВАРИАНТА: При установке нового pending сигнала очищаем scheduled
     // Не может быть одновременно pending И scheduled (взаимоисключающие состояния)
@@ -5813,6 +5975,40 @@ export class ClientStrategy implements IStrategy {
       return result;
     }
 
+    // Check if a broker-confirmed take-profit fill is awaiting (createTakeProfit) - close once.
+    // The exchange filled the TP order (e.g. by high/low); close bypassing the VWAP TP check.
+    if (this._takeProfitSignal) {
+      const filledSignal = this._takeProfitSignal;
+      this._takeProfitSignal = null; // Clear after draining
+
+      // Persist the cleared deferred state so the drained flag is not replayed on restart
+      await PERSIST_STRATEGY_FN(this);
+
+      this.params.logger.info("ClientStrategy tick: pending signal closed by broker-confirmed take-profit fill", {
+        symbol: this.params.execution.context.symbol,
+        signalId: filledSignal.id,
+      });
+
+      return await CLOSE_PENDING_SIGNAL_AS_FILL_FN(this, filledSignal, "take_profit", currentTime);
+    }
+
+    // Check if a broker-confirmed stop-loss fill is awaiting (createStopLoss) - close once.
+    // The exchange filled the SL order (e.g. by high/low); close bypassing the VWAP SL check.
+    if (this._stopLossSignal) {
+      const filledSignal = this._stopLossSignal;
+      this._stopLossSignal = null; // Clear after draining
+
+      // Persist the cleared deferred state so the drained flag is not replayed on restart
+      await PERSIST_STRATEGY_FN(this);
+
+      this.params.logger.info("ClientStrategy tick: pending signal closed by broker-confirmed stop-loss fill", {
+        symbol: this.params.execution.context.symbol,
+        signalId: filledSignal.id,
+      });
+
+      return await CLOSE_PENDING_SIGNAL_AS_FILL_FN(this, filledSignal, "stop_loss", currentTime);
+    }
+
     // Check if scheduled signal was activated - emit opened event once
     if (this._activatedSignal) {
       const currentPrice = await this.params.exchange.getAveragePrice(
@@ -6344,6 +6540,32 @@ export class ClientStrategy implements IStrategy {
       return closedResult;
     }
 
+    // If a broker-confirmed take-profit fill is awaiting (createTakeProfit) - close once.
+    // The exchange filled the TP order (e.g. by high/low); close bypassing the VWAP TP check.
+    if (this._takeProfitSignal) {
+      this.params.logger.debug("ClientStrategy backtest: pending signal closed by broker-confirmed take-profit fill");
+
+      const filledSignal = this._takeProfitSignal;
+      this._takeProfitSignal = null; // Clear after draining
+
+      const closeTimestamp = this.params.execution.context.when.getTime();
+
+      return await CLOSE_PENDING_SIGNAL_AS_FILL_FN(this, filledSignal, "take_profit", closeTimestamp);
+    }
+
+    // If a broker-confirmed stop-loss fill is awaiting (createStopLoss) - close once.
+    // The exchange filled the SL order (e.g. by high/low); close bypassing the VWAP SL check.
+    if (this._stopLossSignal) {
+      this.params.logger.debug("ClientStrategy backtest: pending signal closed by broker-confirmed stop-loss fill");
+
+      const filledSignal = this._stopLossSignal;
+      this._stopLossSignal = null; // Clear after draining
+
+      const closeTimestamp = this.params.execution.context.when.getTime();
+
+      return await CLOSE_PENDING_SIGNAL_AS_FILL_FN(this, filledSignal, "stop_loss", closeTimestamp);
+    }
+
     if (!this._pendingSignal && !this._scheduledSignal) {
       throw new Error(
         "ClientStrategy backtest: no pending or scheduled signal"
@@ -6517,6 +6739,8 @@ export class ClientStrategy implements IStrategy {
       hasActivatedSignal: this._activatedSignal !== null,
       hasCancelledSignal: this._cancelledSignal !== null,
       hasClosedSignal: this._closedSignal !== null,
+      hasTakeProfitSignal: this._takeProfitSignal !== null,
+      hasStopLossSignal: this._stopLossSignal !== null,
     });
 
     this._isStopped = true;
@@ -6525,6 +6749,9 @@ export class ClientStrategy implements IStrategy {
     // NOTE: _isStopped blocks NEW position opening, but allows:
     // - cancelScheduled() / closePending() for graceful shutdown
     // - Monitoring existing _pendingSignal until TP/SL/timeout
+    // NOTE: _takeProfitSignal / _stopLossSignal are NOT cleared — a broker-confirmed fill
+    // reflects a real exchange close that must still drain to emit the closed event, the
+    // same way an existing _pendingSignal keeps being monitored until its natural close.
     this._activatedSignal = null;
     this._cancelledSignal = null;
     this._closedSignal = null;
@@ -6793,9 +7020,117 @@ export class ClientStrategy implements IStrategy {
     if (this._cancelledSignal) {
       throw new Error(`ClientStrategy createSignal: a scheduled cancel is awaiting for symbol=${symbol}`);
     }
+    if (this._takeProfitSignal) {
+      throw new Error(`ClientStrategy createSignal: a take-profit fill is awaiting for symbol=${symbol}`);
+    }
+    if (this._stopLossSignal) {
+      throw new Error(`ClientStrategy createSignal: a stop-loss fill is awaiting for symbol=${symbol}`);
+    }
 
     this._userSignal = dto;
 
+    await PERSIST_STRATEGY_FN(this);
+  }
+
+  /**
+   * Reports that the pending position's take-profit order was actually filled on the exchange
+   * (e.g. by candle high/low), forcing a close that does not wait for the VWAP-based TP check.
+   *
+   * The exchange and the strategy are parallel states: ClientStrategy evaluates TP/SL against
+   * VWAP, but the real order may close on high/low. This bridges that gap — the broker confirms
+   * the fill OUT of the async-hooks execution context, the current pending signal is snapshotted
+   * into _takeProfitSignal and cleared, and the next tick()/backtest() drains it, closing the
+   * position with closeReason "take_profit" at the effective take-profit level.
+   *
+   * No-op if no pending signal exists. Persisted (live mode only) so a crash before the next
+   * tick does not lose the deferred close.
+   *
+   * @param symbol - Trading pair symbol (e.g., "BTCUSDT")
+   * @param backtest - Whether running in backtest mode
+   * @param payload - Optional commit id/note attached to the close
+   * @returns Promise that resolves when the take-profit fill is queued
+   */
+  public async createTakeProfit(symbol: string, backtest: boolean, payload: Partial<CommitPayload>): Promise<void> {
+    const closeId = payload.id;
+    this.params.logger.debug("ClientStrategy createTakeProfit", {
+      symbol,
+      hasPendingSignal: this._pendingSignal !== null,
+      closeId,
+    });
+
+    // Snapshot the pending signal for the next tick/backtest to close with reason "take_profit".
+    if (this._pendingSignal) {
+      this._takeProfitSignal = Object.assign({}, this._pendingSignal, {
+        closeId,
+        closeNote: payload.note,
+      });
+      this._pendingSignal = null;
+    }
+
+    if (backtest) {
+      // Drained in backtest() with correct candle timestamp; no live persistence.
+      return;
+    }
+
+    await PersistSignalAdapter.writeSignalData(
+      this._pendingSignal,
+      symbol,
+      this.params.strategyName,
+      this.params.exchangeName,
+    );
+
+    // Persist deferred _takeProfitSignal so a crash before the next tick does not lose it
+    await PERSIST_STRATEGY_FN(this);
+  }
+
+  /**
+   * Reports that the pending position's stop-loss order was actually filled on the exchange
+   * (e.g. by candle high/low), forcing a close that does not wait for the VWAP-based SL check.
+   *
+   * The exchange and the strategy are parallel states: ClientStrategy evaluates TP/SL against
+   * VWAP, but the real order may close on high/low. This bridges that gap — the broker confirms
+   * the fill OUT of the async-hooks execution context, the current pending signal is snapshotted
+   * into _stopLossSignal and cleared, and the next tick()/backtest() drains it, closing the
+   * position with closeReason "stop_loss" at the effective stop-loss level.
+   *
+   * No-op if no pending signal exists. Persisted (live mode only) so a crash before the next
+   * tick does not lose the deferred close.
+   *
+   * @param symbol - Trading pair symbol (e.g., "BTCUSDT")
+   * @param backtest - Whether running in backtest mode
+   * @param payload - Optional commit id/note attached to the close
+   * @returns Promise that resolves when the stop-loss fill is queued
+   */
+  public async createStopLoss(symbol: string, backtest: boolean, payload: Partial<CommitPayload>): Promise<void> {
+    const closeId = payload.id;
+    this.params.logger.debug("ClientStrategy createStopLoss", {
+      symbol,
+      hasPendingSignal: this._pendingSignal !== null,
+      closeId,
+    });
+
+    // Snapshot the pending signal for the next tick/backtest to close with reason "stop_loss".
+    if (this._pendingSignal) {
+      this._stopLossSignal = Object.assign({}, this._pendingSignal, {
+        closeId,
+        closeNote: payload.note,
+      });
+      this._pendingSignal = null;
+    }
+
+    if (backtest) {
+      // Drained in backtest() with correct candle timestamp; no live persistence.
+      return;
+    }
+
+    await PersistSignalAdapter.writeSignalData(
+      this._pendingSignal,
+      symbol,
+      this.params.strategyName,
+      this.params.exchangeName,
+    );
+
+    // Persist deferred _stopLossSignal so a crash before the next tick does not lose it
     await PERSIST_STRATEGY_FN(this);
   }
 
@@ -6818,6 +7153,8 @@ export class ClientStrategy implements IStrategy {
       closedSignal: this._closedSignal,
       cancelledSignal: this._cancelledSignal,
       activatedSignal: this._activatedSignal,
+      takeProfitSignal: this._takeProfitSignal,
+      stopLossSignal: this._stopLossSignal,
     };
   }
 

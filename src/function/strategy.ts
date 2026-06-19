@@ -75,6 +75,8 @@ const HAS_NO_PENDING_SIGNAL_METHOD_NAME = "strategy.hasNoPendingSignal";
 const HAS_NO_SCHEDULED_SIGNAL_METHOD_NAME = "strategy.hasNoScheduledSignal";
 const COMMIT_SIGNAL_NOTIFY_METHOD_NAME = "strategy.commitSignalNotify";
 const COMMIT_CREATE_SIGNAL_METHOD_NAME = "strategy.commitCreateSignal";
+const COMMIT_CREATE_TAKE_PROFIT_METHOD_NAME = "strategy.commitCreateTakeProfit";
+const COMMIT_CREATE_STOP_LOSS_METHOD_NAME = "strategy.commitCreateStopLoss";
 const GET_STRATEGY_STATUS_METHOD_NAME = "strategy.getStrategyStatus";
 
 /**
@@ -2794,6 +2796,92 @@ export async function commitCreateSignal(
     symbol,
     dto,
     { exchangeName, frameName, strategyName },
+  );
+}
+
+/**
+ * Reports that the pending position's take-profit order was actually filled on the exchange
+ * (e.g. by candle high/low), forcing a close that bypasses the VWAP-based TP check.
+ *
+ * The exchange and the strategy are parallel states: the framework evaluates TP/SL against VWAP,
+ * but the real order may fill on high/low. The close is deferred and emitted with closeReason
+ * "take_profit" on the next tick. No-op if no pending signal exists.
+ *
+ * Automatically detects backtest/live mode from execution context.
+ *
+ * @param symbol - Trading pair symbol
+ * @param payload - Optional commit payload with id and note
+ * @returns Promise that resolves when the take-profit fill is queued
+ *
+ * @example
+ * ```typescript
+ * import { commitCreateTakeProfit } from "backtest-kit";
+ *
+ * // Report TP fill confirmed on the exchange
+ * await commitCreateTakeProfit("BTCUSDT", { id: "tp-fill-001" });
+ * ```
+ */
+export async function commitCreateTakeProfit(
+  symbol: string,
+  payload: Partial<CommitPayload> = {},
+): Promise<void> {
+  backtest.loggerService.info(COMMIT_CREATE_TAKE_PROFIT_METHOD_NAME, { symbol, payload });
+  if (!ExecutionContextService.hasContext()) {
+    throw new Error("commitCreateTakeProfit requires an execution context");
+  }
+  if (!MethodContextService.hasContext()) {
+    throw new Error("commitCreateTakeProfit requires a method context");
+  }
+  const { backtest: isBacktest } = backtest.executionContextService.context;
+  const { exchangeName, frameName, strategyName } = backtest.methodContextService.context;
+  await backtest.strategyCoreService.createTakeProfit(
+    isBacktest,
+    symbol,
+    { exchangeName, frameName, strategyName },
+    payload,
+  );
+}
+
+/**
+ * Reports that the pending position's stop-loss order was actually filled on the exchange
+ * (e.g. by candle high/low), forcing a close that bypasses the VWAP-based SL check.
+ *
+ * The exchange and the strategy are parallel states: the framework evaluates TP/SL against VWAP,
+ * but the real order may fill on high/low. The close is deferred and emitted with closeReason
+ * "stop_loss" on the next tick. No-op if no pending signal exists.
+ *
+ * Automatically detects backtest/live mode from execution context.
+ *
+ * @param symbol - Trading pair symbol
+ * @param payload - Optional commit payload with id and note
+ * @returns Promise that resolves when the stop-loss fill is queued
+ *
+ * @example
+ * ```typescript
+ * import { commitCreateStopLoss } from "backtest-kit";
+ *
+ * // Report SL fill confirmed on the exchange
+ * await commitCreateStopLoss("BTCUSDT", { id: "sl-fill-001" });
+ * ```
+ */
+export async function commitCreateStopLoss(
+  symbol: string,
+  payload: Partial<CommitPayload> = {},
+): Promise<void> {
+  backtest.loggerService.info(COMMIT_CREATE_STOP_LOSS_METHOD_NAME, { symbol, payload });
+  if (!ExecutionContextService.hasContext()) {
+    throw new Error("commitCreateStopLoss requires an execution context");
+  }
+  if (!MethodContextService.hasContext()) {
+    throw new Error("commitCreateStopLoss requires a method context");
+  }
+  const { backtest: isBacktest } = backtest.executionContextService.context;
+  const { exchangeName, frameName, strategyName } = backtest.methodContextService.context;
+  await backtest.strategyCoreService.createStopLoss(
+    isBacktest,
+    symbol,
+    { exchangeName, frameName, strategyName },
+    payload,
   );
 }
 

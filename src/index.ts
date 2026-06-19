@@ -19,6 +19,8 @@ export {
 } from "./function/init";
 export {
   commitCreateSignal,
+  commitCreateTakeProfit,
+  commitCreateStopLoss,
   commitCancelScheduled,
   commitClosePending,
   commitPartialLoss,

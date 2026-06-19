@@ -1513,6 +1513,18 @@ export type StrategyData = {
   cancelledSignal: IScheduledSignalCancelRow | null;
   /** Deferred user-initiated scheduled activate (activateScheduled), or null if none pending */
   activatedSignal: IScheduledSignalActivateRow | null;
+  /**
+   * Deferred broker-confirmed take-profit fill (createTakeProfit), or null if none pending.
+   * Set when the exchange reports the TP order was actually filled (e.g. by candle high/low),
+   * independent of the VWAP-based TP check. Drained on the next tick to close with "take_profit".
+   */
+  takeProfitSignal: ISignalCloseRow | null;
+  /**
+   * Deferred broker-confirmed stop-loss fill (createStopLoss), or null if none pending.
+   * Set when the exchange reports the SL order was actually filled (e.g. by candle high/low),
+   * independent of the VWAP-based SL check. Drained on the next tick to close with "stop_loss".
+   */
+  stopLossSignal: ISignalCloseRow | null;
 };
 
 /**
@@ -1607,7 +1619,7 @@ export class PersistStrategyInstance implements IPersistStrategyInstance {
       const strategyData = await this._storage.readValue(PersistStrategyInstance.STORAGE_KEY);
       // JSON serializes Infinity as null, so an eternal-hold signal
       // (minuteEstimatedTime: Infinity) reads back as null — restore it.
-      for (const signal of [strategyData.closedSignal, strategyData.cancelledSignal, strategyData.activatedSignal]) {
+      for (const signal of [strategyData.closedSignal, strategyData.cancelledSignal, strategyData.activatedSignal, strategyData.takeProfitSignal, strategyData.stopLossSignal]) {
         if (signal && signal.minuteEstimatedTime == null) {
           signal.minuteEstimatedTime = Infinity;
         }

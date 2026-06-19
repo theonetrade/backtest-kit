@@ -88,6 +88,8 @@ const LIVE_METHOD_NAME_BREAKEVEN = "Live.commitBreakeven";
 const LIVE_METHOD_NAME_CANCEL_SCHEDULED = "Live.cancelScheduled";
 const LIVE_METHOD_NAME_CLOSE_PENDING = "Live.closePending";
 const LIVE_METHOD_NAME_COMMIT_CREATE_SIGNAL = "Live.commitCreateSignal";
+const LIVE_METHOD_NAME_COMMIT_CREATE_TAKE_PROFIT = "Live.commitCreateTakeProfit";
+const LIVE_METHOD_NAME_COMMIT_CREATE_STOP_LOSS = "Live.commitCreateStopLoss";
 const LIVE_METHOD_NAME_GET_STRATEGY_STATUS = "Live.getStrategyStatus";
 const LIVE_METHOD_NAME_PARTIAL_PROFIT = "LiveUtils.commitPartialProfit";
 const LIVE_METHOD_NAME_PARTIAL_LOSS = "LiveUtils.commitPartialLoss";
@@ -3432,6 +3434,148 @@ export class LiveUtils {
         exchangeName: context.exchangeName,
         frameName: "",
       },
+    );
+  };
+
+  /**
+   * Reports that the pending position's take-profit order was actually filled on the exchange
+   * (e.g. by candle high/low), forcing a close that bypasses the VWAP-based TP check.
+   *
+   * The exchange and the strategy are parallel states: the framework evaluates TP/SL against VWAP,
+   * but the real order may fill on high/low. The close is deferred and emitted with closeReason
+   * "take_profit" on the next live tick. No-op if no pending signal exists.
+   *
+   * @param symbol - Trading pair symbol
+   * @param context - Execution context with strategyName and exchangeName
+   * @param payload - Optional commit payload with id and note
+   * @returns Promise that resolves when the take-profit fill is queued
+   */
+  public commitCreateTakeProfit = async (
+    symbol: string,
+    context: {
+      strategyName: StrategyName;
+      exchangeName: ExchangeName;
+    },
+    payload: Partial<CommitPayload> = {},
+  ): Promise<void> => {
+    backtest.loggerService.info(LIVE_METHOD_NAME_COMMIT_CREATE_TAKE_PROFIT, {
+      symbol,
+      context,
+      payload,
+    });
+    backtest.strategyValidationService.validate(
+      context.strategyName,
+      LIVE_METHOD_NAME_COMMIT_CREATE_TAKE_PROFIT,
+    );
+    backtest.exchangeValidationService.validate(
+      context.exchangeName,
+      LIVE_METHOD_NAME_COMMIT_CREATE_TAKE_PROFIT,
+    );
+
+    {
+      const { riskName, riskList, actions } =
+        backtest.strategySchemaService.get(context.strategyName);
+      riskName &&
+        backtest.riskValidationService.validate(
+          riskName,
+          LIVE_METHOD_NAME_COMMIT_CREATE_TAKE_PROFIT,
+        );
+      riskList &&
+        riskList.forEach((riskName) =>
+          backtest.riskValidationService.validate(
+            riskName,
+            LIVE_METHOD_NAME_COMMIT_CREATE_TAKE_PROFIT,
+          ),
+        );
+      actions &&
+        actions.forEach((actionName) =>
+          backtest.actionValidationService.validate(
+            actionName,
+            LIVE_METHOD_NAME_COMMIT_CREATE_TAKE_PROFIT,
+          ),
+        );
+    }
+
+    await backtest.strategyCoreService.createTakeProfit(
+      false,
+      symbol,
+      {
+        strategyName: context.strategyName,
+        exchangeName: context.exchangeName,
+        frameName: "",
+      },
+      payload,
+    );
+  };
+
+  /**
+   * Reports that the pending position's stop-loss order was actually filled on the exchange
+   * (e.g. by candle high/low), forcing a close that bypasses the VWAP-based SL check.
+   *
+   * The exchange and the strategy are parallel states: the framework evaluates TP/SL against VWAP,
+   * but the real order may fill on high/low. The close is deferred and emitted with closeReason
+   * "stop_loss" on the next live tick. No-op if no pending signal exists.
+   *
+   * @param symbol - Trading pair symbol
+   * @param context - Execution context with strategyName and exchangeName
+   * @param payload - Optional commit payload with id and note
+   * @returns Promise that resolves when the stop-loss fill is queued
+   */
+  public commitCreateStopLoss = async (
+    symbol: string,
+    context: {
+      strategyName: StrategyName;
+      exchangeName: ExchangeName;
+    },
+    payload: Partial<CommitPayload> = {},
+  ): Promise<void> => {
+    backtest.loggerService.info(LIVE_METHOD_NAME_COMMIT_CREATE_STOP_LOSS, {
+      symbol,
+      context,
+      payload,
+    });
+    backtest.strategyValidationService.validate(
+      context.strategyName,
+      LIVE_METHOD_NAME_COMMIT_CREATE_STOP_LOSS,
+    );
+    backtest.exchangeValidationService.validate(
+      context.exchangeName,
+      LIVE_METHOD_NAME_COMMIT_CREATE_STOP_LOSS,
+    );
+
+    {
+      const { riskName, riskList, actions } =
+        backtest.strategySchemaService.get(context.strategyName);
+      riskName &&
+        backtest.riskValidationService.validate(
+          riskName,
+          LIVE_METHOD_NAME_COMMIT_CREATE_STOP_LOSS,
+        );
+      riskList &&
+        riskList.forEach((riskName) =>
+          backtest.riskValidationService.validate(
+            riskName,
+            LIVE_METHOD_NAME_COMMIT_CREATE_STOP_LOSS,
+          ),
+        );
+      actions &&
+        actions.forEach((actionName) =>
+          backtest.actionValidationService.validate(
+            actionName,
+            LIVE_METHOD_NAME_COMMIT_CREATE_STOP_LOSS,
+          ),
+        );
+    }
+
+    await backtest.strategyCoreService.createStopLoss(
+      false,
+      symbol,
+      {
+        strategyName: context.strategyName,
+        exchangeName: context.exchangeName,
+        frameName: "",
+      },
+      payload,
     );
   };
 
