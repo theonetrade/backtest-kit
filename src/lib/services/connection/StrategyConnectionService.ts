@@ -19,6 +19,7 @@ import {
   CommitPayload,
   StrategyStatus,
   ISignalDto,
+  StrategyCancelReason,
 } from "../../../interfaces/Strategy.interface";
 import StrategySchemaService from "../schema/StrategySchemaService";
 import ExchangeConnectionService from "./ExchangeConnectionService";
@@ -27,6 +28,7 @@ import {
   signalBacktestEmitter,
   signalLiveEmitter,
   schedulePingSubject,
+  scheduleEventSubject,
   activePingSubject,
   errorEmitter,
   strategyCommitSubject,
@@ -304,6 +306,57 @@ const CREATE_COMMIT_SCHEDULE_PING_FN = (self: StrategyConnectionService) => tryc
   {
     fallback: (error) => {
       const message = "StrategyConnectionService CREATE_COMMIT_SCHEDULE_PING_FN thrown";
+      const payload = {
+        error: errorData(error),
+        message: getErrorMessage(error),
+      };
+      self.loggerService.warn(message, payload);
+      console.warn(message, payload);
+      errorEmitter.next(error);
+    },
+    defaultValue: null,
+  }
+);
+
+/**
+ * Creates a callback function for emitting scheduled signal lifecycle events to scheduleEventSubject.
+ *
+ * Called by ClientStrategy when a scheduled signal is created (action "scheduled") or cancelled
+ * before activation (action "cancelled": timeout / price_reject / user). The scheduled -> active
+ * transition is intentionally NOT reported here.
+ *
+ * @param self - Reference to StrategyConnectionService instance
+ * @returns Callback function for scheduled signal lifecycle events
+ */
+const CREATE_COMMIT_SCHEDULE_EVENT_FN = (self: StrategyConnectionService) => trycatch(
+  async (
+    action: "scheduled" | "cancelled",
+    symbol: string,
+    strategyName: StrategyName,
+    exchangeName: ExchangeName,
+    data: IPublicSignalRow,
+    currentPrice: number,
+    backtest: boolean,
+    timestamp: number,
+    reason?: StrategyCancelReason
+  ): Promise<void> => {
+    const event = {
+      action,
+      symbol,
+      strategyName,
+      exchangeName,
+      frameName: data.frameName,
+      data,
+      reason,
+      currentPrice,
+      backtest,
+      timestamp,
+    };
+    await scheduleEventSubject.next(event);
+  },
+  {
+    fallback: (error) => {
+      const message = "StrategyConnectionService CREATE_COMMIT_SCHEDULE_EVENT_FN thrown";
       const payload = {
         error: errorData(error),
         message: getErrorMessage(error),
@@ -701,6 +754,7 @@ export class StrategyConnectionService implements TStrategy {
         callbacks,
         onInit: CREATE_COMMIT_INIT_FN(this),
         onSchedulePing: CREATE_COMMIT_SCHEDULE_PING_FN(this),
+        onScheduleEvent: CREATE_COMMIT_SCHEDULE_EVENT_FN(this),
         onActivePing: CREATE_COMMIT_ACTIVE_PING_FN(this),
         onIdlePing: CREATE_COMMIT_IDLE_PING_FN(this),
         onDispose: CREATE_COMMIT_DISPOSE_FN(this),

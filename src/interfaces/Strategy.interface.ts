@@ -587,6 +587,22 @@ export interface IStrategyParams extends IStrategySchema {
   onActivePing: (symbol: string, strategyName: StrategyName, exchangeName: ExchangeName, data: IPublicSignalRow, currentPrice: number, backtest: boolean, timestamp: number) => Promise<void>;
   /** System callback for idle ping events (emits to idlePingSubject) */
   onIdlePing: (symbol: string, strategyName: StrategyName, exchangeName: ExchangeName, currentPrice: number, backtest: boolean, timestamp: number) => Promise<void>;
+  /**
+   * System callback for scheduled signal lifecycle events (emits to scheduleEventSubject).
+   * Called when a scheduled signal is created ("scheduled") or cancelled before activation
+   * ("cancelled": timeout / price_reject / user). The scheduled -> active transition is NOT reported.
+   */
+  onScheduleEvent: (
+    action: "scheduled" | "cancelled",
+    symbol: string,
+    strategyName: StrategyName,
+    exchangeName: ExchangeName,
+    data: IPublicSignalRow,
+    currentPrice: number,
+    backtest: boolean,
+    timestamp: number,
+    reason?: StrategyCancelReason,
+  ) => Promise<void>;
   /** System callback for dispose events (emits to disposeSubject) */
   onDispose: (symbol: string, strategyName: StrategyName, exchangeName: ExchangeName, frameName: FrameName, backtest: boolean) => Promise<void>;
   /** System callback for commit events (emits to strategyCommitSubject) */

@@ -1,5 +1,5 @@
 import backtest from "../lib";
-import { signalEmitter, signalLiveEmitter, signalBacktestEmitter, errorEmitter, exitEmitter, doneLiveSubject, doneBacktestSubject, doneWalkerSubject, progressBacktestEmitter, progressWalkerEmitter, performanceEmitter, walkerEmitter, walkerCompleteSubject, validationSubject, partialProfitSubject, partialLossSubject, breakevenSubject, riskSubject, schedulePingSubject, activePingSubject, idlePingSubject, strategyCommitSubject, syncSubject, highestProfitSubject, maxDrawdownSubject, signalNotifySubject, beforeStartSubject, afterEndSubject } from "../config/emitters";
+import { signalEmitter, signalLiveEmitter, signalBacktestEmitter, errorEmitter, exitEmitter, doneLiveSubject, doneBacktestSubject, doneWalkerSubject, progressBacktestEmitter, progressWalkerEmitter, performanceEmitter, walkerEmitter, walkerCompleteSubject, validationSubject, partialProfitSubject, partialLossSubject, breakevenSubject, riskSubject, schedulePingSubject, scheduleEventSubject, activePingSubject, idlePingSubject, strategyCommitSubject, syncSubject, highestProfitSubject, maxDrawdownSubject, signalNotifySubject, beforeStartSubject, afterEndSubject } from "../config/emitters";
 import { IStrategyTickResult } from "../interfaces/Strategy.interface";
 import { DoneContract } from "../contract/Done.contract";
 import { ProgressBacktestContract } from "../contract/ProgressBacktest.contract";
@@ -12,6 +12,7 @@ import { PartialLossContract } from "../contract/PartialLoss.contract";
 import { BreakevenContract } from "../contract/Breakeven.contract";
 import { RiskContract } from "../contract/Risk.contract";
 import { SchedulePingContract } from "../contract/SchedulePing.contract";
+import { ScheduleEventContract } from "../contract/ScheduleEvent.contract";
 import { ActivePingContract } from "../contract/ActivePing.contract";
 import { IdlePingContract } from "../contract/IdlePing.contract";
 import { StrategyCommitContract } from "../contract/StrategyCommit.contract";
@@ -54,6 +55,8 @@ const LISTEN_RISK_METHOD_NAME = "event.listenRisk";
 const LISTEN_RISK_ONCE_METHOD_NAME = "event.listenRiskOnce";
 const LISTEN_SCHEDULE_PING_METHOD_NAME = "event.listenSchedulePing";
 const LISTEN_SCHEDULE_PING_ONCE_METHOD_NAME = "event.listenSchedulePingOnce";
+const LISTEN_SCHEDULE_EVENT_METHOD_NAME = "event.listenScheduleEvent";
+const LISTEN_SCHEDULE_EVENT_ONCE_METHOD_NAME = "event.listenScheduleEventOnce";
 const LISTEN_ACTIVE_PING_METHOD_NAME = "event.listenActivePing";
 const LISTEN_ACTIVE_PING_ONCE_METHOD_NAME = "event.listenActivePingOnce";
 const LISTEN_IDLE_PING_METHOD_NAME = "event.listenIdlePing";
@@ -1290,6 +1293,81 @@ export function listenSchedulePingOnce(
   };
 
   return disposeFn = listenSchedulePing(wrappedFn);
+}
+
+/**
+ * Subscribes to scheduled signal lifecycle events (creation and cancellation) with queued async processing.
+ *
+ * Emitted when a scheduled signal is created (action "scheduled") or cancelled before activation
+ * (action "cancelled" with reason "timeout" / "price_reject" / "user"), in both live and backtest.
+ *
+ * IMPORTANT: The scheduled -> active transition (activation) is NOT reported here. Activation
+ * produces an "opened" event on the regular signal emitters (listenSignal) instead.
+ *
+ * Events are processed sequentially in order received, even if callback is async.
+ *
+ * @param fn - Callback function to handle scheduled lifecycle events
+ * @returns Unsubscribe function to stop listening
+ *
+ * @example
+ * ```typescript
+ * import { listenScheduleEvent } from "./function/event";
+ *
+ * const unsubscribe = listenScheduleEvent((event) => {
+ *   if (event.action === "scheduled") {
+ *     console.log(`Scheduled ${event.symbol} @ ${event.data.priceOpen}`);
+ *   } else {
+ *     console.log(`Cancelled ${event.symbol} (reason: ${event.reason})`);
+ *   }
+ * });
+ *
+ * // Later: stop listening
+ * unsubscribe();
+ * ```
+ */
+export function listenScheduleEvent(fn: (event: ScheduleEventContract) => void) {
+  backtest.loggerService.log(LISTEN_SCHEDULE_EVENT_METHOD_NAME);
+  return scheduleEventSubject.subscribe(queued(async (event) => fn(event)));
+}
+
+/**
+ * Subscribes to filtered scheduled lifecycle events with one-time execution.
+ *
+ * Listens for events matching the filter predicate, then executes callback once
+ * and automatically unsubscribes. Useful for waiting for a specific scheduled creation
+ * or cancellation.
+ *
+ * @param filterFn - Predicate to filter which events trigger the callback
+ * @param fn - Callback function to handle the filtered event (called only once)
+ * @returns Unsubscribe function to cancel the listener before it fires
+ *
+ * @example
+ * ```typescript
+ * import { listenScheduleEventOnce } from "./function/event";
+ *
+ * // Wait for the first cancellation on BTCUSDT
+ * listenScheduleEventOnce(
+ *   (event) => event.symbol === "BTCUSDT" && event.action === "cancelled",
+ *   (event) => console.log("BTCUSDT scheduled cancelled:", event.reason)
+ * );
+ * ```
+ */
+export function listenScheduleEventOnce(
+  filterFn: (event: ScheduleEventContract) => boolean,
+  fn: (event: ScheduleEventContract) => void
+) {
+  backtest.loggerService.log(LISTEN_SCHEDULE_EVENT_ONCE_METHOD_NAME);
+
+  let disposeFn: Function;
+
+  const wrappedFn = async (event: ScheduleEventContract) => {
+    if (filterFn(event)) {
+      await fn(event);
+      disposeFn && disposeFn();
+    }
+  };
+
+  return disposeFn = listenScheduleEvent(wrappedFn);
 }
 
 /**

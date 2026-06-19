@@ -1655,6 +1655,8 @@ const CHECK_SCHEDULED_SIGNAL_TIMEOUT_FN = async (
 
   await self.setScheduledSignal(null);
 
+  await CALL_SCHEDULE_EVENT_FN(self, "cancelled", scheduled, currentPrice, currentTime, "timeout");
+
   await CALL_CANCEL_CALLBACKS_FN(
     self,
     self.params.execution.context.symbol,
@@ -1741,6 +1743,8 @@ const CANCEL_SCHEDULED_SIGNAL_BY_STOPLOSS_FN = async (
   await self.setScheduledSignal(null);
 
   const currentTime = self.params.execution.context.when.getTime();
+
+  await CALL_SCHEDULE_EVENT_FN(self, "cancelled", scheduled, currentPrice, currentTime, "price_reject");
 
   await CALL_CANCEL_CALLBACKS_FN(
     self,
@@ -2132,6 +2136,52 @@ const CALL_SCHEDULE_CALLBACKS_FN = trycatch(
   {
     fallback: (error, self) => {
       const message = "ClientStrategy CALL_SCHEDULE_CALLBACKS_FN thrown";
+      const payload = {
+        error: errorData(error),
+        message: getErrorMessage(error),
+      };
+      self.params.logger.warn(message, payload);
+      console.warn(message, payload);
+      errorEmitter.next(error);
+    },
+  }
+);
+
+/**
+ * Emits a scheduled signal lifecycle event (creation / cancellation) to onScheduleEvent.
+ *
+ * Called when a scheduled signal is created (action "scheduled") or cancelled before activation
+ * (action "cancelled" with reason timeout / price_reject / user). The scheduled -> active
+ * transition is intentionally NOT emitted through this path.
+ *
+ * Unlike the CALL_*_CALLBACKS_FN helpers this does not run inside beginTime/runInContext: the
+ * timestamp is passed explicitly by the caller (tick when / candle timestamp) and forwarded to
+ * the connection-level emitter, mirroring how onSchedulePing carries its own timestamp.
+ */
+const CALL_SCHEDULE_EVENT_FN = trycatch(
+  async (
+    self: ClientStrategy,
+    action: "scheduled" | "cancelled",
+    signal: ISignalRow | IScheduledSignalRow,
+    currentPrice: number,
+    timestamp: number,
+    reason?: StrategyCancelReason
+  ): Promise<void> => {
+    await self.params.onScheduleEvent(
+      action,
+      self.params.execution.context.symbol,
+      self.params.method.context.strategyName,
+      self.params.method.context.exchangeName,
+      TO_PUBLIC_SIGNAL("scheduled", signal, currentPrice),
+      currentPrice,
+      self.params.execution.context.backtest,
+      timestamp,
+      reason
+    );
+  },
+  {
+    fallback: (error, self) => {
+      const message = "ClientStrategy CALL_SCHEDULE_EVENT_FN thrown";
       const payload = {
         error: errorData(error),
         message: getErrorMessage(error),
@@ -2781,6 +2831,8 @@ const OPEN_NEW_SCHEDULED_SIGNAL_FN = async (
     priceOpen: signal.priceOpen,
     currentPrice: currentPrice,
   });
+
+  await CALL_SCHEDULE_EVENT_FN(self, "scheduled", signal, currentPrice, currentTime);
 
   await CALL_SCHEDULE_CALLBACKS_FN(
     self,
@@ -3502,6 +3554,8 @@ const CANCEL_SCHEDULED_SIGNAL_IN_BACKTEST_FN = async (
   await self.setScheduledSignal(null);
 
   const publicSignal = TO_PUBLIC_SIGNAL("scheduled", scheduled, averagePrice);
+
+  await CALL_SCHEDULE_EVENT_FN(self, "cancelled", scheduled, averagePrice, closeTimestamp, reason);
 
   if (reason === "user") {
     await CALL_COMMIT_FN(self, {
@@ -5821,6 +5875,8 @@ export class ClientStrategy implements IStrategy {
         note: cancelledSignal.cancelNote ?? cancelledSignal.note,
       });
 
+      await CALL_SCHEDULE_EVENT_FN(this, "cancelled", cancelledSignal, currentPrice, currentTime, "user");
+
       // Call onCancel callback
       await CALL_CANCEL_CALLBACKS_FN(
         this,
@@ -6379,6 +6435,8 @@ export class ClientStrategy implements IStrategy {
         signal: publicSignal,
         note: cancelledSignal.cancelNote ?? cancelledSignal.note,
       });
+
+      await CALL_SCHEDULE_EVENT_FN(this, "cancelled", cancelledSignal, currentPrice, closeTimestamp, "user");
 
       await CALL_CANCEL_CALLBACKS_FN(
         this,

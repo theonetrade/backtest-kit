@@ -145,6 +145,8 @@ export {
   listenRiskOnce,
   listenSchedulePing,
   listenSchedulePingOnce,
+  listenScheduleEvent,
+  listenScheduleEventOnce,
   listenActivePing,
   listenActivePingOnce,
   listenIdlePing,
@@ -374,6 +376,7 @@ export { DoneContract } from "./contract/Done.contract";
 export { RiskContract } from "./contract/Risk.contract";
 export { ProgressBacktestContract } from "./contract/ProgressBacktest.contract";
 export { SchedulePingContract } from "./contract/SchedulePing.contract";
+export { ScheduleEventContract } from "./contract/ScheduleEvent.contract";
 export { ActivePingContract } from "./contract/ActivePing.contract";
 export { IdlePingContract } from "./contract/IdlePing.contract";
 export { HighestProfitContract } from "./contract/HighestProfit.contract";

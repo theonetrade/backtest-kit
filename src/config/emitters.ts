@@ -12,6 +12,7 @@ import { BreakevenContract } from "../contract/Breakeven.contract";
 import { WalkerStopContract } from "../contract/WalkerStop.contract";
 import { RiskContract } from "../contract/Risk.contract";
 import { SchedulePingContract } from "../contract/SchedulePing.contract";
+import { ScheduleEventContract } from "../contract/ScheduleEvent.contract";
 import { ActivePingContract } from "../contract/ActivePing.contract";
 import { IdlePingContract } from "../contract/IdlePing.contract";
 import { StrategyCommitContract } from "../contract/StrategyCommit.contract";
@@ -173,6 +174,16 @@ export const riskSubject = new Subject<RiskContract>();
  * Allows users to track scheduled signal lifecycle and implement custom cancellation logic.
  */
 export const schedulePingSubject = new Subject<SchedulePingContract>();
+
+/**
+ * Scheduled signal lifecycle emitter (creation and cancellation).
+ * Emits when a scheduled signal is created (action "scheduled") or cancelled before
+ * activation (action "cancelled": timeout / price_reject / user) during tick()/backtest().
+ *
+ * The scheduled -> active transition (activation) is intentionally NOT emitted here — that
+ * produces an "opened" signal on the regular signal emitters instead.
+ */
+export const scheduleEventSubject = new Subject<ScheduleEventContract>();
 
 /**
  * Active ping emitter for active pending signal monitoring events.
