@@ -182,6 +182,30 @@ Retrieves action list from strategy schema (IStrategySchema.actions)
 and invokes the pingScheduled handler on each ClientAction instance sequentially.
 Called every minute during scheduled signal monitoring.
 
+### scheduleEvent
+
+```ts
+scheduleEvent: (backtest: boolean, event: ScheduleEventContract, context: { strategyName: string; exchangeName: string; frameName: string; }) => Promise<void>
+```
+
+Routes a scheduled signal lifecycle event (creation / cancellation) to all registered actions.
+
+Retrieves action list from strategy schema (IStrategySchema.actions) and invokes the
+scheduleEvent handler on each ClientAction instance sequentially. Called once on creation
+(action "scheduled") and once on cancellation before activation (action "cancelled").
+
+### pendingEvent
+
+```ts
+pendingEvent: (backtest: boolean, event: SignalEventContract, context: { strategyName: string; exchangeName: string; frameName: string; }) => Promise<void>
+```
+
+Routes a pending signal lifecycle event (open / close) to all registered actions.
+
+Retrieves action list from strategy schema (IStrategySchema.actions) and invokes the
+pendingEvent handler on each ClientAction instance sequentially. Called once on open
+(action "opened") and once on close (action "closed").
+
 ### pingActive
 
 ```ts
@@ -228,10 +252,10 @@ Gates position open/close across all registered actions.
 NOT wrapped in trycatch — exceptions propagate to CREATE_SYNC_FN.
 Returns true only if ALL actions return true.
 
-### orderPing
+### orderCheck
 
 ```ts
-orderPing: (backtest: boolean, event: SignalPingContract, context: { strategyName: string; exchangeName: string; frameName: string; }) => Promise<void>
+orderCheck: (backtest: boolean, event: SignalPingContract, context: { strategyName: string; exchangeName: string; frameName: string; }) => Promise<void>
 ```
 
 Gates the pending-order ping across all registered actions.

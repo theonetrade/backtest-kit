@@ -123,6 +123,54 @@ Called during scheduled signal monitoring (every minute while waiting for activa
 Triggered by: StrategyConnectionService via schedulePingSubject
 Frequency: Every minute while scheduled signal is waiting
 
+### onScheduleEvent
+
+```ts
+onScheduleEvent: (event: ScheduleEventContract, actionName: string, strategyName: string, frameName: string, backtest: boolean) => void | Promise<void>
+```
+
+Called on scheduled signal lifecycle events (creation / cancellation).
+
+Triggered by: StrategyConnectionService via scheduleEventSubject
+Frequency: Once on creation (action "scheduled") and once on cancellation before activation
+(action "cancelled": timeout / price_reject / user). The scheduled -&gt; active transition is
+NOT reported here — activation surfaces as an "opened" signal instead.
+
+## Manual wiring — EVENT-BASED (driving the exchange from an action registered via `addActionSchema`)
+
+An action is the alternative to a Broker adapter for binding the framework to a real exchange:
+both run inside the strategy tick, so the commit-functions from `src/function/strategy.ts` are
+callable here and take effect on the next tick. On `event.action === "scheduled"` place the real
+resting/limit order (tag it with `event.data.id`) and, if it resolves at once, call
+`commitActivateScheduled(event.symbol, { id })`; on a reject call
+`commitCancelScheduled(event.symbol, { id })`. On `event.action === "cancelled"` (the strategy has
+already dropped the scheduled signal) cancel the matching exchange order; `event.reason` says why.
+For ongoing polling of the resting order use `onPingScheduled` (every tick).
+
+### onPendingEvent
+
+```ts
+onPendingEvent: (event: SignalEventContract, actionName: string, strategyName: string, frameName: string, backtest: boolean) => void | Promise<void>
+```
+
+Called on pending signal lifecycle events (open / close).
+
+Triggered by: StrategyConnectionService via signalEventSubject
+Frequency: Once when a pending position is opened (action "opened": new signal / immediate /
+scheduled or user activation) and once when it is closed (action "closed" with closeReason
+take_profit / stop_loss / time_expired / closed).
+
+## Manual wiring — EVENT-BASED (driving the exchange from an action registered via `addActionSchema`)
+
+Alternative to a Broker adapter — the commit-functions from `src/function/strategy.ts` are
+callable here (same tick context) and apply on the next tick. On `event.action === "opened"`
+place the real entry + protective TP/SL orders; on `event.action === "closed"` (the strategy has
+already removed the signal) flatten the real position and cancel leftover orders.
+
+Note: `onPendingEvent` fires only at open/close — it is NOT a per-tick monitor. To translate
+intra-position exchange fills into `commitCreateTakeProfit` / `commitCreateStopLoss` /
+`commitClosePending` on every tick, use `onPingActive` (fires each tick while the position is open).
+
 ### onPingActive
 
 ```ts
@@ -169,10 +217,17 @@ NOTE: Unlike other callbacks, exceptions from this method are NOT swallowed.
 They propagate up to CREATE_SYNC_FN which catches them and returns false.
 Throw to reject the operation — framework will retry on next tick.
 
-### onOrderPing
+MANUAL WIRING — EXCEPTION-BASED GATE: the action-side equivalent of the Broker
+`onSignalOpenCommit` / `onSignalCloseCommit` gate. Throwing (or returning false) on
+`event.action === "signal-open"` rolls the open back to idle (a scheduled activation is
+cancelled); on `"signal-close"` it skips the close and leaves the position open — retried next
+tick. Rides the same `syncSubject` emission as the Broker commit hooks, so a throw from either is
+collapsed to false by `CREATE_SYNC_FN`. Backtest short-circuits the gate to true (live-only).
+
+### onOrderCheck
 
 ```ts
-onOrderPing: (event: SignalPingContract, actionName: string, strategyName: string, frameName: string, backtest: boolean) => void | Promise<void>
+onOrderCheck: (event: SignalPingContract, actionName: string, strategyName: string, frameName: string, backtest: boolean) => void | Promise<void>
 ```
 
 Called on every live tick while a pending signal is monitored, BEFORE TP/SL/time evaluation,
@@ -188,3 +243,9 @@ position. Throw exclusively on a confirmed "order not found by id" result.
 
 NOTE: Like onSignalSync, exceptions from this method are NOT swallowed. They propagate up to
 CREATE_SYNC_PENDING_FN which catches them and returns false.
+
+MANUAL WIRING — EXCEPTION-BASED GATE: the action-side equivalent of the Broker `onOrderCheck`.
+A THROW on a confirmed "order not found by id" closes the position with closeReason "closed"
+(retried via CREATE_SYNC_PENDING_FN). This is the throw-driven alternative to the imperative
+`commitClosePending` (call it from `pingActive` instead) — pick one, not both, for the same
+"order gone" condition. Backtest short-circuits the gate (live-only).

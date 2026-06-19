@@ -121,6 +121,30 @@ pingScheduled(event: SchedulePingContract): Promise<void>;
 
 Handles scheduled ping events during scheduled signal monitoring.
 
+### scheduleEvent
+
+```ts
+scheduleEvent(event: ScheduleEventContract): Promise<void>;
+```
+
+Handles scheduled signal lifecycle events (creation / cancellation).
+
+Manual wiring — EVENT-BASED: users implement {@link IActionCallbacks.onScheduleEvent} (via `addActionSchema`)
+to drive the exchange (`commitActivateScheduled` / `commitCancelScheduled`); see that contract
+for the full guidance and example. This internal dispatch forwards to the handler/callback.
+
+### pendingEvent
+
+```ts
+pendingEvent(event: SignalEventContract): Promise<void>;
+```
+
+Handles pending signal lifecycle events (open / close).
+
+Manual wiring — EVENT-BASED: users implement {@link IActionCallbacks.onPendingEvent} (via `addActionSchema`) to
+drive the exchange; for per-tick fills use `onPingActive`. See that contract for the full
+guidance and example. This internal dispatch forwards to the handler/callback.
+
 ### pingActive
 
 ```ts
@@ -154,10 +178,10 @@ signalSync(event: SignalSyncContract): Promise<void>;
 Gate for position open/close via limit order.
 NOT wrapped in trycatch — exceptions propagate to CREATE_SYNC_FN.
 
-### orderPing
+### orderCheck
 
 ```ts
-orderPing(event: SignalPingContract): Promise<void>;
+orderCheck(event: SignalPingContract): Promise<void>;
 ```
 
 Gate for the pending-order ping (order still open on exchange?).

@@ -19,8 +19,8 @@ Listener contract (mirrors syncSubject semantics):
 Backtest never emits this event — there is no live exchange to query.
 
 Consumers:
-- Broker adapter via `onOrderPing` (syncPendingSubject subscription)
-- Registered actions via `orderPing` / `onOrderPing`
+- Broker adapter via `onOrderCheck` (syncPendingSubject subscription)
+- Registered actions via `orderCheck` / `onOrderCheck`
 
 ## Properties
 

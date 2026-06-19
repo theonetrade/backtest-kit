@@ -138,6 +138,29 @@ Handles scheduled ping events with error capture.
 Wraps the user's pingScheduled() method to catch and log any errors.
 Called every minute while a scheduled signal is waiting for activation.
 
+### scheduleEvent
+
+```ts
+scheduleEvent(event: ScheduleEventContract): Promise<any>;
+```
+
+Handles scheduled signal lifecycle events with error capture.
+
+Wraps the user's scheduleEvent() method to catch and log any errors. Called once when a
+scheduled signal is created (action "scheduled") and once when it is cancelled before
+activation (action "cancelled").
+
+### pendingEvent
+
+```ts
+pendingEvent(event: SignalEventContract): Promise<any>;
+```
+
+Handles pending signal lifecycle events with error capture.
+
+Wraps the user's pendingEvent() method to catch and log any errors. Called once when a
+pending position is opened (action "opened") and once when it is closed (action "closed").
+
 ### pingActive
 
 ```ts
@@ -180,10 +203,10 @@ signalSync(event: SignalSyncContract): Promise<void>;
 Gate for position open/close via limit order.
 NOT wrapped in trycatch — exceptions propagate to CREATE_SYNC_FN.
 
-### orderPing
+### orderCheck
 
 ```ts
-orderPing(event: SignalPingContract): Promise<void>;
+orderCheck(event: SignalPingContract): Promise<void>;
 ```
 
 Gate for the pending-order ping (order still open on exchange?).

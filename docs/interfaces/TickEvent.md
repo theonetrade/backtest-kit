@@ -21,7 +21,7 @@ Event timestamp in milliseconds (scheduledAt for scheduled events, pendingAt for
 ### action
 
 ```ts
-action: "closed" | "opened" | "scheduled" | "cancelled" | "idle" | "waiting" | "active"
+action: "scheduled" | "cancelled" | "opened" | "closed" | "idle" | "waiting" | "active"
 ```
 
 Event action type

@@ -83,6 +83,86 @@ while a pending signal is monitored. Skipped silently in backtest mode or when n
 registered. Exceptions are NOT swallowed: a throw from the adapter propagates up to
 syncPendingSubject.next() → CREATE_SYNC_PENDING_FN, which closes the position with "closed".
 
+### commitActivePing
+
+```ts
+commitActivePing: (payload: BrokerActivePingPayload) => Promise<void>
+```
+
+Forwards an active-ping to the registered broker adapter.
+
+Called automatically via activePingSubject when `enable()` is active, on every live tick while a
+pending signal is monitored. Skipped silently in backtest mode or when no adapter is registered.
+Purely informational — a throw does NOT close the position.
+
+### commitSchedulePing
+
+```ts
+commitSchedulePing: (payload: BrokerSchedulePingPayload) => Promise<void>
+```
+
+Forwards a schedule-ping to the registered broker adapter.
+
+Called automatically via schedulePingSubject when `enable()` is active, on every live tick while
+a scheduled signal is monitored. Skipped silently in backtest mode or when no adapter is
+registered. Purely informational.
+
+### commitIdlePing
+
+```ts
+commitIdlePing: (payload: BrokerIdlePingPayload) => Promise<void>
+```
+
+Forwards an idle-ping to the registered broker adapter.
+
+Called automatically via idlePingSubject when `enable()` is active, on every live tick while the
+strategy has no pending or scheduled signal. Skipped silently in backtest mode or when no adapter
+is registered. Purely informational.
+
+### commitScheduleOpen
+
+```ts
+commitScheduleOpen: (payload: BrokerScheduleOpenPayload) => Promise<void>
+```
+
+Forwards a scheduled-signal-open to the registered broker adapter.
+
+Called automatically via scheduleEventSubject (action "scheduled") when a scheduled signal is
+created. Skipped silently in backtest mode or when no adapter is registered.
+
+### commitScheduleCancelled
+
+```ts
+commitScheduleCancelled: (payload: BrokerScheduleCancelledPayload) => Promise<void>
+```
+
+Forwards a scheduled-signal-cancelled to the registered broker adapter.
+
+Called automatically via scheduleEventSubject (action "cancelled") when a scheduled signal is
+removed before activation. Skipped silently in backtest mode or when no adapter is registered.
+
+### commitPendingOpen
+
+```ts
+commitPendingOpen: (payload: BrokerPendingOpenPayload) => Promise<void>
+```
+
+Forwards a pending-signal-open to the registered broker adapter.
+
+Called automatically via signalEventSubject (action "opened") when a pending position is opened.
+Skipped silently in backtest mode or when no adapter is registered.
+
+### commitPendingClose
+
+```ts
+commitPendingClose: (payload: BrokerPendingClosePayload) => Promise<void>
+```
+
+Forwards a pending-signal-close to the registered broker adapter.
+
+Called automatically via signalEventSubject (action "closed") when a pending position is closed.
+Skipped silently in backtest mode or when no adapter is registered.
+
 ### commitPartialProfit
 
 ```ts

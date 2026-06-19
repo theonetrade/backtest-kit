@@ -121,6 +121,22 @@ pingScheduled: (event: SchedulePingContract, backtest: boolean, context: { actio
 
 Routes scheduled ping event to appropriate ClientAction instance.
 
+### scheduleEvent
+
+```ts
+scheduleEvent: (event: ScheduleEventContract, backtest: boolean, context: { actionName: string; strategyName: string; exchangeName: string; frameName: string; }) => Promise<void>
+```
+
+Routes a scheduled signal lifecycle event (creation / cancellation) to the ClientAction instance.
+
+### pendingEvent
+
+```ts
+pendingEvent: (event: SignalEventContract, backtest: boolean, context: { actionName: string; strategyName: string; exchangeName: string; frameName: string; }) => Promise<void>
+```
+
+Routes a pending signal lifecycle event (open / close) to the ClientAction instance.
+
 ### pingActive
 
 ```ts
@@ -154,13 +170,13 @@ signalSync: (event: SignalSyncContract, backtest: boolean, context: { actionName
 Routes signalSync event to appropriate ClientAction instance.
 NOT wrapped in trycatch — exceptions propagate to CREATE_SYNC_FN.
 
-### orderPing
+### orderCheck
 
 ```ts
-orderPing: (event: SignalPingContract, backtest: boolean, context: { actionName: string; strategyName: string; exchangeName: string; frameName: string; }) => Promise<void>
+orderCheck: (event: SignalPingContract, backtest: boolean, context: { actionName: string; strategyName: string; exchangeName: string; frameName: string; }) => Promise<void>
 ```
 
-Routes orderPing event to appropriate ClientAction instance.
+Routes orderCheck event to appropriate ClientAction instance.
 NOT wrapped in trycatch — exceptions propagate to CREATE_SYNC_PENDING_FN.
 
 ### dispose

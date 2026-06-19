@@ -21,7 +21,7 @@ Event timestamp in milliseconds (scheduledAt for scheduled/cancelled events)
 ### action
 
 ```ts
-action: "opened" | "scheduled" | "cancelled"
+action: "scheduled" | "cancelled" | "opened"
 ```
 
 Event action type
