@@ -783,6 +783,10 @@ export class ClientAction implements IAction {
 
   /**
    * Handles scheduled signal lifecycle events (creation / cancellation).
+   *
+   * Manual wiring — EVENT-BASED: users implement {@link IActionCallbacks.onScheduleEvent} (via `addActionSchema`)
+   * to drive the exchange (`commitActivateScheduled` / `commitCancelScheduled`); see that contract
+   * for the full guidance and example. This internal dispatch forwards to the handler/callback.
    */
   public async scheduleEvent(event: ScheduleEventContract): Promise<void> {
     this.params.logger.debug("ClientAction scheduleEvent", {
@@ -811,6 +815,10 @@ export class ClientAction implements IAction {
 
   /**
    * Handles pending signal lifecycle events (open / close).
+   *
+   * Manual wiring — EVENT-BASED: users implement {@link IActionCallbacks.onPendingEvent} (via `addActionSchema`) to
+   * drive the exchange; for per-tick fills use `onPingActive`. See that contract for the full
+   * guidance and example. This internal dispatch forwards to the handler/callback.
    */
   public async pendingEvent(event: SignalEventContract): Promise<void> {
     this.params.logger.debug("ClientAction pendingEvent", {

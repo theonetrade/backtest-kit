@@ -285,11 +285,41 @@ export interface IActionCallbacks {
    * (action "cancelled": timeout / price_reject / user). The scheduled -> active transition is
    * NOT reported here — activation surfaces as an "opened" signal instead.
    *
+   * ## Manual wiring — EVENT-BASED (driving the exchange from an action registered via `addActionSchema`)
+   *
+   * An action is the alternative to a Broker adapter for binding the framework to a real exchange:
+   * both run inside the strategy tick, so the commit-functions from `src/function/strategy.ts` are
+   * callable here and take effect on the next tick. On `event.action === "scheduled"` place the real
+   * resting/limit order (tag it with `event.data.id`) and, if it resolves at once, call
+   * `commitActivateScheduled(event.symbol, { id })`; on a reject call
+   * `commitCancelScheduled(event.symbol, { id })`. On `event.action === "cancelled"` (the strategy has
+   * already dropped the scheduled signal) cancel the matching exchange order; `event.reason` says why.
+   * For ongoing polling of the resting order use `onPingScheduled` (every tick).
+   *
    * @param event - Scheduled lifecycle data (action discriminates created vs cancelled)
    * @param actionName - Action identifier
    * @param strategyName - Strategy identifier
    * @param frameName - Timeframe identifier
    * @param backtest - True for backtest mode, false for live trading
+   *
+   * @example
+   * ```typescript
+   * import { addActionSchema, commitActivateScheduled, commitCancelScheduled } from "backtest-kit";
+   *
+   * addActionSchema({
+   *   actionName: "exchange-bridge",
+   *   callbacks: {
+   *     async onScheduleEvent(event) {
+   *       if (event.action === "scheduled") {
+   *         const order = await exchange.placeLimit(event.symbol, event.data.priceOpen, event.data.id);
+   *         if (order.status === "filled") await commitActivateScheduled(event.symbol, { id: order.id });
+   *       } else {
+   *         await exchange.cancelOrderById(event.data.id);
+   *       }
+   *     },
+   *   },
+   * });
+   * ```
    */
   onScheduleEvent(event: ScheduleEventContract, actionName: ActionName, strategyName: StrategyName, frameName: FrameName, backtest: boolean): void | Promise<void>;
 
@@ -301,11 +331,41 @@ export interface IActionCallbacks {
    * scheduled or user activation) and once when it is closed (action "closed" with closeReason
    * take_profit / stop_loss / time_expired / closed).
    *
+   * ## Manual wiring — EVENT-BASED (driving the exchange from an action registered via `addActionSchema`)
+   *
+   * Alternative to a Broker adapter — the commit-functions from `src/function/strategy.ts` are
+   * callable here (same tick context) and apply on the next tick. On `event.action === "opened"`
+   * place the real entry + protective TP/SL orders; on `event.action === "closed"` (the strategy has
+   * already removed the signal) flatten the real position and cancel leftover orders.
+   *
+   * Note: `onPendingEvent` fires only at open/close — it is NOT a per-tick monitor. To translate
+   * intra-position exchange fills into `commitCreateTakeProfit` / `commitCreateStopLoss` /
+   * `commitClosePending` on every tick, use `onPingActive` (fires each tick while the position is open).
+   *
    * @param event - Pending lifecycle data (action discriminates opened vs closed)
    * @param actionName - Action identifier
    * @param strategyName - Strategy identifier
    * @param frameName - Timeframe identifier
    * @param backtest - True for backtest mode, false for live trading
+   *
+   * @example
+   * ```typescript
+   * import { addActionSchema, commitClosePending } from "backtest-kit";
+   *
+   * addActionSchema({
+   *   actionName: "exchange-bridge",
+   *   callbacks: {
+   *     async onPendingEvent(event) {
+   *       if (event.action === "opened") await exchange.openWithProtection(event.symbol, event.data);
+   *       else await exchange.flatten(event.symbol, event.data.id);
+   *     },
+   *     async onPingActive(event) { // per-tick fills -> close
+   *       const order = await exchange.getOrderById(event.data.id);
+   *       if (order?.status === "no_counterparty") await commitClosePending(event.symbol, { id: order.id });
+   *     },
+   *   },
+   * });
+   * ```
    */
   onPendingEvent(event: SignalEventContract, actionName: ActionName, strategyName: StrategyName, frameName: FrameName, backtest: boolean): void | Promise<void>;
 
@@ -359,6 +419,13 @@ export interface IActionCallbacks {
    * They propagate up to CREATE_SYNC_FN which catches them and returns false.
    * Throw to reject the operation — framework will retry on next tick.
    *
+   * MANUAL WIRING — EXCEPTION-BASED GATE: the action-side equivalent of the Broker
+   * `onSignalOpenCommit` / `onSignalCloseCommit` gate. Throwing (or returning false) on
+   * `event.action === "signal-open"` rolls the open back to idle (a scheduled activation is
+   * cancelled); on `"signal-close"` it skips the close and leaves the position open — retried next
+   * tick. Rides the same `syncSubject` emission as the Broker commit hooks, so a throw from either is
+   * collapsed to false by `CREATE_SYNC_FN`. Backtest short-circuits the gate to true (live-only).
+   *
    * @param event - Sync event with action "signal-open" or "signal-close"
    * @param actionName - Action identifier
    * @param strategyName - Strategy identifier
@@ -381,6 +448,12 @@ export interface IActionCallbacks {
    *
    * NOTE: Like onSignalSync, exceptions from this method are NOT swallowed. They propagate up to
    * CREATE_SYNC_PENDING_FN which catches them and returns false.
+   *
+   * MANUAL WIRING — EXCEPTION-BASED GATE: the action-side equivalent of the Broker `onOrderCheck`.
+   * A THROW on a confirmed "order not found by id" closes the position with closeReason "closed"
+   * (retried via CREATE_SYNC_PENDING_FN). This is the throw-driven alternative to the imperative
+   * `commitClosePending` (call it from `pingActive` instead) — pick one, not both, for the same
+   * "order gone" condition. Backtest short-circuits the gate (live-only).
    *
    * @deprecated This callback is not recommended for use. Exchange integration should be implemented
    * in Broker.useBrokerAdapter (the infrastructure domain layer) via onOrderCheck instead.
@@ -638,6 +711,9 @@ export interface IAction {
    * cancelled before activation ("cancelled": timeout / price_reject / user). The
    * scheduled -> active transition is NOT reported here.
    *
+   * Manual wiring — EVENT-BASED: implement the user-facing callback {@link IActionCallbacks.onScheduleEvent} (via
+   * `addActionSchema`) to drive the exchange (`commitActivateScheduled` / `commitCancelScheduled`).
+   *
    * @param event - Scheduled lifecycle data (action discriminates created vs cancelled)
    */
   scheduleEvent(event: ScheduleEventContract): void | Promise<void>;
@@ -649,6 +725,9 @@ export interface IAction {
    * Source: CREATE_COMMIT_SIGNAL_EVENT_FN callback in StrategyConnectionService
    * Frequency: Once when a pending position is opened (action "opened") and once when it is
    * closed (action "closed" with closeReason take_profit / stop_loss / time_expired / closed).
+   *
+   * Manual wiring — EVENT-BASED: implement the user-facing callback {@link IActionCallbacks.onPendingEvent} (via
+   * `addActionSchema`) to drive the exchange; for per-tick fills use `onPingActive`.
    *
    * @param event - Pending lifecycle data (action discriminates opened vs closed)
    */
@@ -693,6 +772,12 @@ export interface IAction {
    *
    * NOTE: Exceptions are NOT swallowed here — they propagate to CREATE_SYNC_FN.
    *
+   * MANUAL WIRING — EXCEPTION-BASED GATE: action-side equivalent of the Broker
+   * `onSignalOpenCommit` / `onSignalCloseCommit`. Throw on "signal-open" → open rolls back to idle
+   * (scheduled activation cancelled); throw on "signal-close" → close skipped, position stays open;
+   * retried next tick. Same `syncSubject` emission as the Broker commit hooks (collapsed to false by
+   * CREATE_SYNC_FN). Live-only. Implement via the {@link IActionCallbacks.onSignalSync} callback.
+   *
    * @deprecated This method is not recommended for use. Implement custom logic in signal(), signalLive(), or signalBacktest() instead.
    * If you need to implement custom logic on signal open/close, please use signal(), signalBacktest(), signalLive() instead.
    * If Action::signalSync throws the exchange will not execute the order!
@@ -713,6 +798,12 @@ export interface IAction {
    * position. Throw exclusively on a confirmed "order not found by id" result.
    *
    * NOTE: Exceptions are NOT swallowed here — they propagate to CREATE_SYNC_PENDING_FN.
+   *
+   * MANUAL WIRING — EXCEPTION-BASED GATE: action-side equivalent of the Broker `onOrderCheck`. A
+   * throw on a confirmed "order not found by id" closes the position with closeReason "closed"
+   * (retried via CREATE_SYNC_PENDING_FN). Throw-driven alternative to the imperative
+   * `commitClosePending` (call it from `pingActive`) — pick one, not both. Live-only. Implement via
+   * the {@link IActionCallbacks.onOrderCheck} callback.
    *
    * @deprecated This method is not recommended for use. Exchange integration should be implemented
    * in Broker.useBrokerAdapter (the infrastructure domain layer) via onOrderCheck instead.

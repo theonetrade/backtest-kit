@@ -3699,4 +3699,116 @@ Each entry is a `ColumnModel` (`{ key, label, format(row, index) => string, isVi
 
 ---
 
+## 41. Binding the framework to a real exchange — EXCEPTION-BASED vs EVENT-BASED
+
+The framework runs a **strategy state** (pending/scheduled signals, TP/SL evaluated against the **VWAP** of each candle) that is *parallel* to the **real exchange state** (orders that fill on candle high/low, gap through a level, rest unfilled, or get cancelled externally). "Manual wiring" is how you keep the two in sync. It has two independent axes: **where** you attach (§41.1) and **how** a hook influences the framework (§41.2).
+
+### 41.1 Two attachment points
+
+| Point | Register with | Implement | Runs in | Use when |
+| --- | --- | --- | --- | --- |
+| **Broker adapter** | `Broker.useBrokerAdapter(MyBroker)` + `Broker.enable()` | `IBroker` | **live only** (commits skip backtest) | one infrastructure / exchange-integration layer, separate from strategy logic |
+| **Action** | `addActionSchema({ actionName, callbacks })` | `IActionCallbacks` | **live + backtest** | wiring that lives next to a strategy, or per-strategy bridges |
+
+Both run **inside the strategy tick**, so the `commit*` functions from [`src/function/strategy.ts`](src/function/strategy.ts) are callable from either and the method/execution context they need is already active. **Every commit is deferred** — it takes effect on the *next* tick, never re-entrantly.
+
+### 41.2 Two interaction styles
+
+Every wiring hook is one of two kinds. This is the primary distinction to get right.
+
+| | **EXCEPTION-BASED** (gate) | **EVENT-BASED** (react) |
+| --- | --- | --- |
+| What a `throw` does | **vetoes / forces** a framework transition | **nothing** — purely informational |
+| How you act | return normally vs throw | call a `commit*` function (or place/cancel a real order) |
+| Fires | as the framework *attempts* a transition (BEFORE it mutates state) | per-tick while monitoring, or once at a lifecycle point |
+| Mode | **live only** (backtest short-circuits the gate to "allowed") | live + backtest (per attachment point) |
+| Hooks | `onSignalOpenCommit`, `onSignalCloseCommit`, `onOrderCheck`, `onSignalSync` (+ action `signalSync` / `orderCheck`) | `onSignalActivePing`, `onSignalSchedulePing`, `onSignalIdlePing`, `onSignalScheduleOpen/Cancelled`, `onSignalPendingOpen/Close` (+ action `onPingActive/Scheduled/Idle`, `onScheduleEvent`, `onPendingEvent`) |
+
+### 41.3 EXCEPTION-BASED hooks (a throw drives the framework)
+
+These are emitted via `syncSubject` / `syncPendingSubject` **before** the framework mutates state; a throw (or `false`) is collapsed to "not allowed" by `CREATE_SYNC_FN` / `CREATE_SYNC_PENDING_FN`. All are **live-only**.
+
+| Hook | A throw / `false` means | Framework reaction |
+| --- | --- | --- |
+| `onSignalOpenCommit(payload)` | real entry not filled (limit rejected) | **roll back the open** → back to idle (a scheduled activation is cancelled), retry next tick |
+| `onSignalCloseCommit(payload)` | real exit order failed | **skip the close** → position stays open, retry next tick |
+| `onOrderCheck(payload)` | order **not found by id** (filled/cancelled/liquidated) | **close** the position, `closeReason: "closed"` |
+| `onSignalSync(event)` *(strategy `IStrategyParams`)* | sync to exchange failed (open or close) | same as the two `*Commit` gates above — rides the **same** `syncSubject` emission |
+
+- `onSignalOpenCommit` / `onSignalCloseCommit` and `onSignalSync` share one `syncSubject` emission: a throw from any of them is collapsed to `false` by `CREATE_SYNC_FN`, so they are interchangeable gates for the same open/close transition — don't gate the same transition in two of them.
+- `onOrderCheck` is the throw-driven equivalent of the EVENT-BASED `commitClosePending` for the "order gone" case — **pick one, not both**.
+- **CRITICAL for `onOrderCheck`:** swallow transient/network errors (timeout, 5xx, rate limit, disconnect) by returning — only a *confirmed* "order not found by id" is a valid reason to throw, or a connectivity blip wrongly closes an open position.
+- The action-side methods `signalSync` / `orderCheck` (and callbacks `onSignalSync` / `onOrderCheck`) are the action-attachment equivalents of the same gates; they are `@deprecated` in favour of the Broker adapter.
+
+```typescript
+class MyBroker {
+  async onSignalOpenCommit(payload) {                          // entry gate
+    const order = await exchange.placeMarketOrder(payload.symbol, payload.position, payload.cost);
+    if (!order.filled) throw new Error("entry not filled");    // -> roll back open, retry next tick
+  }
+  async onOrderCheck(payload) {                                // "still there?" gate
+    let order;
+    try { order = await exchange.getOrderById(payload.signalId); }
+    catch { return; }                                          // transient — keep open
+    if (!order) throw new Error("order gone");                 // -> close "closed"
+  }
+}
+```
+
+### 41.4 EVENT-BASED hooks (you react with `commit*`)
+
+A throw here does **not** change strategy state — you observe the event and decide imperatively via a `commit*` function. Two sub-shapes:
+
+**Per-tick monitors** — poll the real order each tick while the position/scheduled signal is live. This is where you reconcile VWAP with real fills: catch an **SL that gapped through** its level, or a **TP that filled before VWAP** reached it.
+
+| Hook (Broker / action) | Real exchange event | `commit*` to call | Effect on next tick |
+| --- | --- | --- | --- |
+| `onSignalActivePing` / `onPingActive` | TP filled (maybe before VWAP) | `commitCreateTakeProfit(symbol, { id })` | close, `closeReason: "take_profit"` |
+| `onSignalActivePing` / `onPingActive` | SL filled / gapped through | `commitCreateStopLoss(symbol, { id })` | close, `closeReason: "stop_loss"` |
+| `onSignalActivePing` / `onPingActive` | no counterparty / liquidity gap | `commitClosePending(symbol, { id })` | close, `closeReason: "closed"` |
+| `onSignalSchedulePing` / `onPingScheduled` | resting order filled/resolved | `commitActivateScheduled(symbol, { id })` | promote scheduled → open without waiting for priceOpen |
+| `onSignalSchedulePing` / `onPingScheduled` | resting order cancelled/rejected | `commitCancelScheduled(symbol, { id })` | drop the scheduled signal (strategy keeps running) |
+| `onSignalIdlePing` / `onPingIdle` | — (no signal active) | — | idle heartbeat / housekeeping only |
+
+**Lifecycle notifications** — fire once at a transition (after it is committed; they cannot veto it). Use them to **place** or **tear down** real orders, not to poll.
+
+| Hook (Broker / action) | Fires | Typical action |
+| --- | --- | --- |
+| `onSignalScheduleOpen` / `onScheduleEvent` (`"scheduled"`) | scheduled signal created | place the resting/limit order (tag with `signalId`) |
+| `onSignalScheduleCancelled` / `onScheduleEvent` (`"cancelled"`) | scheduled signal dropped (timeout / price_reject / user) | cancel the resting order |
+| `onSignalPendingOpen` / `onPendingEvent` (`"opened"`) | position opened | place entry + protective TP/SL orders |
+| `onSignalPendingClose` / `onPendingEvent` (`"closed"`) | position closed | flatten + cancel leftover orders, record PnL |
+
+```typescript
+import { Broker, commitCreateTakeProfit, commitCreateStopLoss, commitClosePending } from "backtest-kit";
+
+class MyBroker {
+  async onSignalActivePing(payload) {                          // per-tick, event-based
+    const order = await exchange.getOrderById(payload.signalId);
+    if (order?.status === "filled" && order.kind === "take_profit") {
+      await commitCreateTakeProfit(payload.symbol, { id: order.id }); // TP before VWAP
+    } else if (order?.status === "filled" && order.kind === "stop_loss") {
+      await commitCreateStopLoss(payload.symbol, { id: order.id });   // SL gap
+    } else if (order?.status === "no_counterparty") {
+      await commitClosePending(payload.symbol, { id: order.id });
+    }
+  }
+  async onSignalPendingClose(payload) {                          // lifecycle, event-based
+    await exchange.flatten(payload.symbol);
+    await exchange.cancelProtectiveOrders(payload.signalId);
+  }
+}
+Broker.useBrokerAdapter(MyBroker);
+Broker.enable();
+```
+
+### 41.5 Choosing
+
+- Need to distinguish **TP vs SL vs no-counterparty**, or detect a **gapped SL / early TP**, or activate/cancel scheduled orders → **EVENT-BASED** per-tick hooks + `commit*`.
+- Only need a binary **open?/gone?** decision and want the least code → **EXCEPTION-BASED** gate (`onOrderCheck`, or `onSignalOpenCommit`/`onSignalCloseCommit`).
+- Want a **separate infrastructure layer** → Broker adapter (`IBroker`). Want it **alongside a strategy** or working in **backtest** too → action via `addActionSchema` (`IActionCallbacks`).
+- **Never double-handle** one condition with both styles — e.g. throwing in `onOrderCheck` *and* calling `commitClosePending` in `onSignalActivePing` for the same "order gone" event.
+
+---
+
 🤖 For the human-readable narrative, see [README.md](./README.md). MIT © [tripolskypetr](https://github.com/tripolskypetr).
