@@ -647,6 +647,30 @@ Queues a user-supplied signal DTO to be consumed by the next tick instead of get
 Delegates to ClientStrategy.createSignal(). Validated and rejected if a signal/deferred
 action is already in flight. Works out of the async-hooks execution context.
 
+### createTakeProfit
+
+```ts
+createTakeProfit: (backtest: boolean, symbol: string, context: { strategyName: string; exchangeName: string; frameName: string; }, payload?: Partial<CommitPayload>) => Promise<void>
+```
+
+Reports that the pending position's take-profit order was actually filled on the exchange
+(e.g. by candle high/low), forcing a close that bypasses the VWAP-based TP check.
+
+Delegates to ClientStrategy.createTakeProfit(). The close is deferred and emitted with
+closeReason "take_profit" on the next tick()/backtest(). Works out of the execution context.
+
+### createStopLoss
+
+```ts
+createStopLoss: (backtest: boolean, symbol: string, context: { strategyName: string; exchangeName: string; frameName: string; }, payload?: Partial<CommitPayload>) => Promise<void>
+```
+
+Reports that the pending position's stop-loss order was actually filled on the exchange
+(e.g. by candle high/low), forcing a close that bypasses the VWAP-based SL check.
+
+Delegates to ClientStrategy.createStopLoss(). The close is deferred and emitted with
+closeReason "stop_loss" on the next tick()/backtest(). Works out of the execution context.
+
 ### getStatus
 
 ```ts

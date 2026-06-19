@@ -325,6 +325,32 @@ Queues a user-supplied signal DTO to be consumed by the next tick instead of get
 Validates the context, then delegates to StrategyConnectionService.createSignal().
 Rejected if a signal or deferred action is already in flight. Does not require execution context.
 
+### createTakeProfit
+
+```ts
+createTakeProfit: (backtest: boolean, symbol: string, context: { strategyName: string; exchangeName: string; frameName: string; }, payload?: Partial<CommitPayload>) => Promise<void>
+```
+
+Reports that the pending position's take-profit order was actually filled on the exchange
+(e.g. by candle high/low), forcing a close that bypasses the VWAP-based TP check.
+
+Validates the context, then delegates to StrategyConnectionService.createTakeProfit().
+The close is deferred and emitted with closeReason "take_profit" on the next tick/backtest.
+Does not require execution context.
+
+### createStopLoss
+
+```ts
+createStopLoss: (backtest: boolean, symbol: string, context: { strategyName: string; exchangeName: string; frameName: string; }, payload?: Partial<CommitPayload>) => Promise<void>
+```
+
+Reports that the pending position's stop-loss order was actually filled on the exchange
+(e.g. by candle high/low), forcing a close that bypasses the VWAP-based SL check.
+
+Validates the context, then delegates to StrategyConnectionService.createStopLoss().
+The close is deferred and emitted with closeReason "stop_loss" on the next tick/backtest.
+Does not require execution context.
+
 ### getStatus
 
 ```ts

@@ -13,6 +13,8 @@ type StrategyStatus = {
     closedSignal: ISignalCloseRow | null;
     cancelledSignal: IScheduledSignalCancelRow | null;
     activatedSignal: IScheduledSignalActivateRow | null;
+    takeProfitSignal: ISignalCloseRow | null;
+    stopLossSignal: ISignalCloseRow | null;
 };
 ```
 

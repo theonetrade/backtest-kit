@@ -244,6 +244,8 @@ group: docs
 - [hasNoScheduledSignal](functions/hasNoScheduledSignal.md)
 - [commitSignalNotify](functions/commitSignalNotify.md)
 - [commitCreateSignal](functions/commitCreateSignal.md)
+- [commitCreateTakeProfit](functions/commitCreateTakeProfit.md)
+- [commitCreateStopLoss](functions/commitCreateStopLoss.md)
 - [getStrategyStatus](functions/getStrategyStatus.md)
 - [stopStrategy](functions/stopStrategy.md)
 - [shutdown](functions/shutdown.md)

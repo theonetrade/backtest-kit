@@ -543,6 +543,32 @@ priceOpen decides the outcome via the existing pipeline: omitted → opens immed
 current price; provided → opens immediately if already reached, otherwise registers a
 scheduled signal. Validated, and rejected if a signal or deferred action is already in flight.
 
+### commitCreateTakeProfit
+
+```ts
+commitCreateTakeProfit: (symbol: string, context: { strategyName: string; exchangeName: string; }, payload?: Partial<CommitPayload>) => Promise<void>
+```
+
+Reports that the pending position's take-profit order was actually filled on the exchange
+(e.g. by candle high/low), forcing a close that bypasses the VWAP-based TP check.
+
+The exchange and the strategy are parallel states: the framework evaluates TP/SL against VWAP,
+but the real order may fill on high/low. The close is deferred and emitted with closeReason
+"take_profit" on the next live tick. No-op if no pending signal exists.
+
+### commitCreateStopLoss
+
+```ts
+commitCreateStopLoss: (symbol: string, context: { strategyName: string; exchangeName: string; }, payload?: Partial<CommitPayload>) => Promise<void>
+```
+
+Reports that the pending position's stop-loss order was actually filled on the exchange
+(e.g. by candle high/low), forcing a close that bypasses the VWAP-based SL check.
+
+The exchange and the strategy are parallel states: the framework evaluates TP/SL against VWAP,
+but the real order may fill on high/low. The close is deferred and emitted with closeReason
+"stop_loss" on the next live tick. No-op if no pending signal exists.
+
 ### getStrategyStatus
 
 ```ts

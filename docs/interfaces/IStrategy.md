@@ -256,6 +256,42 @@ stored, and the call is rejected if a signal or deferred action is already in fl
 priceOpen is optional — when omitted the position opens immediately at currentPrice;
 when provided the pipeline decides immediate-vs-scheduled.
 
+### createTakeProfit
+
+```ts
+createTakeProfit: (symbol: string, backtest: boolean, payload: Partial<CommitPayload>) => Promise<void>
+```
+
+Reports that the pending position's take-profit order was actually filled on the exchange
+(e.g. by candle high/low), forcing a close that does not wait for the VWAP-based TP check.
+
+The exchange and the strategy are parallel states: ClientStrategy evaluates TP/SL against
+VWAP, but the real order may close on high/low. This method bridges that gap — the broker
+confirms the fill out of the async-hooks execution context, and the close is deferred:
+a snapshot of the current pending signal is stored and drained on the next tick/backtest,
+which closes the position with closeReason "take_profit" at the effective take-profit level.
+
+No-op if no pending signal exists. Persisted (live mode only) so a crash before the next
+tick does not lose the deferred close.
+
+### createStopLoss
+
+```ts
+createStopLoss: (symbol: string, backtest: boolean, payload: Partial<CommitPayload>) => Promise<void>
+```
+
+Reports that the pending position's stop-loss order was actually filled on the exchange
+(e.g. by candle high/low), forcing a close that does not wait for the VWAP-based SL check.
+
+The exchange and the strategy are parallel states: ClientStrategy evaluates TP/SL against
+VWAP, but the real order may close on high/low. This method bridges that gap — the broker
+confirms the fill out of the async-hooks execution context, and the close is deferred:
+a snapshot of the current pending signal is stored and drained on the next tick/backtest,
+which closes the position with closeReason "stop_loss" at the effective stop-loss level.
+
+No-op if no pending signal exists. Persisted (live mode only) so a crash before the next
+tick does not lose the deferred close.
+
 ### getStatus
 
 ```ts
