@@ -7,154 +7,96 @@ group: demo/pinets
 
 > Link to [the source code](https://github.com/tripolskypetr/backtest-kit/tree/master/demo/pinets)
 
-Pine Script execution and backtesting system using `@backtest-kit/pinets` and real market data via CCXT.
+The smallest possible `@backtest-kit/pinets` setup: run a `.pine` indicator against real CCXT candles and print its plots as a markdown table — including a cross-symbol `request.security` call resolved through the same exchange.
 
-## Purpose
+## What it shows
 
-Demonstrates Pine Script integration capabilities for:
-- Running Pine Script indicators against live market data
-- Multi-symbol data via `request.security` calls
-- Markdown report generation from plot outputs
-- Exchange-agnostic candle data sourcing through CCXT
+- **Run a `.pine` from Node** — no TradingView account.
+- **`request.security`** — the example script pulls 1h BTC closes while charting 15m ETH, and the runner resolves that second symbol through the registered exchange.
+- **Plot → markdown** — `toMarkdown` renders the returned plot arrays, keyed by a name→column schema.
 
-## Key Features
-
-- **Pine Script Execution**: Run `.pine` indicator files directly from Node.js
-- **request.security Support**: Fetch higher-timeframe or cross-symbol data inside Pine Script
-- **CCXT Integration**: Fetch candles from any supported exchange (Binance spot by default)
-- **Markdown Output**: Render plot results as a formatted markdown table
-- **Candle Dump Cache**: Local JSON cache of historical candles for offline/repeated runs
-
-## Technology Stack
-
-- **Runtime**: Node.js (ES Modules)
-- **Framework**: backtest-kit 6.4.0
-- **Pine Runner**: @backtest-kit/pinets 6.4.0
-- **Utilities**: functools-kit 1.0.95
-- **Data Source**: ccxt 4.5.24 (Binance spot)
-
-## Project Structure
-
-```
-demo/pinets/
-├── math/
-│   └── test_request_security.pine  # Example Pine Script indicator
-├── src/
-│   └── index.mjs                   # Main runner configuration
-├── dump/                            # Cached candle data (auto-generated)
-├── package.json                     # Dependencies and scripts
-└── README.md                        # This file
-```
-
-## Installation and Setup
+## Run it
 
 ```bash
-# Navigate to project directory
 cd demo/pinets
-
-# Install dependencies
 npm install
-
-# Run the Pine Script
 npm start
 ```
 
-## Configuration
+Pre-configured: **ETHUSDT**, **15m**, **180 candles**, from **2025-09-24T12:00Z**, Binance spot via CCXT.
 
-### Runner Configuration
+<details>
+<summary>The runner (src/index.mjs)</summary>
 
-The runner is pre-configured in `src/index.mjs`:
-
-- **Symbol**: ETHUSDT
-- **Timeframe**: 15m
-- **Limit**: 180 candles
-- **Start Date**: 2025-09-24T12:00:00.000Z
-- **Exchange**: Binance spot (via CCXT)
-
-### Signal Schema
+Register a CCXT exchange, run the script against it, render the result. `run()` takes the file, the run options, the exchange name, and the "as-of" date; `toMarkdown` takes a signal id, the plots, and the schema mapping plot names to column headers:
 
 ```javascript
-const SIGNAL_SCHEMA = {
-  position: "Position",
-  close:    "Close",
-  btcClose: "BTC Close",
-};
+import { addExchangeSchema } from "backtest-kit";
+import { singleshot, randomString } from "functools-kit";
+import { run, File, toMarkdown } from "@backtest-kit/pinets";
+import ccxt from "ccxt";
+
+const SIGNAL_SCHEMA = { position: "Position", close: "Close", btcClose: "BTC Close" };
+
+const getExchange = singleshot(async () => {
+  const exchange = new ccxt.binance({ options: { defaultType: "spot", adjustForTimeDifference: true, recvWindow: 60000 }, enableRateLimit: true });
+  await exchange.loadMarkets();
+  return exchange;
+});
+
+addExchangeSchema({
+  exchangeName: "ccxt-exchange",
+  getCandles: async (symbol, interval, since, limit) => {
+    const candles = await (await getExchange()).fetchOHLCV(symbol, interval, since.getTime(), limit);
+    return candles.map(([timestamp, open, high, low, close, volume]) => ({ timestamp, open, high, low, close, volume }));
+  },
+});
+
+const plots = await run(
+  File.fromPath("test_request_security.pine", "./math"),
+  { symbol: "ETHUSDT", timeframe: "15m", limit: 180 },
+  "ccxt-exchange",
+  new Date("2025-09-24T12:00:00.000Z"),
+);
+
+console.log(await toMarkdown(randomString(), plots, SIGNAL_SCHEMA));
 ```
 
-Maps Pine Script plot names to markdown column headers.
+Change symbol/timeframe/limit in the `run()` options, or drop a new `.pine` into `./math/` and point `File.fromPath` at it.
 
-## Usage Examples
+</details>
 
-### Basic Usage
+<details>
+<summary>The indicator (math/test_request_security.pine)</summary>
 
-Run the indicator and print markdown output:
+A trivial script that proves cross-symbol data flows: it charts the current symbol's close and pulls BTC's 1h close via `request.security`, with a flat `Position` plot. Every output uses `display=display.data_window` so the runner picks it up as a column.
 
-```bash
-npm start
+```pine
+//@version=5
+indicator("test_request_security", overlay=false)
+
+btcClose = request.security("BINANCE:BTCUSDT", "1h", close)  // higher-timeframe / cross-symbol
+
+plot(close,    "Close",     display=display.data_window)
+plot(btcClose, "BTC Close", display=display.data_window)
+plot(0,        "Position",  display=display.data_window)     // flat — just verifying data flow
 ```
 
-Output:
+`run()` feeds the script candles from `ccxt-exchange` and resolves the `request.security("BINANCE:BTCUSDT", …)` call through that same exchange — so a multi-symbol Pine strategy needs no extra wiring.
+
+</details>
+
+## Output
+
 ```
 | Time | Position | Close | BTC Close |
 |------|----------|-------|-----------|
 | ...  | 0        | ...   | ...       |
 ```
 
-### Changing the Symbol or Timeframe
+## Tech stack
 
-Edit `src/index.mjs`:
-
-```javascript
-const plots = await run(
-  File.fromPath("test_request_security.pine", "./math"),
-  {
-    symbol: "BTCUSDT",   // Change symbol
-    timeframe: "1h",     // Change timeframe
-    limit: 100,          // Change candle count
-  },
-  "ccxt-exchange",
-  new Date("2025-10-01T00:00:00.000Z"),
-);
-```
-
-### Writing a Custom Pine Script
-
-Create a new `.pine` file in `./math/` and reference it in `src/index.mjs`:
-
-```javascript
-const plots = await run(
-  File.fromPath("my_indicator.pine", "./math"),
-  { symbol: "SOLUSDT", timeframe: "5m", limit: 200 },
-  "ccxt-exchange",
-  new Date("2025-10-01T00:00:00.000Z"),
-);
-```
-
-## How It Works
-
-### Phase 1: Exchange Setup
-
-`addExchangeSchema` registers a named exchange that fetches OHLCV candles via CCXT:
-
-```javascript
-addExchangeSchema({
-  exchangeName: "ccxt-exchange",
-  getCandles: async (symbol, interval, since, limit) => { ... },
-});
-```
-
-### Phase 2: Pine Script Execution
-
-`run()` loads the `.pine` file, feeds it candles from the registered exchange, and resolves all `request.security` calls using the same exchange.
-
-### Phase 3: Output Rendering
-
-`toMarkdown()` converts the returned plot arrays into a markdown table, keyed by `SIGNAL_SCHEMA`.
-
-## Related Projects
-
-- [backtest-kit](https://github.com/tripolskypetr/backtest-kit) - Trading framework
-- [functools-kit](https://www.npmjs.com/package/functools-kit) - Utility functions
+Node.js (ESM) · backtest-kit 13.6.0 · @backtest-kit/pinets 13.6.0 · ccxt 4.5.24 (Binance spot) · functools-kit.
 
 ## License
 

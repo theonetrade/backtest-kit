@@ -7,305 +7,99 @@ group: demo/optimization
 
 > Link to [the source code](https://github.com/tripolskypetr/backtest-kit/tree/master/demo/optimization)
 
-Automated trading strategy generation system using LLM-powered analysis and backtest-kit framework.
+Generate **runnable strategy code** with an LLM. The optimizer analyzes a symbol across seven training days of multi-timeframe data, then emits a complete executable `.mjs` — exchange config, frames, seven strategies, and a Walker comparison — that you run to find the best variant on held-out test data.
 
-## Purpose
+## What it shows
 
-Demonstrates AI-driven strategy optimization capabilities for:
-- Multi-timeframe market data analysis (1h, 30m, 15m, 1m candles)
-- LLM-based pattern recognition and strategy generation
-- Automated strategy comparison and validation
-- Data-driven trading decision recommendations
+- **Optimizer schema** (`@backtest-kit/ollama`) — `addOptimizerSchema` wires data sources + train/test ranges + an LLM prompt function into one generator.
+- **Four data sources** — 1h (Fibonacci levels), 30m (volume/volatility), 15m (ROC), 1m (squeeze momentum + pressure index), each pulled from a [node-ccxt-dumper](https://github.com/tripolskypetr/node-ccxt-dumper) instance and formatted with full indicator legends for the model.
+- **Train → test split** — 7 days of training (Nov 24–30 2025) → 1 day of validation (Dec 1 2025).
+- **Code generation** — `Optimizer.dump()` writes `./generated/btc-optimizer_BTCUSDT.mjs`; running it executes a 7-strategy Walker ranked by Sharpe.
 
-## Key Features
-
-- **Multi-Timeframe Analysis**: 4 data sources with different granularity levels
-  - Long-term (1h candles): 48h lookback with Fibonacci levels
-  - Swing-term (30m candles): 96 candles with volume/volatility analysis
-  - Short-term (15m candles): Fast indicators and ROC metrics
-  - Micro-term (1m candles): 60 candles with squeeze momentum and pressure index
-
-- **LLM Integration**: Ollama-powered strategy generation (deepseek-v3.1:671b)
-- **Training/Testing Split**: 7-day training period → 1-day validation
-- **Walker Framework**: Automatic strategy comparison and ranking
-- **Progress Monitoring**: Real-time optimization tracking
-- **Rich Indicators**: 50+ technical indicators across all timeframes
-  - RSI, Stochastic RSI, MACD, ADX, ATR, CCI
-  - Bollinger Bands, Moving Averages (SMA, EMA, DEMA, WMA)
-  - Support/Resistance levels, Momentum, ROC
-  - Volume analysis, Volatility metrics
-
-## Technology Stack
-
-- **Runtime**: Node.js (ES Modules)
-- **Framework**: backtest-kit 1.4.3
-- **AI Provider**: Ollama (deepseek-v3.1:671b model)
-- **Utilities**: functools-kit 1.0.93
-- **Data Source**: node-ccxt-dumper API
-
-## Project Structure
-
-```
-demo/optimization/
-├── src/
-│   └── index.mjs        # Main optimizer configuration
-├── generated/           # AI-generated strategy code (output)
-├── package.json         # Dependencies and scripts
-└── README.md           # This file
-```
-
-## Installation and Setup
+## Run it
 
 ```bash
-# Navigate to project directory
 cd demo/optimization
-
-# Install dependencies
 npm install
-
-# Set environment variables
 export OLLAMA_API_KEY=your_ollama_api_key
-
-# Run optimizer
-npm start
+export CCXT_DUMPER_URL=your_node_ccxt_dumper_instance
+npm start                                   # → ./generated/btc-optimizer_BTCUSDT.mjs
+node ./generated/btc-optimizer_BTCUSDT.mjs  # run the generated comparison
 ```
 
-## Configuration
+<details>
+<summary>The optimizer schema (src/index.mjs)</summary>
 
-### Environment Variables
-
-Create a `.env` file or set environment variables:
-
-```env
-OLLAMA_API_KEY=your_ollama_api_key
-CCXT_DUMPER_URL=node-ccxt-dumper-instance
-```
-
-### Training Configuration
-
-The optimizer is pre-configured for BTCUSDT with:
-
-- **Training Period**: November 24-30, 2025 (7 days)
-- **Testing Period**: December 1, 2025 (1 day)
-- **Symbol**: BTCUSDT
-- **Data Source**: [node-ccxt-dumper](https://github.com/tripolskypetr/node-ccxt-dumper)
-
-### Data Sources
-
-1. **long-term-range** - 1h candles with Fibonacci analysis
-2. **swing-term-range** - 30m candles with volume/volatility
-3. **short-term-range** - 15m candles with ROC metrics
-4. **micro-term-range** - 1m candles with pressure index
-
-## Usage Examples
-
-### Basic Usage
-
-Run the optimizer to generate strategies:
-
-```bash
-npm start
-```
-
-Output:
-```
-Progress: 14.285714285714286%
-Progress: 28.571428571428573%
-Progress: 42.857142857142854%
-Progress: 57.14285714285714%
-Progress: 71.42857142857143%
-Progress: 85.71428571428571%
-Progress: 100%
-```
-
-Generated file: `./generated/btc-optimizer_BTCUSDT.mjs`
-
-### Running Generated Strategies
-
-After generation, execute the strategy comparison:
-
-```bash
-node ./generated/btc-optimizer_BTCUSDT.mjs
-```
-
-This will:
-1. Initialize 7 strategies (one per training day)
-2. Run Walker comparison on test data
-3. Rank strategies by performance (Sharpe Ratio)
-4. Output best strategy statistics
-
-### Customizing Symbols
-
-Modify `src/index.mjs` to analyze different cryptocurrencies:
+`addOptimizerSchema` takes the training/test ranges, the source list, and a `getPrompt` that turns the assembled multi-timeframe messages into one strategy report; `Optimizer.dump` runs it and writes the executable:
 
 ```javascript
-await Optimizer.dump(
-  "ETHUSDT",  // Change symbol
-  {
-    optimizerName: "btc-optimizer",
-  },
-  "./generated"
-);
-```
+import { addOptimizerSchema, Optimizer, listenOptimizerProgress } from "@backtest-kit/ollama";
 
-### Adjusting Time Ranges
-
-Edit training/testing periods in `src/index.mjs`:
-
-```javascript
-const TRAIN_RANGE = [
-  {
-    note: "Custom period 1",
-    startDate: new Date("2025-01-01T00:00:00Z"),
-    endDate: new Date("2025-01-01T23:59:59Z"),
-  },
-  // Add more training periods...
-];
-
-const TEST_RANGE = {
-  note: "Validation period",
-  startDate: new Date("2025-01-08T00:00:00Z"),
-  endDate: new Date("2025-01-08T23:59:59Z"),
-};
-```
-
-## How It Works
-
-### Phase 1: Data Collection
-
-For each training period (7 days):
-1. Fetches data from 4 sources (long/swing/short/micro-term)
-2. Formats data with technical indicator descriptions
-3. Builds conversation context for LLM
-
-### Phase 2: Strategy Generation
-
-For each training period:
-1. LLM analyzes historical patterns
-2. Generates trading strategy with entry/exit rules
-3. Creates fundamental analysis with market recommendations
-4. Stores strategy prompt and configuration
-
-### Phase 3: Code Generation
-
-1. Generates complete executable `.mjs` file
-2. Includes:
-   - Exchange configuration (Binance via CCXT)
-   - Frame definitions (training + testing periods)
-   - 7 strategy implementations
-   - Walker setup for comparison
-   - Event listeners for progress tracking
-
-### Phase 4: Validation
-
-Generated code runs Walker to:
-1. Execute all strategies on test data
-2. Calculate performance metrics (Sharpe Ratio, Win Rate, PNL)
-3. Rank strategies by selected metric
-4. Output best-performing strategy
-
-## LLM Prompt Engineering
-
-The system uses strategic prompting for better strategy generation:
-
-```javascript
-// System prompt
-"В ответ напиши торговую стратегию где нет ничего лишнего,
-только отчёт готовый для копипасты целиком
-
-**ВАЖНО**: Не здоровайся, не говори что делаешь - только отчёт!"
-
-// User prompt
-`На каких условиях мне купить ${symbol}?
-Дай анализ рынка на основе поддержки/сопротивления, точек входа в LONG/SHORT позиции.
-Какой RR ставить для позиций?
-Предпочтительны LONG или SHORT позиции?
-
-Сделай не сухой технический, а фундаментальный анализ,
-содержащий стратигическую рекомендацию, например, покупать на низу боковика`
-```
-
-This encourages:
-- Concise, actionable strategies
-- Support/resistance analysis
-- Risk/reward ratios
-- Long/short position preferences
-- Fundamental (not just technical) analysis
-
-## Performance Metrics
-
-Generated strategies are evaluated by:
-
-- **Sharpe Ratio**: Risk-adjusted returns
-- **Win Rate**: Percentage of profitable trades
-- **Average PNL**: Mean profit/loss per trade
-- **Total PNL**: Cumulative profit/loss
-- **Certainty Ratio**: avgWin / |avgLoss|
-- **Max Drawdown**: Largest peak-to-trough decline
-- **Expected Yearly Returns**: Annualized profit estimate
-
-## Economic Benefits
-
-- **Automated Strategy Development**: LLM generates strategies from raw data
-- **Data-Driven Decisions**: 50+ indicators across 4 timeframes
-- **Backtesting Validation**: Historical performance verification
-- **Strategy Diversity**: 7 different approaches per optimization run
-- **Time Savings**: Minutes vs. days of manual strategy development
-- **Reproducibility**: Deterministic code generation from data
-
-## Advanced Customization
-
-### Adding New Data Sources
-
-```javascript
-SOURCE_LIST.push({
-  name: "custom-indicators",
-  fetch: async ({ symbol, startDate, endDate, limit, offset }) => {
-    // Fetch custom data
-    return data.rows;
-  },
-  user: (symbol, data) => str.newline(
-    "=== CUSTOM INDICATORS ===",
-    JSON.stringify(data)
-  ),
-  assistant: () => "Custom data received"
+addOptimizerSchema({
+  optimizerName: "btc-optimizer",
+  rangeTrain: TRAIN_RANGE,   // 7 daily ranges, Nov 24–30 2025
+  rangeTest:  TEST_RANGE,    // Dec 1 2025
+  source:     SOURCE_LIST,   // 4 timeframe sources (below)
+  getPrompt: async (symbol, messages) => text(symbol, messages),  // LLM → strategy report
 });
+
+listenOptimizerProgress(({ progress }) => console.log(`Progress: ${progress * 100}%`));
+
+await Optimizer.dump("BTCUSDT", { optimizerName: "btc-optimizer" }, "./generated");
 ```
 
-### Changing LLM Model
+`Optimizer.getData("BTCUSDT", { optimizerName })` is available too — it returns the per-range strategy metadata without generating code (commented out in the demo, handy for inspecting what the LLM produced).
+
+</details>
+
+<details>
+<summary>The four data sources (SOURCE_LIST)</summary>
+
+Each source is `{ name, fetch, user, assistant }`: `fetch` pulls rows from `CCXT_DUMPER_URL/view/<range>` for the given symbol/date window; `user` renders them as a markdown table followed by an exhaustive indicator legend (period, lookback, range for every column); `assistant` is the acknowledgement turn.
+
+```javascript
+const SOURCE_LIST = [
+  { name: "long-term-range",  /* 1h, 48 candles, RSI/MACD/ADX/Bollinger/Fibonacci/DEMA/WMA/SMA50 … */ },
+  { name: "swing-term-range", /* 30m, 96 candles, + volume/volatility/Bollinger width */ },
+  { name: "short-term-range", /* 15m, fast indicators + ROC(5/10) */ },
+  { name: "micro-term-range", /* 1m, 60 candles, squeeze momentum + pressure index */ },
+];
+// each: fetch({symbol,startDate,endDate,limit,offset}) → rows; user(symbol,data) → markdown + legend
+```
+
+The legends are deliberately verbose — they tell the model exactly what each column means (e.g. "RSI(14): over previous 14 candles before row timestamp, Min 0 Max 100"), so the generated strategy reasons over named indicators rather than raw numbers.
+
+</details>
+
+<details>
+<summary>The prompt (getPrompt → text())</summary>
+
+`text()` calls Ollama with `think: true`, a system instruction to return **only** a copy-paste-ready strategy report (no greeting, no meta-talk), the assembled source messages, and a final question asking for a *fundamental* (not just technical) recommendation with S/R entries and an RR target. The returned report is escaped for safe embedding into the generated `.mjs`:
 
 ```javascript
 const response = await ollama.chat({
-  model: "llama3:70b",  // Use different model
-  messages: [...]
+  model: "deepseek-v3.1:671b", think: true,
+  messages: [
+    { role: "system", content: "только отчёт готовый для копипасты … Не здоровайся, не говори что делаешь" },
+    { role: "system", content: "Reasoning: high" },
+    ...messages,
+    { role: "user", content: `На каких условиях мне купить ${symbol}? … RR? LONG или SHORT? … фундаментальный анализ` },
+  ],
 });
 ```
 
-### Custom Optimizer Callbacks
+</details>
 
-```javascript
-addOptimizer({
-  optimizerName: "btc-optimizer",
-  // ... existing config
-  callbacks: {
-    onSourceData: (symbol, sourceName, data) => {
-      console.log(`✓ Fetched ${data.length} rows from ${sourceName}`);
-    },
-    onData: (symbol, strategies) => {
-      console.log(`✓ Generated ${strategies.length} strategies`);
-    },
-    onCode: (symbol, code) => {
-      console.log(`✓ Code generated: ${code.length} bytes`);
-    }
-  }
-});
-```
+<details>
+<summary>What the generated file does</summary>
 
-## Related Projects
+`./generated/btc-optimizer_BTCUSDT.mjs` is self-contained: exchange config (Binance/CCXT), frame definitions (the 7 training days + the test day), 7 strategy implementations (one per training day's generated report), a Walker setup, and progress listeners. Running it executes all seven strategies on the test data and ranks them by Sharpe — so a week of LLM analysis collapses into one comparable, reproducible artifact.
 
-- [backtest-kit](https://github.com/tripolskypetr/backtest-kit) - Trading framework
-- [node-ccxt-dumper](https://github.com/tripolskypetr/node-ccxt-dumper) - Historical data API
-- [functools-kit](https://www.npmjs.com/package/functools-kit) - Utility functions
+</details>
+
+## Tech stack
+
+Node.js (ESM) · backtest-kit 13.6.0 · @backtest-kit/ollama 13.6.0 · Ollama (`deepseek-v3.1:671b`) · functools-kit · node-ccxt-dumper API.
 
 ## License
 
