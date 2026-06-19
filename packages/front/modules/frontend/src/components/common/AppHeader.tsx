@@ -38,7 +38,7 @@ const useStyles = makeStyles()((theme) => ({
     root: {
         position: "sticky",
         top: 0,
-        zIndex: 9,
+        zIndex: 99999,
         height: HEADER_HEIGHT,
         display: "flex",
         alignItems: "stretch",
