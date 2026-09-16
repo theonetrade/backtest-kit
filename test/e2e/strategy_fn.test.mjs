@@ -31,8 +31,6 @@ import {
   hasNoPendingSignal,
   hasNoScheduledSignal,
   getStrategyStatus,
-  getTotalPercentClosed,
-  getTotalCostClosed,
   getTotalPercentHeld,
   getRemainingCostBasis,
   lib,
@@ -305,12 +303,12 @@ test("commitPartialLossCost closes exact dollars off the remaining basis (live)"
 
   const ok1 = await inMock(() => commitPartialLossCost("BTCUSDT", 150), BASE + 2 * MIN + 5000, CTX);
   if (!ok1) { t.fail("first partialLossCost(150) returned false"); return; }
-  const rem1 = await inMock(() => getTotalCostClosed("BTCUSDT"), BASE + 2 * MIN + 6000, CTX);
+  const rem1 = await inMock(() => getRemainingCostBasis("BTCUSDT"), BASE + 2 * MIN + 6000, CTX);
   if (!near(rem1, 150)) { t.fail(`remaining after $150: expected 150, got ${rem1}`); return; }
 
   const ok2 = await inMock(() => commitPartialLossCost("BTCUSDT", 75), BASE + 2 * MIN + 10_000, CTX);
   if (!ok2) { t.fail("second partialLossCost(75) returned false"); return; }
-  const rem2 = await inMock(() => getTotalCostClosed("BTCUSDT"), BASE + 2 * MIN + 11_000, CTX);
+  const rem2 = await inMock(() => getRemainingCostBasis("BTCUSDT"), BASE + 2 * MIN + 11_000, CTX);
   if (!near(rem2, 75)) { t.fail(`remaining after $75: expected 75 (not 112.5 from total-invested math), got ${rem2}`); return; }
   t.pass("$300 - $150 - $75 leaves exactly $75: dollar conversion uses the remaining basis");
 });
@@ -564,8 +562,8 @@ test("commitSignalNotify delivers user payload to listenSignalNotify (live)", as
   t.pass("signal notify carries notificationId and note to the listener");
 });
 
-// 13. Алиасы: Held == PercentClosed, RemainingCostBasis == CostClosed (после партиала)
-test("alias getters equal their canonical counterparts after a partial", async (t) => {
+// 13. getTotalPercentHeld / getRemainingCostBasis после партиала
+test("held percent and remaining cost basis are correct after a partial", async (t) => {
   useMemoryPersist();
   setConfig({ CC_MAX_SIGNAL_GENERATION_SECONDS: 60 }, true);
   let px = 50000;
@@ -586,18 +584,15 @@ test("alias getters equal their canonical counterparts after a partial", async (
   await inMock(() => commitPartialProfit("BTCUSDT", 50), BASE + 2 * MIN + 5000, CTX);
 
   const when = BASE + 2 * MIN + 6000;
-  const [held, closedPct, remaining, closedCost] = await inMock(
+  const [held, remaining] = await inMock(
     async () => [
       await getTotalPercentHeld("BTCUSDT"),
-      await getTotalPercentClosed("BTCUSDT"),
       await getRemainingCostBasis("BTCUSDT"),
-      await getTotalCostClosed("BTCUSDT"),
     ],
     when,
     CTX,
   );
-  if (held !== closedPct) { t.fail(`Held(${held}) != PercentClosed(${closedPct})`); return; }
-  if (remaining !== closedCost) { t.fail(`RemainingCostBasis(${remaining}) != CostClosed(${closedCost})`); return; }
-  if (!near(closedCost, 150)) { t.fail(`remaining after 50% of $300 must be $150, got ${closedCost}`); return; }
-  t.pass(`aliases equal canon: held=${held}, remaining=$${closedCost} (semantics: 'Closed' returns the REMAINING share)`);
+  if (!near(held, 50)) { t.fail(`held after 50% partial must be 50%, got ${held}`); return; }
+  if (!near(remaining, 150)) { t.fail(`remaining after 50% of $300 must be $150, got ${remaining}`); return; }
+  t.pass(`held=${held}%, remaining=$${remaining}`);
 });

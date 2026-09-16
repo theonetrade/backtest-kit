@@ -43,8 +43,6 @@ export {
   getStrategyStatus,
   getStrategyPaused,
   setStrategyPaused,
-  getTotalPercentClosed,
-  getTotalCostClosed,
   getTotalPercentHeld,
   getRemainingCostBasis,
   getPositionEffectivePrice,

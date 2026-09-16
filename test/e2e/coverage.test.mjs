@@ -119,7 +119,7 @@ test("DIFF: partial cap epsilon lets the final 100%-of-remaining close through f
   }
 
   // Авто-закрытие: остаток $0 -> позиция ушла в deferred-close, геттеры пусты
-  const remaining = await inCtx(context, () => lib.strategyCoreService.getTotalCostClosed(false, "BTCUSDT", context));
+  const remaining = await inCtx(context, () => lib.strategyCoreService.getRemainingCostBasis(false, "BTCUSDT", context));
   if (remaining !== null) {
     fail(`position must be auto-closed after 100%-of-remaining (getters null), got ${remaining}`);
     return;
@@ -666,8 +666,8 @@ test("DIFF: every getter and command on ClientStrategy runs bare, without contex
   await bare("getBreakeven", () => s.getBreakeven("BTCUSDT", basePrice + 1000));
   await bare("getStatus", () => s.getStatus("BTCUSDT"));
   // --- позиционные геттеры ---
-  await bare("getTotalPercentClosed", () => s.getTotalPercentClosed("BTCUSDT"));
-  await bare("getTotalCostClosed", () => s.getTotalCostClosed("BTCUSDT"));
+  await bare("getTotalPercentHeld", () => s.getTotalPercentHeld("BTCUSDT"));
+  await bare("getRemainingCostBasis", () => s.getRemainingCostBasis("BTCUSDT"));
   await bare("getPositionEffectivePrice", () => s.getPositionEffectivePrice("BTCUSDT"));
   await bare("getPositionInvestedCount", () => s.getPositionInvestedCount("BTCUSDT"));
   await bare("getPositionInvestedCost", () => s.getPositionInvestedCost("BTCUSDT"));

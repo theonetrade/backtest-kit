@@ -1199,10 +1199,10 @@ export interface IStrategy {
    * @param symbol - Trading pair symbol
    * @returns Promise resolving to held percentage (0–100)
    */
-  getTotalPercentClosed: (symbol: string) => Promise<number | null>;
+  getTotalPercentHeld: (symbol: string) => Promise<number | null>;
 
   /**
-   * Returns how many dollars of cost basis are still held (not yet closed by partials).
+   * Returns the remaining cost basis in dollars after partial closes.
    *
    * Full position open: equals totalInvested (entries × $100).
    * Decreases with each partial close, increases with each averageBuy().
@@ -1210,9 +1210,9 @@ export interface IStrategy {
    * Returns totalInvested if no pending signal or no partial closes.
    *
    * @param symbol - Trading pair symbol
-   * @returns Promise resolving to held cost basis in dollars
+   * @returns Promise resolving to remaining cost basis in dollars
    */
-  getTotalCostClosed: (symbol: string) => Promise<number | null>;
+  getRemainingCostBasis: (symbol: string) => Promise<number | null>;
 
   /**
    * Returns the effective (DCA-averaged) entry price for the current pending signal.

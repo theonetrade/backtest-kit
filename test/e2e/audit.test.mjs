@@ -14,7 +14,7 @@ import {
   listenSignalLiveOnce,
   listenPartialProfitAvailable,
   commitPartialProfitCost,
-  getTotalCostClosed,
+  getRemainingCostBasis,
   PersistSignalAdapter,
   PersistScheduleAdapter,
   PersistStorageAdapter,
@@ -493,7 +493,7 @@ test("AUDIT: commitPartialProfitCost closes exact dollar amounts after prior par
       secondDone = true;
       // Осталось $150: закрываем ещё $75
       secondResult = await commitPartialProfitCost(symbol, 75);
-      remainingAfter = await getTotalCostClosed(symbol);
+      remainingAfter = await getRemainingCostBasis(symbol);
     }
   });
 
@@ -657,7 +657,7 @@ test("AUDIT: Backtest.commitPartialProfitCost copy closes exact dollars after pr
       secondDone = true;
       // Осталось $150: закрываем ещё $75
       secondResult = await Backtest.commitPartialProfitCost(symbol, 75, currentPrice, context);
-      remainingAfter = await getTotalCostClosed(symbol);
+      remainingAfter = await getRemainingCostBasis(symbol);
     }
   });
 

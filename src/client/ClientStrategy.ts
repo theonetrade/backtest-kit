@@ -7127,10 +7127,6 @@ export class ClientStrategy implements IStrategy {
   /**
    * Returns how much of the position is still held, as a percentage of totalInvested.
    *
-   * NOTE: despite the name, this returns the REMAINING (still held) percent,
-   * i.e. 100 - totalClosedPercent — the name is kept for public-API backward
-   * compatibility.
-   *
    * Uses dollar-basis cost-basis replay (DCA-aware).
    * 100% means nothing was closed yet. Decreases with each partial close.
    *
@@ -7142,8 +7138,8 @@ export class ClientStrategy implements IStrategy {
    * @param symbol - Trading pair symbol
    * @returns Promise resolving to held percentage (0–100)
    */
-  public async getTotalPercentClosed(symbol: string): Promise<number | null> {
-    this.params.logger.debug("ClientStrategy getTotalPercentClosed", { symbol });
+  public async getTotalPercentHeld(symbol: string): Promise<number | null> {
+    this.params.logger.debug("ClientStrategy getTotalPercentHeld", { symbol });
     if (!this._pendingSignal) {
       return null;
     }
@@ -7152,7 +7148,7 @@ export class ClientStrategy implements IStrategy {
   }
 
   /**
-   * Returns how many dollars of cost basis are still held (not yet closed by partials).
+   * Returns the remaining cost basis in dollars after partial closes.
    *
    * Equal to remainingCostBasis from getTotalClosed.
    * Full position open: equals totalInvested (entries × $100).
@@ -7165,10 +7161,10 @@ export class ClientStrategy implements IStrategy {
    * Returns null if no pending signal exists; totalInvested if no partial closes yet.
    *
    * @param symbol - Trading pair symbol
-   * @returns Promise resolving to held cost basis in dollars
+   * @returns Promise resolving to remaining cost basis in dollars
    */
-  public async getTotalCostClosed(symbol: string): Promise<number | null> {
-    this.params.logger.debug("ClientStrategy getTotalCostClosed", { symbol });
+  public async getRemainingCostBasis(symbol: string): Promise<number | null> {
+    this.params.logger.debug("ClientStrategy getRemainingCostBasis", { symbol });
     if (!this._pendingSignal) {
       return null;
     }

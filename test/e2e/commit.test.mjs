@@ -145,7 +145,7 @@ test("COMMIT: imperative commit functions route to their broker adapter methods"
 
     // Операции реально применились: 20% от remaining $200 → $160
     const remaining = await MethodContextService.runInContext(
-      () => lib.strategyCoreService.getTotalCostClosed(false, "BTCUSDT", context), context);
+      () => lib.strategyCoreService.getRemainingCostBasis(false, "BTCUSDT", context), context);
     if (remaining !== 160) {
       fail(`remaining after DCA($200) − 20% expected 160, got ${remaining}`);
       return;

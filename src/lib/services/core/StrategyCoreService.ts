@@ -137,7 +137,7 @@ export class StrategyCoreService implements TStrategy {
   };
 
   /**
-   * Returns the percentage of the position currently held (not closed).
+   * Returns the still-held share of the position as a percentage.
    * 100 = nothing has been closed (full position), 0 = fully closed.
    * Correctly accounts for DCA entries between partial closes.
    *
@@ -146,39 +146,39 @@ export class StrategyCoreService implements TStrategy {
    * @param context - Execution context with strategyName, exchangeName, frameName
    * @returns Promise<number> - held percentage (0–100)
    */
-  public getTotalPercentClosed = async (
+  public getTotalPercentHeld = async (
     backtest: boolean,
     symbol: string,
     context: { strategyName: StrategyName; exchangeName: ExchangeName; frameName: FrameName }
   ): Promise<number | null> => {
-    this.loggerService.log("strategyCoreService getTotalPercentClosed", {
+    this.loggerService.log("strategyCoreService getTotalPercentHeld", {
       symbol,
       context,
     });
     await this.validate(context);
-    return await this.strategyConnectionService.getTotalPercentClosed(backtest, symbol, context);
+    return await this.strategyConnectionService.getTotalPercentHeld(backtest, symbol, context);
   };
 
   /**
-   * Returns the cost basis in dollars of the position currently held (not closed).
+   * Returns the remaining cost basis in dollars after partial closes.
    * Correctly accounts for DCA entries between partial closes.
    *
    * @param backtest - Whether running in backtest mode
    * @param symbol - Trading pair symbol
    * @param context - Execution context with strategyName, exchangeName, frameName
-   * @returns Promise<number> - held cost basis in dollars
+   * @returns Promise<number> - remaining cost basis in dollars
    */
-  public getTotalCostClosed = async (
+  public getRemainingCostBasis = async (
     backtest: boolean,
     symbol: string,
     context: { strategyName: StrategyName; exchangeName: ExchangeName; frameName: FrameName }
   ): Promise<number | null> => {
-    this.loggerService.log("strategyCoreService getTotalCostClosed", {
+    this.loggerService.log("strategyCoreService getRemainingCostBasis", {
       symbol,
       context,
     });
     await this.validate(context);
-    return await this.strategyConnectionService.getTotalCostClosed(backtest, symbol, context);
+    return await this.strategyConnectionService.getRemainingCostBasis(backtest, symbol, context);
   };
 
   /**

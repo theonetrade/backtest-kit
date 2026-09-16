@@ -27,7 +27,7 @@ import {
   commitClosePending,
   commitCancelScheduled,
   commitActivateScheduled,
-  getTotalCostClosed,
+  getRemainingCostBasis,
   getStrategyStatus,
   lib,
 } from "../../build/index.mjs";
@@ -173,12 +173,12 @@ test("short commitPartialLossCost cuts exact dollars while price rises", async (
 
   const ok1 = await inMock(() => commitPartialLossCost("BTCUSDT", 150), BASE + 2 * MIN + 5000, CTX);
   if (!ok1) { t.fail("short partialLossCost(150) returned false"); return; }
-  const rem1 = await inMock(() => getTotalCostClosed("BTCUSDT"), BASE + 2 * MIN + 6000, CTX);
+  const rem1 = await inMock(() => getRemainingCostBasis("BTCUSDT"), BASE + 2 * MIN + 6000, CTX);
   if (!near(rem1, 150)) { t.fail(`remaining expected 150, got ${rem1}`); return; }
 
   const ok2 = await inMock(() => commitPartialLossCost("BTCUSDT", 75), BASE + 2 * MIN + 10_000, CTX);
   if (!ok2) { t.fail("short partialLossCost(75) returned false"); return; }
-  const rem2 = await inMock(() => getTotalCostClosed("BTCUSDT"), BASE + 2 * MIN + 11_000, CTX);
+  const rem2 = await inMock(() => getRemainingCostBasis("BTCUSDT"), BASE + 2 * MIN + 11_000, CTX);
   if (!near(rem2, 75)) { t.fail(`remaining expected 75, got ${rem2}`); return; }
   t.pass("short: $300 - $150 - $75 -> $75 remaining while price is UP");
 });
@@ -373,7 +373,7 @@ test("100% partial profit empties the basis; position fate is pinned", async (t)
 
   const ok = await inMock(() => commitPartialProfit("BTCUSDT", 100), BASE + 2 * MIN + 5000, CTX);
   if (!ok) { t.fail("partialProfit(100) rejected"); return; }
-  const remaining = await inMock(() => getTotalCostClosed("BTCUSDT"), BASE + 2 * MIN + 6000, CTX);
+  const remaining = await inMock(() => getRemainingCostBasis("BTCUSDT"), BASE + 2 * MIN + 6000, CTX);
   if (remaining !== null) { t.fail(`position must be auto-closed after 100% partial (getter null), got ${remaining}`); return; }
 
   const r2 = await liveTick("BTCUSDT", BASE + 3 * MIN, CTX);
@@ -424,7 +424,7 @@ test("invalid partial percents are rejected and do not mutate the position", asy
     t.fail(`invalid percents must be rejected: 0=${zero} -5=${negative} 150=${over}`);
     return;
   }
-  const remaining = await inMock(() => getTotalCostClosed("BTCUSDT"), BASE + 2 * MIN + 8000, CTX);
+  const remaining = await inMock(() => getRemainingCostBasis("BTCUSDT"), BASE + 2 * MIN + 8000, CTX);
   if (!near(remaining, 300)) { t.fail(`position mutated by rejected partials: ${remaining}`); return; }
   t.pass("0 / -5 / 150 percent all rejected, basis untouched at $300");
 });
@@ -450,7 +450,7 @@ test("dollar amount above the remaining basis is rejected", async (t) => {
 
   const over = await inMock(() => commitPartialLossCost("BTCUSDT", 400), BASE + 2 * MIN + 5000, CTX);
   if (over !== false) { t.fail("$400 of $300 must be rejected"); return; }
-  const remaining = await inMock(() => getTotalCostClosed("BTCUSDT"), BASE + 2 * MIN + 6000, CTX);
+  const remaining = await inMock(() => getRemainingCostBasis("BTCUSDT"), BASE + 2 * MIN + 6000, CTX);
   if (!near(remaining, 300)) { t.fail(`basis mutated: ${remaining}`); return; }
   t.pass("$400 off a $300 basis rejected, basis untouched");
 });

@@ -490,7 +490,7 @@ test("MANAGE: partialProfit from listenActivePing closes 40% and drains the comm
       return;
     }
 
-    const remaining = await inCtx(context, () => lib.strategyCoreService.getTotalCostClosed(false, "BTCUSDT", context));
+    const remaining = await inCtx(context, () => lib.strategyCoreService.getRemainingCostBasis(false, "BTCUSDT", context));
     if (remaining !== 60) {
       fail(`remaining cost basis after 40% partial expected 60, got ${remaining}`);
       return;
@@ -582,7 +582,7 @@ test("MANAGE: partialLoss from listenActivePing sheds 30% on drawdown and drains
       return;
     }
 
-    const remaining = await inCtx(context, () => lib.strategyCoreService.getTotalCostClosed(false, "BTCUSDT", context));
+    const remaining = await inCtx(context, () => lib.strategyCoreService.getRemainingCostBasis(false, "BTCUSDT", context));
     if (remaining !== 70) {
       fail(`remaining cost basis after 30% partial expected 70, got ${remaining}`);
       return;
@@ -708,7 +708,7 @@ test("MANAGE: interleaved DCA and partial exits keep the dollar cost basis exact
     }
 
     const S = lib.strategyCoreService;
-    const remaining = await inCtx(context, () => S.getTotalCostClosed(false, "BTCUSDT", context));
+    const remaining = await inCtx(context, () => S.getRemainingCostBasis(false, "BTCUSDT", context));
     if (remaining !== null) {
       fail(`position getters must be empty after auto-close, got remaining=${remaining}`);
       return;
@@ -836,7 +836,7 @@ test("MANAGE INTEGRATION LONG: DCA + partialLoss + partialProfit + trailingStop 
       return;
     }
     // Остаток базиса: 200 → loss25 → 150 → profit40 → 90
-    const remaining = await inCtx(context, () => S.getTotalCostClosed(false, "BTCUSDT", context));
+    const remaining = await inCtx(context, () => S.getRemainingCostBasis(false, "BTCUSDT", context));
     if (!near(remaining, 90)) {
       fail(`remaining basis expected 90, got ${remaining}`);
       return;
@@ -990,7 +990,7 @@ test("MANAGE INTEGRATION SHORT: DCA + partialLoss + partialProfit + trailingStop
       fail(`effective price expected ~${expectedEff}, got ${eff}`);
       return;
     }
-    const remaining = await inCtx(context, () => S.getTotalCostClosed(false, "BTCUSDT", context));
+    const remaining = await inCtx(context, () => S.getRemainingCostBasis(false, "BTCUSDT", context));
     if (!near(remaining, 90)) {
       fail(`remaining basis expected 90, got ${remaining}`);
       return;
@@ -1147,7 +1147,7 @@ test("MANAGE INTEGRATION LONG: full lifecycle reversal closes exactly on the TRA
       fail(`effective price expected ~${expectedEff}, got ${eff}`);
       return;
     }
-    const remaining = await inCtx(context, () => S.getTotalCostClosed(false, "BTCUSDT", context));
+    const remaining = await inCtx(context, () => S.getRemainingCostBasis(false, "BTCUSDT", context));
     if (!near(remaining, 90)) {
       fail(`remaining basis expected 90, got ${remaining}`);
       return;
@@ -1305,7 +1305,7 @@ test("MANAGE INTEGRATION SHORT: full lifecycle reversal closes exactly on the TR
       fail(`effective price expected ~${expectedEff}, got ${eff}`);
       return;
     }
-    const remaining = await inCtx(context, () => S.getTotalCostClosed(false, "BTCUSDT", context));
+    const remaining = await inCtx(context, () => S.getRemainingCostBasis(false, "BTCUSDT", context));
     if (!near(remaining, 90)) {
       fail(`remaining basis expected 90, got ${remaining}`);
       return;

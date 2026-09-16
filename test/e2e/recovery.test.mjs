@@ -431,7 +431,7 @@ test("RECOVERY: queued partial commit survives a crash when pendingSignalId matc
     }
 
     // И состояние партиала восстановлено вместе с сигналом
-    const remaining = await inCtx(context, () => lib.strategyCoreService.getTotalCostClosed(false, "BTCUSDT", context));
+    const remaining = await inCtx(context, () => lib.strategyCoreService.getRemainingCostBasis(false, "BTCUSDT", context));
     if (remaining !== 70) {
       fail(`restored remaining cost basis expected 70, got ${remaining}`);
       return;
@@ -1719,7 +1719,7 @@ test("RECOVERY: crash between partialProfit writes loses only the commit event, 
     // ...но деньги консистентны: партиал учтён в remaining basis
     const conn = Object.getPrototypeOf(lib.strategyConnectionService);
     const s = conn.getStrategy("BTCUSDT", context.strategyName, context.exchangeName, context.frameName, false);
-    const remainingPercent = await s.getTotalPercentClosed("BTCUSDT");
+    const remainingPercent = await s.getTotalPercentHeld("BTCUSDT");
     if (remainingPercent !== 60) {
       fail(`REGRESSION: remaining position expected 60% after restored 40% partial, got ${remainingPercent}`);
       return;

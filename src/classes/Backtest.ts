@@ -37,10 +37,10 @@ const BACKTEST_METHOD_NAME_TASK = "BacktestUtils.task";
 const BACKTEST_METHOD_NAME_GET_STATUS = "BacktestUtils.getStatus";
 const BACKTEST_METHOD_NAME_GET_PENDING_SIGNAL =
   "BacktestUtils.getPendingSignal";
-const BACKTEST_METHOD_NAME_GET_TOTAL_PERCENT_CLOSED =
-  "BacktestUtils.getTotalPercentClosed";
-const BACKTEST_METHOD_NAME_GET_TOTAL_COST_CLOSED =
-  "BacktestUtils.getTotalCostClosed";
+const BACKTEST_METHOD_NAME_GET_TOTAL_PERCENT_HELD =
+  "BacktestUtils.getTotalPercentHeld";
+const BACKTEST_METHOD_NAME_GET_REMAINING_COST_BASIS =
+  "BacktestUtils.getRemainingCostBasis";
 const BACKTEST_METHOD_NAME_GET_SCHEDULED_SIGNAL =
   "BacktestUtils.getScheduledSignal";
 const BACKTEST_METHOD_NAME_GET_BREAKEVEN = "BacktestUtils.getBreakeven";
@@ -752,7 +752,7 @@ export class BacktestUtils {
   };
 
   /**
-   * Returns the percentage of the position currently held (not closed).
+   * Returns the still-held share of the position as a percentage.
    * 100 = nothing has been closed (full position), 0 = fully closed.
    * Correctly accounts for DCA entries between partial closes.
    *
@@ -762,11 +762,11 @@ export class BacktestUtils {
    *
    * @example
    * ```typescript
-   * const heldPct = await Backtest.getTotalPercentClosed("BTCUSDT", { strategyName, exchangeName, frameName });
+   * const heldPct = await Backtest.getTotalPercentHeld("BTCUSDT", { strategyName, exchangeName, frameName });
    * console.log(`Holding ${heldPct}% of position`);
    * ```
    */
-  public getTotalPercentClosed = async (
+  public getTotalPercentHeld = async (
     symbol: string,
     context: {
       strategyName: StrategyName;
@@ -774,17 +774,17 @@ export class BacktestUtils {
       frameName: FrameName;
     },
   ) => {
-    backtest.loggerService.info(BACKTEST_METHOD_NAME_GET_TOTAL_PERCENT_CLOSED, {
+    backtest.loggerService.info(BACKTEST_METHOD_NAME_GET_TOTAL_PERCENT_HELD, {
       symbol,
       context,
     });
     backtest.strategyValidationService.validate(
       context.strategyName,
-      BACKTEST_METHOD_NAME_GET_TOTAL_PERCENT_CLOSED,
+      BACKTEST_METHOD_NAME_GET_TOTAL_PERCENT_HELD,
     );
     backtest.exchangeValidationService.validate(
       context.exchangeName,
-      BACKTEST_METHOD_NAME_GET_TOTAL_PERCENT_CLOSED,
+      BACKTEST_METHOD_NAME_GET_TOTAL_PERCENT_HELD,
     );
 
     {
@@ -793,25 +793,25 @@ export class BacktestUtils {
       riskName &&
         backtest.riskValidationService.validate(
           riskName,
-          BACKTEST_METHOD_NAME_GET_TOTAL_PERCENT_CLOSED,
+          BACKTEST_METHOD_NAME_GET_TOTAL_PERCENT_HELD,
         );
       riskList &&
         riskList.forEach((riskName) =>
           backtest.riskValidationService.validate(
             riskName,
-            BACKTEST_METHOD_NAME_GET_TOTAL_PERCENT_CLOSED,
+            BACKTEST_METHOD_NAME_GET_TOTAL_PERCENT_HELD,
           ),
         );
       actions &&
         actions.forEach((actionName) =>
           backtest.actionValidationService.validate(
             actionName,
-            BACKTEST_METHOD_NAME_GET_TOTAL_PERCENT_CLOSED,
+            BACKTEST_METHOD_NAME_GET_TOTAL_PERCENT_HELD,
           ),
         );
     }
 
-    return await backtest.strategyCoreService.getTotalPercentClosed(
+    return await backtest.strategyCoreService.getTotalPercentHeld(
       true,
       symbol,
       context,
@@ -819,20 +819,20 @@ export class BacktestUtils {
   };
 
   /**
-   * Returns the cost basis in dollars of the position currently held (not closed).
+   * Returns the remaining cost basis in dollars after partial closes.
    * Correctly accounts for DCA entries between partial closes.
    *
    * @param symbol - Trading pair symbol
    * @param context - Context with strategyName, exchangeName, frameName
-   * @returns Promise<number> - held cost basis in dollars
+   * @returns Promise<number> - remaining cost basis in dollars
    *
    * @example
    * ```typescript
-   * const heldCost = await Backtest.getTotalCostClosed("BTCUSDT", { strategyName, exchangeName, frameName });
-   * console.log(`Holding $${heldCost} of position`);
+   * const remaining = await Backtest.getRemainingCostBasis("BTCUSDT", { strategyName, exchangeName, frameName });
+   * console.log(`Remaining cost basis: $${remaining}`);
    * ```
    */
-  public getTotalCostClosed = async (
+  public getRemainingCostBasis = async (
     symbol: string,
     context: {
       strategyName: StrategyName;
@@ -840,17 +840,17 @@ export class BacktestUtils {
       frameName: FrameName;
     },
   ) => {
-    backtest.loggerService.info(BACKTEST_METHOD_NAME_GET_TOTAL_COST_CLOSED, {
+    backtest.loggerService.info(BACKTEST_METHOD_NAME_GET_REMAINING_COST_BASIS, {
       symbol,
       context,
     });
     backtest.strategyValidationService.validate(
       context.strategyName,
-      BACKTEST_METHOD_NAME_GET_TOTAL_COST_CLOSED,
+      BACKTEST_METHOD_NAME_GET_REMAINING_COST_BASIS,
     );
     backtest.exchangeValidationService.validate(
       context.exchangeName,
-      BACKTEST_METHOD_NAME_GET_TOTAL_COST_CLOSED,
+      BACKTEST_METHOD_NAME_GET_REMAINING_COST_BASIS,
     );
 
     {
@@ -859,25 +859,25 @@ export class BacktestUtils {
       riskName &&
         backtest.riskValidationService.validate(
           riskName,
-          BACKTEST_METHOD_NAME_GET_TOTAL_COST_CLOSED,
+          BACKTEST_METHOD_NAME_GET_REMAINING_COST_BASIS,
         );
       riskList &&
         riskList.forEach((riskName) =>
           backtest.riskValidationService.validate(
             riskName,
-            BACKTEST_METHOD_NAME_GET_TOTAL_COST_CLOSED,
+            BACKTEST_METHOD_NAME_GET_REMAINING_COST_BASIS,
           ),
         );
       actions &&
         actions.forEach((actionName) =>
           backtest.actionValidationService.validate(
             actionName,
-            BACKTEST_METHOD_NAME_GET_TOTAL_COST_CLOSED,
+            BACKTEST_METHOD_NAME_GET_REMAINING_COST_BASIS,
           ),
         );
     }
 
-    return await backtest.strategyCoreService.getTotalCostClosed(
+    return await backtest.strategyCoreService.getRemainingCostBasis(
       true,
       symbol,
       context,
@@ -3955,7 +3955,7 @@ export class BacktestUtils {
     // percentToClose is applied to the REMAINING cost basis (see PARTIAL_PROFIT_FN),
     // so the broker-facing dollar cost is derived from the remaining basis too
     const remainingCostForProfit =
-      await backtest.strategyCoreService.getTotalCostClosed(
+      await backtest.strategyCoreService.getRemainingCostBasis(
         true,
         symbol,
         context,
@@ -4088,7 +4088,7 @@ export class BacktestUtils {
     // percentToClose is applied to the REMAINING cost basis (see PARTIAL_LOSS_FN),
     // so the broker-facing dollar cost is derived from the remaining basis too
     const remainingCostForLoss =
-      await backtest.strategyCoreService.getTotalCostClosed(
+      await backtest.strategyCoreService.getRemainingCostBasis(
         true,
         symbol,
         context,
@@ -4223,7 +4223,7 @@ export class BacktestUtils {
     // ClientStrategy), so the dollar amount is converted against the remaining
     // basis — converting against total invested under-closed after the first partial
     const remainingCost =
-      await backtest.strategyCoreService.getTotalCostClosed(
+      await backtest.strategyCoreService.getRemainingCostBasis(
         true,
         symbol,
         context,
@@ -4359,7 +4359,7 @@ export class BacktestUtils {
     // ClientStrategy), so the dollar amount is converted against the remaining
     // basis — converting against total invested under-closed after the first partial
     const remainingCost =
-      await backtest.strategyCoreService.getTotalCostClosed(
+      await backtest.strategyCoreService.getRemainingCostBasis(
         true,
         symbol,
         context,

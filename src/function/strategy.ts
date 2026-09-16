@@ -31,8 +31,8 @@ const TRAILING_PROFIT_COST_METHOD_NAME = "strategy.commitTrailingTakeCost";
 const BREAKEVEN_METHOD_NAME = "strategy.commitBreakeven";
 const ACTIVATE_SCHEDULED_METHOD_NAME = "strategy.commitActivateScheduled";
 const AVERAGE_BUY_METHOD_NAME = "strategy.commitAverageBuy";
-const GET_TOTAL_PERCENT_CLOSED_METHOD_NAME = "strategy.getTotalPercentClosed";
-const GET_TOTAL_COST_CLOSED_METHOD_NAME = "strategy.getTotalCostClosed";
+const GET_TOTAL_PERCENT_HELD_METHOD_NAME = "strategy.getTotalPercentHeld";
+const GET_REMAINING_COST_BASIS_METHOD_NAME = "strategy.getRemainingCostBasis";
 const GET_PENDING_SIGNAL_METHOD_NAME = "strategy.getPendingSignal";
 const GET_SCHEDULED_SIGNAL_METHOD_NAME = "strategy.getScheduledSignal";
 const GET_BREAKEVEN_METHOD_NAME = "strategy.getBreakeven";
@@ -223,7 +223,7 @@ export async function commitPartialProfit(
   // percentToClose is applied to the REMAINING cost basis (see PARTIAL_PROFIT_FN),
   // so the broker-facing dollar cost is derived from the remaining basis too
   const remainingCostForProfit =
-    await backtest.strategyCoreService.getTotalCostClosed(
+    await backtest.strategyCoreService.getRemainingCostBasis(
       isBacktest,
       symbol,
       { exchangeName, frameName, strategyName },
@@ -323,7 +323,7 @@ export async function commitPartialLoss(
   // percentToClose is applied to the REMAINING cost basis (see PARTIAL_LOSS_FN),
   // so the broker-facing dollar cost is derived from the remaining basis too
   const remainingCostForLoss =
-    await backtest.strategyCoreService.getTotalCostClosed(
+    await backtest.strategyCoreService.getRemainingCostBasis(
       isBacktest,
       symbol,
       { exchangeName, frameName, strategyName },
@@ -1019,92 +1019,11 @@ export async function commitAverageBuy(
 }
 
 /**
- * Returns the percentage of the position currently held (not closed).
+ * Returns the still-held share of the position as a percentage.
  * 100 = nothing has been closed (full position), 0 = fully closed.
  * Correctly accounts for DCA entries between partial closes.
  *
  * Automatically detects backtest/live mode from execution context.
- *
- * @deprecated The name is misleading — the function returns the HELD share,
- * not the closed one. Use {@link getTotalPercentHeld} instead.
- *
- * @param symbol - Trading pair symbol
- * @returns Promise<number> - held percentage (0–100)
- *
- * @example
- * ```typescript
- * import { getTotalPercentClosed } from "backtest-kit";
- *
- * const heldPct = await getTotalPercentClosed("BTCUSDT");
- * console.log(`Holding ${heldPct}% of position`);
- * ```
- */
-export async function getTotalPercentClosed(symbol: string): Promise<number> {
-  backtest.loggerService.info(GET_TOTAL_PERCENT_CLOSED_METHOD_NAME, {
-    symbol,
-  });
-  if (!ExecutionContextService.hasContext()) {
-    throw new Error("getTotalPercentClosed requires an execution context");
-  }
-  if (!MethodContextService.hasContext()) {
-    throw new Error("getTotalPercentClosed requires a method context");
-  }
-  const { backtest: isBacktest } = backtest.executionContextService.context;
-  const { exchangeName, frameName, strategyName } =
-    backtest.methodContextService.context;
-  return await backtest.strategyCoreService.getTotalPercentClosed(
-    isBacktest,
-    symbol,
-    { exchangeName, frameName, strategyName },
-  );
-}
-
-/**
- * Returns the cost basis in dollars of the position currently held (not closed).
- * Correctly accounts for DCA entries between partial closes.
- *
- * Automatically detects backtest/live mode from execution context.
- *
- * @deprecated The name is misleading — the function returns the REMAINING
- * cost basis, not the closed one. Use {@link getRemainingCostBasis} instead.
- *
- * @param symbol - Trading pair symbol
- * @returns Promise<number> - held cost basis in dollars
- *
- * @example
- * ```typescript
- * import { getTotalCostClosed } from "backtest-kit";
- *
- * const heldCost = await getTotalCostClosed("BTCUSDT");
- * console.log(`Holding $${heldCost} of position`);
- * ```
- */
-export async function getTotalCostClosed(symbol: string): Promise<number> {
-  backtest.loggerService.info(GET_TOTAL_COST_CLOSED_METHOD_NAME, {
-    symbol,
-  });
-  if (!ExecutionContextService.hasContext()) {
-    throw new Error("getTotalCostClosed requires an execution context");
-  }
-  if (!MethodContextService.hasContext()) {
-    throw new Error("getTotalCostClosed requires a method context");
-  }
-  const { backtest: isBacktest } = backtest.executionContextService.context;
-  const { exchangeName, frameName, strategyName } =
-    backtest.methodContextService.context;
-  return await backtest.strategyCoreService.getTotalCostClosed(
-    isBacktest,
-    symbol,
-    { exchangeName, frameName, strategyName },
-  );
-}
-
-/**
- * Returns the percentage of the position currently held (not yet closed by partials).
- * 100 = nothing has been closed (full position), 0 = fully closed.
- * Correctly accounts for DCA entries between partial closes.
- *
- * Correctly-named alias for {@link getTotalPercentClosed}.
  *
  * @param symbol - Trading pair symbol
  * @returns Promise<number> - held percentage (0–100)
@@ -1118,15 +1037,30 @@ export async function getTotalCostClosed(symbol: string): Promise<number> {
  * ```
  */
 export async function getTotalPercentHeld(symbol: string): Promise<number> {
-  return await getTotalPercentClosed(symbol);
+  backtest.loggerService.info(GET_TOTAL_PERCENT_HELD_METHOD_NAME, {
+    symbol,
+  });
+  if (!ExecutionContextService.hasContext()) {
+    throw new Error("getTotalPercentHeld requires an execution context");
+  }
+  if (!MethodContextService.hasContext()) {
+    throw new Error("getTotalPercentHeld requires a method context");
+  }
+  const { backtest: isBacktest } = backtest.executionContextService.context;
+  const { exchangeName, frameName, strategyName } =
+    backtest.methodContextService.context;
+  return await backtest.strategyCoreService.getTotalPercentHeld(
+    isBacktest,
+    symbol,
+    { exchangeName, frameName, strategyName },
+  );
 }
 
 /**
- * Returns the remaining cost basis in dollars — how much of the position is
- * still held (not yet closed by partials). Correctly accounts for DCA entries
- * between partial closes.
+ * Returns the remaining cost basis in dollars after partial closes.
+ * Correctly accounts for DCA entries between partial closes.
  *
- * Correctly-named alias for {@link getTotalCostClosed}.
+ * Automatically detects backtest/live mode from execution context.
  *
  * @param symbol - Trading pair symbol
  * @returns Promise<number> - remaining cost basis in dollars
@@ -1136,11 +1070,27 @@ export async function getTotalPercentHeld(symbol: string): Promise<number> {
  * import { getRemainingCostBasis } from "backtest-kit";
  *
  * const remaining = await getRemainingCostBasis("BTCUSDT");
- * console.log(`Holding $${remaining} of position`);
+ * console.log(`Remaining cost basis: $${remaining}`);
  * ```
  */
 export async function getRemainingCostBasis(symbol: string): Promise<number> {
-  return await getTotalCostClosed(symbol);
+  backtest.loggerService.info(GET_REMAINING_COST_BASIS_METHOD_NAME, {
+    symbol,
+  });
+  if (!ExecutionContextService.hasContext()) {
+    throw new Error("getRemainingCostBasis requires an execution context");
+  }
+  if (!MethodContextService.hasContext()) {
+    throw new Error("getRemainingCostBasis requires a method context");
+  }
+  const { backtest: isBacktest } = backtest.executionContextService.context;
+  const { exchangeName, frameName, strategyName } =
+    backtest.methodContextService.context;
+  return await backtest.strategyCoreService.getRemainingCostBasis(
+    isBacktest,
+    symbol,
+    { exchangeName, frameName, strategyName },
+  );
 }
 
 /**
@@ -1559,7 +1509,7 @@ export async function commitPartialProfitCost(
   // ClientStrategy), so the dollar amount is converted against the remaining
   // basis — converting against total invested under-closed after the first partial
   const remainingCost =
-    await backtest.strategyCoreService.getTotalCostClosed(
+    await backtest.strategyCoreService.getRemainingCostBasis(
       isBacktest,
       symbol,
       { exchangeName, frameName, strategyName },
@@ -1663,7 +1613,7 @@ export async function commitPartialLossCost(
   // ClientStrategy), so the dollar amount is converted against the remaining
   // basis — converting against total invested under-closed after the first partial
   const remainingCost =
-    await backtest.strategyCoreService.getTotalCostClosed(
+    await backtest.strategyCoreService.getRemainingCostBasis(
       isBacktest,
       symbol,
       { exchangeName, frameName, strategyName },

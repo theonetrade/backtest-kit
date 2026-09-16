@@ -322,7 +322,7 @@ test("SHORT: DCA-up with partials and breakeven mirrors the dollar math", async 
       fail(`short effective expected ${expectedEffective} (harmonic), got ${effective}`);
       return;
     }
-    const remaining = await inCtx(context, () => S.getTotalCostClosed(false, "BTCUSDT", context));
+    const remaining = await inCtx(context, () => S.getRemainingCostBasis(false, "BTCUSDT", context));
     if (remaining !== 90) {
       fail(`remaining after 40%+25% of remaining expected 90, got ${remaining}`);
       return;
