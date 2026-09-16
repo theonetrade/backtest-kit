@@ -1,4 +1,5 @@
 import { getErrorMessage } from "functools-kit";
+import get from "../utils/get";
 
 const ORDER_DELETED_ERROR_TYPE = Symbol.for("OrderDeletedError");
 
@@ -107,7 +108,7 @@ export class OrderDeletedError extends Error {
    * @returns true when the object carries the OrderDeletedError brand
    */
   static isOrderDeletedError(error: object): boolean {
-    if (Reflect.get(error, "__type__") === ORDER_DELETED_ERROR_TYPE) {
+    if (get(error, "__type__") === ORDER_DELETED_ERROR_TYPE) {
       return true;
     }
     return false;

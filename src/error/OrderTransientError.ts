@@ -1,4 +1,5 @@
 import { getErrorMessage } from "functools-kit";
+import get from "../utils/get";
 
 const ORDER_TRANSIENT_ERROR_TYPE = Symbol.for("OrderTransientError");
 
@@ -115,7 +116,7 @@ export class OrderTransientError extends Error {
    * @returns true when the object carries the OrderTransientError brand
    */
   static isOrderTransientError(error: object): boolean {
-    if (Reflect.get(error, "__type__") === ORDER_TRANSIENT_ERROR_TYPE) {
+    if (get(error, "__type__") === ORDER_TRANSIENT_ERROR_TYPE) {
       return true;
     }
     return false;

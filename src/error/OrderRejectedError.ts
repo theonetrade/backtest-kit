@@ -1,4 +1,5 @@
 import { getErrorMessage } from "functools-kit";
+import get from "../utils/get";
 
 const ORDER_REJECTED_ERROR_TYPE = Symbol.for("OrderRejectedError");
 
@@ -102,7 +103,7 @@ export class OrderRejectedError extends Error {
    * @returns true when the object carries the OrderRejectedError brand
    */
   static isOrderRejectedError(error: object): boolean {
-    if (Reflect.get(error, "__type__") === ORDER_REJECTED_ERROR_TYPE) {
+    if (get(error, "__type__") === ORDER_REJECTED_ERROR_TYPE) {
       return true;
     }
     return false;

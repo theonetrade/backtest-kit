@@ -844,3 +844,5 @@ export { getPriceScale } from "./helpers/getPriceScale";
 export { OrderDeletedError } from "./error/OrderDeletedError";
 export { OrderRejectedError } from "./error/OrderRejectedError";
 export { OrderTransientError } from "./error/OrderTransientError";
+export { GeneralExpectedError } from "./error/GeneralExpectedError";
+export { GeneralUnexpectedError } from "./error/GeneralUnexpectedError";
