@@ -184,6 +184,8 @@ group: docs
 - [OrderDeletedError](classes/OrderDeletedError.md)
 - [OrderRejectedError](classes/OrderRejectedError.md)
 - [OrderTransientError](classes/OrderTransientError.md)
+- [GeneralExpectedError](classes/GeneralExpectedError.md)
+- [GeneralUnexpectedError](classes/GeneralUnexpectedError.md)
 
 ## Enums
 
@@ -216,8 +218,6 @@ group: docs
 - [commitBreakeven](functions/commitBreakeven.md)
 - [commitActivateScheduled](functions/commitActivateScheduled.md)
 - [commitAverageBuy](functions/commitAverageBuy.md)
-- [getTotalPercentClosed](functions/getTotalPercentClosed.md)
-- [getTotalCostClosed](functions/getTotalCostClosed.md)
 - [getTotalPercentHeld](functions/getTotalPercentHeld.md)
 - [getRemainingCostBasis](functions/getRemainingCostBasis.md)
 - [getPendingSignal](functions/getPendingSignal.md)

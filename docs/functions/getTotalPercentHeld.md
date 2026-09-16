@@ -9,11 +9,11 @@ group: docs
 declare function getTotalPercentHeld(symbol: string): Promise<number>;
 ```
 
-Returns the percentage of the position currently held (not yet closed by partials).
+Returns the still-held share of the position as a percentage.
 100 = nothing has been closed (full position), 0 = fully closed.
 Correctly accounts for DCA entries between partial closes.
 
-Correctly-named alias for {@link getTotalPercentClosed}.
+Automatically detects backtest/live mode from execution context.
 
 ## Parameters
 

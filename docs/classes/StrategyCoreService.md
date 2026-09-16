@@ -91,23 +91,23 @@ Retrieves the currently active pending signal for the symbol.
 If no active signal exists, returns null.
 Used internally for monitoring TP/SL and time expiration.
 
-### getTotalPercentClosed
+### getTotalPercentHeld
 
 ```ts
-getTotalPercentClosed: (backtest: boolean, symbol: string, context: { strategyName: string; exchangeName: string; frameName: string; }) => Promise<number>
+getTotalPercentHeld: (backtest: boolean, symbol: string, context: { strategyName: string; exchangeName: string; frameName: string; }) => Promise<number>
 ```
 
-Returns the percentage of the position currently held (not closed).
+Returns the still-held share of the position as a percentage.
 100 = nothing has been closed (full position), 0 = fully closed.
 Correctly accounts for DCA entries between partial closes.
 
-### getTotalCostClosed
+### getRemainingCostBasis
 
 ```ts
-getTotalCostClosed: (backtest: boolean, symbol: string, context: { strategyName: string; exchangeName: string; frameName: string; }) => Promise<number>
+getRemainingCostBasis: (backtest: boolean, symbol: string, context: { strategyName: string; exchangeName: string; frameName: string; }) => Promise<number>
 ```
 
-Returns the cost basis in dollars of the position currently held (not closed).
+Returns the remaining cost basis in dollars after partial closes.
 Correctly accounts for DCA entries between partial closes.
 
 ### getPositionEffectivePrice

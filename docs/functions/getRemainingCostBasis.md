@@ -9,11 +9,10 @@ group: docs
 declare function getRemainingCostBasis(symbol: string): Promise<number>;
 ```
 
-Returns the remaining cost basis in dollars — how much of the position is
-still held (not yet closed by partials). Correctly accounts for DCA entries
-between partial closes.
+Returns the remaining cost basis in dollars after partial closes.
+Correctly accounts for DCA entries between partial closes.
 
-Correctly-named alias for {@link getTotalCostClosed}.
+Automatically detects backtest/live mode from execution context.
 
 ## Parameters
 

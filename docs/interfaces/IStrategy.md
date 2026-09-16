@@ -102,10 +102,10 @@ flag is persisted and restored on waitForInit regardless of the signalId —
 signal transitions do not reset it, only an explicit setPaused(false) does.
 Works out of the async-hooks execution context.
 
-### getTotalPercentClosed
+### getTotalPercentHeld
 
 ```ts
-getTotalPercentClosed: (symbol: string) => Promise<number>
+getTotalPercentHeld: (symbol: string) => Promise<number>
 ```
 
 Returns how much of the position is still held, as a percentage of totalInvested.
@@ -115,13 +115,13 @@ Uses dollar-basis cost-basis replay (DCA-aware).
 
 Returns 100 if no pending signal or no partial closes.
 
-### getTotalCostClosed
+### getRemainingCostBasis
 
 ```ts
-getTotalCostClosed: (symbol: string) => Promise<number>
+getRemainingCostBasis: (symbol: string) => Promise<number>
 ```
 
-Returns how many dollars of cost basis are still held (not yet closed by partials).
+Returns the remaining cost basis in dollars after partial closes.
 
 Full position open: equals totalInvested (entries × $100).
 Decreases with each partial close, increases with each averageBuy().
