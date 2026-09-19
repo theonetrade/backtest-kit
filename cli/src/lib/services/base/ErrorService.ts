@@ -6,6 +6,12 @@ import {
 } from "functools-kit";
 import fs from "fs";
 import * as stackTrace from "stack-trace";
+import {
+  OrderDeletedError,
+  OrderRejectedError,
+  OrderTransientError,
+  GeneralExpectedError,
+} from "backtest-kit";
 
 const ERROR_HANDLER_INSTALLED = Symbol.for("error-handler-installed");
 
@@ -42,6 +48,18 @@ const timeNow = () => {
 export class ErrorService {
 
   public handleGlobalError = async (error: Error) => {
+    if (OrderDeletedError.isOrderDeletedError(error)) {
+      return;
+    }
+    if (OrderRejectedError.isOrderRejectedError(error)) {
+      return;
+    }
+    if (OrderTransientError.isOrderTransientError(error)) {
+      return;
+    }
+    if (GeneralExpectedError.isGeneralExpectedError(error)) {
+      return;
+    }
     const today = new Date();
     const dd = String(today.getDate()).padStart(2, "0");
     const mm = String(today.getMonth() + 1).padStart(2, "0");
@@ -57,10 +75,34 @@ export class ErrorService {
 
   private _listenForError = () => {
     process.on("uncaughtException", (err) => {
+      if (OrderDeletedError.isOrderDeletedError(err)) {
+        return;
+      }
+      if (OrderRejectedError.isOrderRejectedError(err)) {
+        return;
+      }
+      if (OrderTransientError.isOrderTransientError(err)) {
+        return;
+      }
+      if (GeneralExpectedError.isGeneralExpectedError(err)) {
+        return;
+      }
       console.log(err);
       this.handleGlobalError(err);
     });
     process.on("unhandledRejection", (err) => {
+      if (OrderDeletedError.isOrderDeletedError(<object>err)) {
+        return;
+      }
+      if (OrderRejectedError.isOrderRejectedError(<object>err)) {
+        return;
+      }
+      if (OrderTransientError.isOrderTransientError(<object>err)) {
+        return;
+      }
+      if (GeneralExpectedError.isGeneralExpectedError(<object>err)) {
+        return;
+      }
       console.log(err);
       this.handleGlobalError(err as Error);
     });
