@@ -364,6 +364,7 @@ export class WalkerInstance {
             symbol,
             strategyName,
             walkerName: context.walkerName,
+            backtest: true,
             when,
           })
         );
@@ -624,6 +625,7 @@ export class WalkerUtils {
         symbol,
         strategyName,
         walkerName: context.walkerName,
+        backtest: true,
         when: await GET_STRATEGY_WHEN_FN(symbol, strategyName, walkerSchema),
       });
       await backtest.strategyCoreService.stopStrategy(true, symbol, {

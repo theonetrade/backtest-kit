@@ -5869,6 +5869,8 @@ interface WalkerCompleteContract {
     bestMetric: number | null;
     /** bestStats - Best strategy statistics */
     bestStats: BacktestStatisticsModel | null;
+    /** Always true: walker completion events are backtest-only (kept for cross-channel filter uniformity) */
+    backtest: boolean;
     /**
      * Virtual execution time as a `Date` instance: the last processed candle
      * timestamp across the tested strategies from `TimeMetaService`, falling
@@ -10353,6 +10355,8 @@ interface ProgressBacktestContract {
     processedFrames: number;
     /** progress - Completion percentage from 0.0 to 1.0 */
     progress: number;
+    /** Always true: backtest progress events are backtest-only (kept for cross-channel filter uniformity) */
+    backtest: boolean;
     /**
      * Virtual execution time as a `Date` instance: the timeframe being
      * processed when this progress event was emitted (frame end time for the
@@ -10392,6 +10396,8 @@ interface ProgressWalkerContract {
     processedStrategies: number;
     /** progress - Completion percentage from 0.0 to 1.0 */
     progress: number;
+    /** Always true: walker progress events are backtest-only (kept for cross-channel filter uniformity) */
+    backtest: boolean;
     /**
      * Virtual execution time as a `Date` instance: the last processed candle
      * timestamp of the just-completed strategy backtest from `TimeMetaService`,
@@ -10484,6 +10490,8 @@ interface WalkerContract {
     strategiesTested: number;
     /** Total number of strategies to test */
     totalStrategies: number;
+    /** Always true: walker events are backtest-only (kept for cross-channel filter uniformity) */
+    backtest: boolean;
     /**
      * Virtual execution time as a `Date` instance: the last processed candle
      * timestamp of the just-completed strategy backtest from `TimeMetaService`,
@@ -37530,6 +37538,8 @@ interface WalkerStopContract {
     strategyName: StrategyName;
     /** walkerName - Name of the walker to stop (for filtering) */
     walkerName: WalkerName;
+    /** Always true: walker stop events are backtest-only (kept for cross-channel filter uniformity) */
+    backtest: boolean;
     /**
      * Virtual execution time as a `Date` instance: the last processed candle
      * timestamp of the strategy being stopped from `TimeMetaService`, falling

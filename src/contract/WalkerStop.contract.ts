@@ -29,6 +29,8 @@ export interface WalkerStopContract {
     strategyName: StrategyName;
     /** walkerName - Name of the walker to stop (for filtering) */
     walkerName: WalkerName;
+    /** Always true: walker stop events are backtest-only (kept for cross-channel filter uniformity) */
+    backtest: boolean;
     /**
      * Virtual execution time as a `Date` instance: the last processed candle
      * timestamp of the strategy being stopped from `TimeMetaService`, falling

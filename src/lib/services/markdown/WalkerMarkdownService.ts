@@ -215,6 +215,7 @@ class ReportStorage {
       bestMetric: this._bestMetric,
       bestStats: this._bestStats,
       strategyResults: this._strategyResults,
+      backtest: true,
       // _totalStrategies !== null implies addResult() ran, so _lastWhen is set
       when: this._lastWhen!,
     };

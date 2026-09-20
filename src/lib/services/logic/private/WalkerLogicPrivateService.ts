@@ -403,6 +403,7 @@ export class WalkerLogicPrivateService {
           bestStrategy,
           strategiesTested,
           totalStrategies: strategies.length,
+          backtest: true,
           when: lastWhen,
         };
 
@@ -415,6 +416,7 @@ export class WalkerLogicPrivateService {
           totalStrategies: strategies.length,
           processedStrategies: strategiesTested,
           progress: strategies.length > 0 ? strategiesTested / strategies.length : 0,
+          backtest: true,
           when: lastWhen,
         });
 
@@ -449,6 +451,7 @@ export class WalkerLogicPrivateService {
         bestStrategy !== null
           ? await this.backtestMarkdownService.getData(symbol, bestStrategy, context.exchangeName, context.frameName, true)
           : null,
+      backtest: true,
       when: lastWhen,
     };
 

@@ -33,6 +33,8 @@ export interface ProgressWalkerContract {
     processedStrategies: number;
     /** progress - Completion percentage from 0.0 to 1.0 */
     progress: number;
+    /** Always true: walker progress events are backtest-only (kept for cross-channel filter uniformity) */
+    backtest: boolean;
     /**
      * Virtual execution time as a `Date` instance: the last processed candle
      * timestamp of the just-completed strategy backtest from `TimeMetaService`,

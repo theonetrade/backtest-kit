@@ -51,6 +51,9 @@ export interface WalkerCompleteContract {
     /** bestStats - Best strategy statistics */
     bestStats: BacktestStatisticsModel | null;
 
+    /** Always true: walker completion events are backtest-only (kept for cross-channel filter uniformity) */
+    backtest: boolean;
+
     /**
      * Virtual execution time as a `Date` instance: the last processed candle
      * timestamp across the tested strategies from `TimeMetaService`, falling

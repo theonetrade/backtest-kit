@@ -45,6 +45,9 @@ export interface WalkerContract {
   /** Total number of strategies to test */
   totalStrategies: number;
 
+  /** Always true: walker events are backtest-only (kept for cross-channel filter uniformity) */
+  backtest: boolean;
+
   /**
    * Virtual execution time as a `Date` instance: the last processed candle
    * timestamp of the just-completed strategy backtest from `TimeMetaService`,

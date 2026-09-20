@@ -54,6 +54,7 @@ const EMIT_PROGRESS_FN = async (
     totalFrames,
     processedFrames,
     progress: totalFrames > 0 ? processedFrames / totalFrames : 0,
+    backtest: true,
     when,
   });
 };
