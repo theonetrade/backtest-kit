@@ -18,6 +18,9 @@ import {
   State,
   StateLive,
   StateBacktest,
+  Dictionary,
+  DictionaryLive,
+  DictionaryBacktest,
   SessionLive,
   SessionBacktest,
   Recent,
@@ -43,6 +46,7 @@ import {
   PersistIntervalAdapter,
   PersistRecentAdapter,
   PersistStateAdapter,
+  PersistDictionaryAdapter,
   PersistSessionAdapter,
   PersistStrategyAdapter,
 } from "backtest-kit";
@@ -86,6 +90,11 @@ const SETUP_ADAPTER_FN = () => {
   }
 
   {
+    DictionaryLive.usePersist();
+    DictionaryBacktest.useLocal();
+  }
+
+  {
     Markdown.useDummy();
     Log.useJsonl();
   }
@@ -116,6 +125,7 @@ export class SetupUtils {
       Report.enable();
       Dump.enable();
       State.enable();
+      Dictionary.enable();
       Memory.enable();
     }
     
@@ -149,6 +159,7 @@ export class SetupUtils {
       Report.disable();
       Dump.disable();
       State.disable();
+      Dictionary.disable();
       Memory.disable();
     }
 
@@ -174,6 +185,7 @@ export class SetupUtils {
       PersistMemoryAdapter.clear();
       PersistRecentAdapter.clear();
       PersistStateAdapter.clear();
+      PersistDictionaryAdapter.clear();
       PersistSessionAdapter.clear();
       PersistStrategyAdapter.clear();
     }
