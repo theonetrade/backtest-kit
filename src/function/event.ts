@@ -116,6 +116,29 @@ const LISTEN_MAX_DRAWDOWN_UNIQUE_METHOD_NAME = "event.listenMaxDrawdownUnique";
 const LISTEN_SIGNAL_NOTIFY_UNIQUE_METHOD_NAME = "event.listenSignalNotifyUnique";
 const LISTEN_STRATEGY_COMMIT_UNIQUE_METHOD_NAME = "event.listenStrategyCommitUnique";
 
+const LISTEN_SIGNAL_FILTER_METHOD_NAME = "event.listenSignalFilter";
+const LISTEN_SIGNAL_LIVE_FILTER_METHOD_NAME = "event.listenSignalLiveFilter";
+const LISTEN_SIGNAL_BACKTEST_FILTER_METHOD_NAME = "event.listenSignalBacktestFilter";
+const LISTEN_DONE_LIVE_FILTER_METHOD_NAME = "event.listenDoneLiveFilter";
+const LISTEN_DONE_BACKTEST_FILTER_METHOD_NAME = "event.listenDoneBacktestFilter";
+const LISTEN_DONE_WALKER_FILTER_METHOD_NAME = "event.listenDoneWalkerFilter";
+const LISTEN_WALKER_FILTER_METHOD_NAME = "event.listenWalkerFilter";
+const LISTEN_PARTIAL_PROFIT_FILTER_METHOD_NAME = "event.listenPartialProfitAvailableFilter";
+const LISTEN_PARTIAL_LOSS_FILTER_METHOD_NAME = "event.listenPartialLossAvailableFilter";
+const LISTEN_BREAKEVEN_FILTER_METHOD_NAME = "event.listenBreakevenAvailableFilter";
+const LISTEN_RISK_FILTER_METHOD_NAME = "event.listenRiskFilter";
+const LISTEN_SCHEDULE_PING_FILTER_METHOD_NAME = "event.listenSchedulePingFilter";
+const LISTEN_SIGNAL_EVENT_FILTER_METHOD_NAME = "event.listenSignalEventFilter";
+const LISTEN_ACTIVE_PING_FILTER_METHOD_NAME = "event.listenActivePingFilter";
+const LISTEN_IDLE_PING_FILTER_METHOD_NAME = "event.listenIdlePingFilter";
+const LISTEN_STRATEGY_COMMIT_FILTER_METHOD_NAME = "event.listenStrategyCommitFilter";
+const LISTEN_HIGHEST_PROFIT_FILTER_METHOD_NAME = "event.listenHighestProfitFilter";
+const LISTEN_MAX_DRAWDOWN_FILTER_METHOD_NAME = "event.listenMaxDrawdownFilter";
+const LISTEN_PAUSE_FILTER_METHOD_NAME = "event.listenPauseFilter";
+const LISTEN_SIGNAL_NOTIFY_FILTER_METHOD_NAME = "event.listenSignalNotifyFilter";
+const LISTEN_BEFORE_START_FILTER_METHOD_NAME = "event.listenBeforeStartFilter";
+const LISTEN_AFTER_END_FILTER_METHOD_NAME = "event.listenAfterEndFilter";
+
 /**
  * Subscribes to all signal events with queued async processing.
  *
@@ -2961,4 +2984,597 @@ export function listenStrategyCommitUnique(
   };
 
   return listenStrategyCommit(wrappedFn);
+}
+
+/**
+ * ============================================================================
+ * FILTER LISTENERS
+ * ============================================================================
+ *
+ * Persistent filtered forms of the `listenXOnce` pairs: the same
+ * `(filterFn, fn)` signature, but the subscription STAYS ATTACHED after a
+ * match — every event satisfying the predicate is delivered, not just the
+ * first one. Use `listenXOnce` when the subscription should tear itself down
+ * after the first hit, and `listenXUnique` when repeats of the same signal id
+ * should collapse to one delivery.
+ *
+ * Each wraps the matching plain `listenX` listener exactly like the Once forms
+ * do, so the predicate runs INSIDE that listener's queued() wrapper, one event
+ * at a time, and whatever the plain listener checks before delivery applies
+ * here too: the partial-profit, partial-loss, breakeven, ping and notify
+ * channels still confirm the position is live via `hasPendingSignal` first.
+ *
+ * Every function returns an unsubscribe function.
+ */
+
+/**
+ * Subscribes to signal events matching the predicate, keeping the subscription.
+ *
+ * Filtered variant of {@link listenSignal}: like {@link listenSignalOnce} only
+ * events passing `filterFn` reach the callback, but the listener stays attached
+ * and delivers every matching event.
+ *
+ * @param filterFn - Predicate to filter which events trigger the callback
+ * @param fn - Callback function to handle each matching event
+ * @returns Unsubscribe function to stop listening
+ *
+ * @example
+ * ```typescript
+ * import { listenSignalFilter } from "backtest-kit";
+ *
+ * // Log EVERY closed tick, unlike listenSignalOnce which stops after the first
+ * const unsubscribe = listenSignalFilter(
+ *   (event) => event.action === "closed",
+ *   (event) => console.log("Closed:", event.signal.id, event.pnl.pnlPercentage)
+ * );
+ * ```
+ */
+export function listenSignalFilter(
+  filterFn: (event: IStrategyTickResult) => boolean,
+  fn: (event: IStrategyTickResult) => void
+) {
+  backtest.loggerService.log(LISTEN_SIGNAL_FILTER_METHOD_NAME);
+
+  const wrappedFn = async (event: IStrategyTickResult) => {
+    if (filterFn(event)) {
+      await fn(event);
+    }
+  };
+
+  return listenSignal(wrappedFn);
+}
+
+/**
+ * Subscribes to live signal events matching the predicate, keeping the subscription.
+ *
+ * Filtered variant of {@link listenSignalLive}: only events passing `filterFn`
+ * reach the callback, and the listener keeps delivering every matching event.
+ *
+ * @param filterFn - Predicate to filter which events trigger the callback
+ * @param fn - Callback function to handle each matching event
+ * @returns Unsubscribe function to stop listening
+ */
+export function listenSignalLiveFilter(
+  filterFn: (event: IStrategyTickResult) => boolean,
+  fn: (event: IStrategyTickResult) => void
+) {
+  backtest.loggerService.log(LISTEN_SIGNAL_LIVE_FILTER_METHOD_NAME);
+
+  const wrappedFn = async (event: IStrategyTickResult) => {
+    if (filterFn(event)) {
+      await fn(event);
+    }
+  };
+
+  return listenSignalLive(wrappedFn);
+}
+
+/**
+ * Subscribes to backtest signal events matching the predicate, keeping the subscription.
+ *
+ * Filtered variant of {@link listenSignalBacktest}: only events passing
+ * `filterFn` reach the callback, and the listener keeps delivering every
+ * matching event.
+ *
+ * @param filterFn - Predicate to filter which events trigger the callback
+ * @param fn - Callback function to handle each matching event
+ * @returns Unsubscribe function to stop listening
+ */
+export function listenSignalBacktestFilter(
+  filterFn: (event: IStrategyTickResult) => boolean,
+  fn: (event: IStrategyTickResult) => void
+) {
+  backtest.loggerService.log(LISTEN_SIGNAL_BACKTEST_FILTER_METHOD_NAME);
+
+  const wrappedFn = async (event: IStrategyTickResult) => {
+    if (filterFn(event)) {
+      await fn(event);
+    }
+  };
+
+  return listenSignalBacktest(wrappedFn);
+}
+
+/**
+ * Subscribes to live completion events matching the predicate, keeping the subscription.
+ *
+ * Filtered variant of {@link listenDoneLive}: only events passing `filterFn`
+ * reach the callback, and the listener keeps delivering every matching event.
+ *
+ * @param filterFn - Predicate to filter which events trigger the callback
+ * @param fn - Callback function to handle each matching event
+ * @returns Unsubscribe function to stop listening
+ */
+export function listenDoneLiveFilter(
+  filterFn: (event: DoneContract) => boolean,
+  fn: (event: DoneContract) => void
+) {
+  backtest.loggerService.log(LISTEN_DONE_LIVE_FILTER_METHOD_NAME);
+
+  const wrappedFn = async (event: DoneContract) => {
+    if (filterFn(event)) {
+      await fn(event);
+    }
+  };
+
+  return listenDoneLive(wrappedFn);
+}
+
+/**
+ * Subscribes to backtest completion events matching the predicate, keeping the subscription.
+ *
+ * Filtered variant of {@link listenDoneBacktest}: only events passing
+ * `filterFn` reach the callback, and the listener keeps delivering every
+ * matching event.
+ *
+ * @param filterFn - Predicate to filter which events trigger the callback
+ * @param fn - Callback function to handle each matching event
+ * @returns Unsubscribe function to stop listening
+ */
+export function listenDoneBacktestFilter(
+  filterFn: (event: DoneContract) => boolean,
+  fn: (event: DoneContract) => void
+) {
+  backtest.loggerService.log(LISTEN_DONE_BACKTEST_FILTER_METHOD_NAME);
+
+  const wrappedFn = async (event: DoneContract) => {
+    if (filterFn(event)) {
+      await fn(event);
+    }
+  };
+
+  return listenDoneBacktest(wrappedFn);
+}
+
+/**
+ * Subscribes to walker completion events matching the predicate, keeping the subscription.
+ *
+ * Filtered variant of {@link listenDoneWalker}: only events passing `filterFn`
+ * reach the callback, and the listener keeps delivering every matching event.
+ *
+ * @param filterFn - Predicate to filter which events trigger the callback
+ * @param fn - Callback function to handle each matching event
+ * @returns Unsubscribe function to stop listening
+ */
+export function listenDoneWalkerFilter(
+  filterFn: (event: DoneContract) => boolean,
+  fn: (event: DoneContract) => void
+) {
+  backtest.loggerService.log(LISTEN_DONE_WALKER_FILTER_METHOD_NAME);
+
+  const wrappedFn = async (event: DoneContract) => {
+    if (filterFn(event)) {
+      await fn(event);
+    }
+  };
+
+  return listenDoneWalker(wrappedFn);
+}
+
+/**
+ * Subscribes to walker progress events matching the predicate, keeping the subscription.
+ *
+ * Filtered variant of {@link listenWalker}: only events passing `filterFn`
+ * reach the callback, and the listener keeps delivering every matching event.
+ *
+ * @param filterFn - Predicate to filter which events trigger the callback
+ * @param fn - Callback function to handle each matching event
+ * @returns Unsubscribe function to stop listening
+ */
+export function listenWalkerFilter(
+  filterFn: (event: WalkerContract) => boolean,
+  fn: (event: WalkerContract) => void
+) {
+  backtest.loggerService.log(LISTEN_WALKER_FILTER_METHOD_NAME);
+
+  const wrappedFn = async (event: WalkerContract) => {
+    if (filterFn(event)) {
+      await fn(event);
+    }
+  };
+
+  return listenWalker(wrappedFn);
+}
+
+/**
+ * Subscribes to partial profit level events matching the predicate, keeping the subscription.
+ *
+ * Filtered variant of {@link listenPartialProfitAvailable}: only events passing
+ * `filterFn` reach the callback, and the listener keeps delivering every
+ * matching event (each new level of the same signal included).
+ *
+ * @param filterFn - Predicate to filter which events trigger the callback
+ * @param fn - Callback function to handle each matching event
+ * @returns Unsubscribe function to stop listening
+ */
+export function listenPartialProfitAvailableFilter(
+  filterFn: (event: PartialProfitContract) => boolean,
+  fn: (event: PartialProfitContract) => void
+) {
+  backtest.loggerService.log(LISTEN_PARTIAL_PROFIT_FILTER_METHOD_NAME);
+
+  const wrappedFn = async (event: PartialProfitContract) => {
+    if (filterFn(event)) {
+      await fn(event);
+    }
+  };
+
+  return listenPartialProfitAvailable(wrappedFn);
+}
+
+/**
+ * Subscribes to partial loss level events matching the predicate, keeping the subscription.
+ *
+ * Filtered variant of {@link listenPartialLossAvailable}: only events passing
+ * `filterFn` reach the callback, and the listener keeps delivering every
+ * matching event (each new level of the same signal included).
+ *
+ * @param filterFn - Predicate to filter which events trigger the callback
+ * @param fn - Callback function to handle each matching event
+ * @returns Unsubscribe function to stop listening
+ */
+export function listenPartialLossAvailableFilter(
+  filterFn: (event: PartialLossContract) => boolean,
+  fn: (event: PartialLossContract) => void
+) {
+  backtest.loggerService.log(LISTEN_PARTIAL_LOSS_FILTER_METHOD_NAME);
+
+  const wrappedFn = async (event: PartialLossContract) => {
+    if (filterFn(event)) {
+      await fn(event);
+    }
+  };
+
+  return listenPartialLossAvailable(wrappedFn);
+}
+
+/**
+ * Subscribes to breakeven events matching the predicate, keeping the subscription.
+ *
+ * Filtered variant of {@link listenBreakevenAvailable}: only events passing
+ * `filterFn` reach the callback, and the listener keeps delivering every
+ * matching event.
+ *
+ * @param filterFn - Predicate to filter which events trigger the callback
+ * @param fn - Callback function to handle each matching event
+ * @returns Unsubscribe function to stop listening
+ */
+export function listenBreakevenAvailableFilter(
+  filterFn: (event: BreakevenContract) => boolean,
+  fn: (event: BreakevenContract) => void
+) {
+  backtest.loggerService.log(LISTEN_BREAKEVEN_FILTER_METHOD_NAME);
+
+  const wrappedFn = async (event: BreakevenContract) => {
+    if (filterFn(event)) {
+      await fn(event);
+    }
+  };
+
+  return listenBreakevenAvailable(wrappedFn);
+}
+
+/**
+ * Subscribes to risk rejection events matching the predicate, keeping the subscription.
+ *
+ * Filtered variant of {@link listenRisk}: only events passing `filterFn` reach
+ * the callback, and the listener keeps delivering every matching event.
+ *
+ * @param filterFn - Predicate to filter which events trigger the callback
+ * @param fn - Callback function to handle each matching event
+ * @returns Unsubscribe function to stop listening
+ */
+export function listenRiskFilter(
+  filterFn: (event: RiskContract) => boolean,
+  fn: (event: RiskContract) => void
+) {
+  backtest.loggerService.log(LISTEN_RISK_FILTER_METHOD_NAME);
+
+  const wrappedFn = async (event: RiskContract) => {
+    if (filterFn(event)) {
+      await fn(event);
+    }
+  };
+
+  return listenRisk(wrappedFn);
+}
+
+/**
+ * Subscribes to schedule ping events matching the predicate, keeping the subscription.
+ *
+ * Filtered variant of {@link listenSchedulePing}: only events passing
+ * `filterFn` reach the callback, and the listener keeps delivering every
+ * matching event.
+ *
+ * @param filterFn - Predicate to filter which events trigger the callback
+ * @param fn - Callback function to handle each matching event
+ * @returns Unsubscribe function to stop listening
+ */
+export function listenSchedulePingFilter(
+  filterFn: (event: SchedulePingContract) => boolean,
+  fn: (event: SchedulePingContract) => void
+) {
+  backtest.loggerService.log(LISTEN_SCHEDULE_PING_FILTER_METHOD_NAME);
+
+  const wrappedFn = async (event: SchedulePingContract) => {
+    if (filterFn(event)) {
+      await fn(event);
+    }
+  };
+
+  return listenSchedulePing(wrappedFn);
+}
+
+/**
+ * Subscribes to pending lifecycle events matching the predicate, keeping the subscription.
+ *
+ * Filtered variant of {@link listenSignalEvent}: only events passing `filterFn`
+ * reach the callback, and the listener keeps delivering every matching event.
+ *
+ * @param filterFn - Predicate to filter which events trigger the callback
+ * @param fn - Callback function to handle each matching event
+ * @returns Unsubscribe function to stop listening
+ */
+export function listenSignalEventFilter(
+  filterFn: (event: SignalEventContract) => boolean,
+  fn: (event: SignalEventContract) => void
+) {
+  backtest.loggerService.log(LISTEN_SIGNAL_EVENT_FILTER_METHOD_NAME);
+
+  const wrappedFn = async (event: SignalEventContract) => {
+    if (filterFn(event)) {
+      await fn(event);
+    }
+  };
+
+  return listenSignalEvent(wrappedFn);
+}
+
+/**
+ * Subscribes to active ping events matching the predicate, keeping the subscription.
+ *
+ * Filtered variant of {@link listenActivePing}: only events passing `filterFn`
+ * reach the callback, and the listener keeps delivering every matching event.
+ *
+ * @param filterFn - Predicate to filter which events trigger the callback
+ * @param fn - Callback function to handle each matching event
+ * @returns Unsubscribe function to stop listening
+ */
+export function listenActivePingFilter(
+  filterFn: (event: ActivePingContract) => boolean,
+  fn: (event: ActivePingContract) => void
+) {
+  backtest.loggerService.log(LISTEN_ACTIVE_PING_FILTER_METHOD_NAME);
+
+  const wrappedFn = async (event: ActivePingContract) => {
+    if (filterFn(event)) {
+      await fn(event);
+    }
+  };
+
+  return listenActivePing(wrappedFn);
+}
+
+/**
+ * Subscribes to idle ping events matching the predicate, keeping the subscription.
+ *
+ * Filtered variant of {@link listenIdlePing}: only events passing `filterFn`
+ * reach the callback, and the listener keeps delivering every matching event.
+ *
+ * @param filterFn - Predicate to filter which events trigger the callback
+ * @param fn - Callback function to handle each matching event
+ * @returns Unsubscribe function to stop listening
+ */
+export function listenIdlePingFilter(
+  filterFn: (event: IdlePingContract) => boolean,
+  fn: (event: IdlePingContract) => void
+) {
+  backtest.loggerService.log(LISTEN_IDLE_PING_FILTER_METHOD_NAME);
+
+  const wrappedFn = async (event: IdlePingContract) => {
+    if (filterFn(event)) {
+      await fn(event);
+    }
+  };
+
+  return listenIdlePing(wrappedFn);
+}
+
+/**
+ * Subscribes to strategy management events matching the predicate, keeping the subscription.
+ *
+ * Filtered variant of {@link listenStrategyCommit}: only events passing
+ * `filterFn` reach the callback, and the listener keeps delivering every
+ * matching event.
+ *
+ * @param filterFn - Predicate to filter which events trigger the callback
+ * @param fn - Callback function to handle each matching event
+ * @returns Unsubscribe function to stop listening
+ */
+export function listenStrategyCommitFilter(
+  filterFn: (event: StrategyCommitContract) => boolean,
+  fn: (event: StrategyCommitContract) => void
+) {
+  backtest.loggerService.log(LISTEN_STRATEGY_COMMIT_FILTER_METHOD_NAME);
+
+  const wrappedFn = async (event: StrategyCommitContract) => {
+    if (filterFn(event)) {
+      await fn(event);
+    }
+  };
+
+  return listenStrategyCommit(wrappedFn);
+}
+
+/**
+ * Subscribes to highest profit events matching the predicate, keeping the subscription.
+ *
+ * Filtered variant of {@link listenHighestProfit}: only events passing
+ * `filterFn` reach the callback, and the listener keeps delivering every
+ * matching event (each new peak of the same signal included).
+ *
+ * @param filterFn - Predicate to filter which events trigger the callback
+ * @param fn - Callback function to handle each matching event
+ * @returns Unsubscribe function to stop listening
+ */
+export function listenHighestProfitFilter(
+  filterFn: (event: HighestProfitContract) => boolean,
+  fn: (event: HighestProfitContract) => void
+) {
+  backtest.loggerService.log(LISTEN_HIGHEST_PROFIT_FILTER_METHOD_NAME);
+
+  const wrappedFn = async (event: HighestProfitContract) => {
+    if (filterFn(event)) {
+      await fn(event);
+    }
+  };
+
+  return listenHighestProfit(wrappedFn);
+}
+
+/**
+ * Subscribes to max drawdown events matching the predicate, keeping the subscription.
+ *
+ * Filtered variant of {@link listenMaxDrawdown}: only events passing `filterFn`
+ * reach the callback, and the listener keeps delivering every matching event
+ * (each deeper drawdown of the same signal included).
+ *
+ * @param filterFn - Predicate to filter which events trigger the callback
+ * @param fn - Callback function to handle each matching event
+ * @returns Unsubscribe function to stop listening
+ */
+export function listenMaxDrawdownFilter(
+  filterFn: (event: MaxDrawdownContract) => boolean,
+  fn: (event: MaxDrawdownContract) => void
+) {
+  backtest.loggerService.log(LISTEN_MAX_DRAWDOWN_FILTER_METHOD_NAME);
+
+  const wrappedFn = async (event: MaxDrawdownContract) => {
+    if (filterFn(event)) {
+      await fn(event);
+    }
+  };
+
+  return listenMaxDrawdown(wrappedFn);
+}
+
+/**
+ * Subscribes to pause state change events matching the predicate, keeping the subscription.
+ *
+ * Filtered variant of {@link listenPause}: only events passing `filterFn` reach
+ * the callback, and the listener keeps delivering every matching event.
+ *
+ * @param filterFn - Predicate to filter which events trigger the callback
+ * @param fn - Callback function to handle each matching event
+ * @returns Unsubscribe function to stop listening
+ */
+export function listenPauseFilter(
+  filterFn: (event: PauseContract) => boolean,
+  fn: (event: PauseContract) => void
+) {
+  backtest.loggerService.log(LISTEN_PAUSE_FILTER_METHOD_NAME);
+
+  const wrappedFn = async (event: PauseContract) => {
+    if (filterFn(event)) {
+      await fn(event);
+    }
+  };
+
+  return listenPause(wrappedFn);
+}
+
+/**
+ * Subscribes to signal info events matching the predicate, keeping the subscription.
+ *
+ * Filtered variant of {@link listenSignalNotify}: only events passing
+ * `filterFn` reach the callback, and the listener keeps delivering every
+ * matching event.
+ *
+ * @param filterFn - Predicate to filter which events trigger the callback
+ * @param fn - Callback function to handle each matching event
+ * @returns Unsubscribe function to stop listening
+ */
+export function listenSignalNotifyFilter(
+  filterFn: (event: SignalInfoContract) => boolean,
+  fn: (event: SignalInfoContract) => void
+) {
+  backtest.loggerService.log(LISTEN_SIGNAL_NOTIFY_FILTER_METHOD_NAME);
+
+  const wrappedFn = async (event: SignalInfoContract) => {
+    if (filterFn(event)) {
+      await fn(event);
+    }
+  };
+
+  return listenSignalNotify(wrappedFn);
+}
+
+/**
+ * Subscribes to before start events matching the predicate, keeping the subscription.
+ *
+ * Filtered variant of {@link listenBeforeStart}: only events passing `filterFn`
+ * reach the callback, and the listener keeps delivering every matching event.
+ *
+ * @param filterFn - Predicate to filter which events trigger the callback
+ * @param fn - Callback function to handle each matching event
+ * @returns Unsubscribe function to stop listening
+ */
+export function listenBeforeStartFilter(
+  filterFn: (event: BeforeStartContract) => boolean,
+  fn: (event: BeforeStartContract) => void
+) {
+  backtest.loggerService.log(LISTEN_BEFORE_START_FILTER_METHOD_NAME);
+
+  const wrappedFn = async (event: BeforeStartContract) => {
+    if (filterFn(event)) {
+      await fn(event);
+    }
+  };
+
+  return listenBeforeStart(wrappedFn);
+}
+
+/**
+ * Subscribes to after end events matching the predicate, keeping the subscription.
+ *
+ * Filtered variant of {@link listenAfterEnd}: only events passing `filterFn`
+ * reach the callback, and the listener keeps delivering every matching event.
+ *
+ * @param filterFn - Predicate to filter which events trigger the callback
+ * @param fn - Callback function to handle each matching event
+ * @returns Unsubscribe function to stop listening
+ */
+export function listenAfterEndFilter(
+  filterFn: (event: AfterEndContract) => boolean,
+  fn: (event: AfterEndContract) => void
+) {
+  backtest.loggerService.log(LISTEN_AFTER_END_FILTER_METHOD_NAME);
+
+  const wrappedFn = async (event: AfterEndContract) => {
+    if (filterFn(event)) {
+      await fn(event);
+    }
+  };
+
+  return listenAfterEnd(wrappedFn);
 }
