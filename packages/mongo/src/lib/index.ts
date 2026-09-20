@@ -21,6 +21,7 @@ import IntervalCacheService from "./services/cache/IntervalCacheService";
 import MemoryCacheService from "./services/cache/MemoryCacheService";
 import RecentCacheService from "./services/cache/RecentCacheService";
 import StateCacheService from "./services/cache/StateCacheService";
+import DictionaryCacheService from "./services/cache/DictionaryCacheService";
 import SessionCacheService from "./services/cache/SessionCacheService";
 
 import CandleDbService from "./services/db/CandleDbService";
@@ -38,6 +39,7 @@ import IntervalDbService from "./services/db/IntervalDbService";
 import MemoryDbService from "./services/db/MemoryDbService";
 import RecentDbService from "./services/db/RecentDbService";
 import StateDbService from "./services/db/StateDbService";
+import DictionaryDbService from "./services/db/DictionaryDbService";
 import SessionDbService from "./services/db/SessionDbService";
 
 const baseServices = {
@@ -62,6 +64,7 @@ const cacheServices = {
   memoryCacheService: inject<MemoryCacheService>(TYPES.memoryCacheService),
   recentCacheService: inject<RecentCacheService>(TYPES.recentCacheService),
   stateCacheService: inject<StateCacheService>(TYPES.stateCacheService),
+  dictionaryCacheService: inject<DictionaryCacheService>(TYPES.dictionaryCacheService),
   sessionCacheService: inject<SessionCacheService>(TYPES.sessionCacheService),
 };
 
@@ -81,6 +84,7 @@ const dbServices = {
   memoryDbService: inject<MemoryDbService>(TYPES.memoryDbService),
   recentDbService: inject<RecentDbService>(TYPES.recentDbService),
   stateDbService: inject<StateDbService>(TYPES.stateDbService),
+  dictionaryDbService: inject<DictionaryDbService>(TYPES.dictionaryDbService),
   sessionDbService: inject<SessionDbService>(TYPES.sessionDbService),
 };
 

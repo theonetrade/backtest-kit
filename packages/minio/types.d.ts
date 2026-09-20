@@ -87,6 +87,7 @@ declare function setup(config?: Partial<Config>): void;
  * - **Memory** — long-term signal memory (`PersistMemoryAdapter`)
  * - **Recent** — latest strategy frame result (`PersistRecentAdapter`)
  * - **State** — signal state (`PersistStateAdapter`)
+ * - **Dictionary** — per-signal dictionary snapshots (`PersistDictionaryAdapter`)
  * - **Session** — strategy session data (`PersistSessionAdapter`)
  *
  * @example

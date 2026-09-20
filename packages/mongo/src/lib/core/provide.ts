@@ -17,6 +17,7 @@ import IntervalCacheService from "../services/cache/IntervalCacheService";
 import MemoryCacheService from "../services/cache/MemoryCacheService";
 import RecentCacheService from "../services/cache/RecentCacheService";
 import StateCacheService from "../services/cache/StateCacheService";
+import DictionaryCacheService from "../services/cache/DictionaryCacheService";
 import SessionCacheService from "../services/cache/SessionCacheService";
 
 import CandleDbService from "../services/db/CandleDbService";
@@ -34,6 +35,7 @@ import IntervalDbService from "../services/db/IntervalDbService";
 import MemoryDbService from "../services/db/MemoryDbService";
 import RecentDbService from "../services/db/RecentDbService";
 import StateDbService from "../services/db/StateDbService";
+import DictionaryDbService from "../services/db/DictionaryDbService";
 import SessionDbService from "../services/db/SessionDbService";
 
 import { provide } from "./di";
@@ -61,6 +63,7 @@ import TYPES from "./types";
     provide(TYPES.memoryCacheService, () => new MemoryCacheService());
     provide(TYPES.recentCacheService, () => new RecentCacheService());
     provide(TYPES.stateCacheService, () => new StateCacheService());
+    provide(TYPES.dictionaryCacheService, () => new DictionaryCacheService());
     provide(TYPES.sessionCacheService, () => new SessionCacheService());
 }
 
@@ -80,5 +83,6 @@ import TYPES from "./types";
     provide(TYPES.memoryDbService, () => new MemoryDbService());
     provide(TYPES.recentDbService, () => new RecentDbService());
     provide(TYPES.stateDbService, () => new StateDbService());
+    provide(TYPES.dictionaryDbService, () => new DictionaryDbService());
     provide(TYPES.sessionDbService, () => new SessionDbService());
 }

@@ -20,6 +20,7 @@ const dataServices = {
     memoryDataService: Symbol('memoryDataService'),
     recentDataService: Symbol('recentDataService'),
     stateDataService: Symbol('stateDataService'),
+    dictionaryDataService: Symbol('dictionaryDataService'),
     sessionDataService: Symbol('sessionDataService'),
 }
 

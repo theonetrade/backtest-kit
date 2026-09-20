@@ -21,6 +21,7 @@ import IntervalDataService from "./services/data/IntervalDataService";
 import MemoryDataService from "./services/data/MemoryDataService";
 import RecentDataService from "./services/data/RecentDataService";
 import StateDataService from "./services/data/StateDataService";
+import DictionaryDataService from "./services/data/DictionaryDataService";
 import SessionDataService from "./services/data/SessionDataService";
 
 import LogConnectionService from "./services/connection/LogConnectionService";
@@ -49,6 +50,7 @@ const dataServices = {
   memoryDataService: inject<MemoryDataService>(TYPES.memoryDataService),
   recentDataService: inject<RecentDataService>(TYPES.recentDataService),
   stateDataService: inject<StateDataService>(TYPES.stateDataService),
+  dictionaryDataService: inject<DictionaryDataService>(TYPES.dictionaryDataService),
   sessionDataService: inject<SessionDataService>(TYPES.sessionDataService),
 };
 

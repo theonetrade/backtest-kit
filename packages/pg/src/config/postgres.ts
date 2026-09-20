@@ -4,6 +4,7 @@ import { getConfig } from "./params";
 
 import { BreakevenModel } from "../schema/Breakeven.schema";
 import { CandleModel } from "../schema/Candle.schema";
+import { DictionaryModel } from "../schema/Dictionary.schema";
 import { IntervalModel } from "../schema/Interval.schema";
 import { LogModel } from "../schema/Log.schema";
 import { MeasureModel } from "../schema/Measure.schema";
@@ -29,6 +30,7 @@ export const getPostgres = singleshot(async () => {
     entities: [
       BreakevenModel,
       CandleModel,
+      DictionaryModel,
       IntervalModel,
       LogModel,
       MeasureModel,

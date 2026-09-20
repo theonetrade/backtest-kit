@@ -16,6 +16,7 @@ import {
   PersistMemoryAdapter,
   PersistRecentAdapter,
   PersistStateAdapter,
+  PersistDictionaryAdapter,
   PersistSessionAdapter,
 } from "backtest-kit";
 
@@ -34,6 +35,7 @@ import PersistIntervalInstance from "../classes/PersistIntervalInstance";
 import PersistMemoryInstance from "../classes/PersistMemoryInstance";
 import PersistRecentInstance from "../classes/PersistRecentInstance";
 import PersistStateInstance from "../classes/PersistStateInstance";
+import PersistDictionaryInstance from "../classes/PersistDictionaryInstance";
 import PersistSessionInstance from "../classes/PersistSessionInstance";
 
 import { ILogger } from "../interfaces/Logger.interface";
@@ -98,6 +100,7 @@ export function setup(config?: Partial<Config>) {
  * - **Memory** — long-term signal memory (`PersistMemoryAdapter`)
  * - **Recent** — latest strategy frame result (`PersistRecentAdapter`)
  * - **State** — signal state (`PersistStateAdapter`)
+ * - **Dictionary** — per-signal dictionary snapshots (`PersistDictionaryAdapter`)
  * - **Session** — strategy session data (`PersistSessionAdapter`)
  *
  * @example
@@ -120,6 +123,7 @@ export function install() {
     PersistMemoryAdapter.usePersistMemoryAdapter(PersistMemoryInstance);
     PersistRecentAdapter.usePersistRecentAdapter(PersistRecentInstance);
     PersistStateAdapter.usePersistStateAdapter(PersistStateInstance);
+    PersistDictionaryAdapter.usePersistDictionaryAdapter(PersistDictionaryInstance);
     PersistSessionAdapter.usePersistSessionAdapter(PersistSessionInstance);
 }
 

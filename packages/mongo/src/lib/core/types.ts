@@ -20,6 +20,7 @@ const cacheServices = {
     memoryCacheService: Symbol('memoryCacheService'),
     recentCacheService: Symbol('recentCacheService'),
     stateCacheService: Symbol('stateCacheService'),
+    dictionaryCacheService: Symbol('dictionaryCacheService'),
     sessionCacheService: Symbol('sessionCacheService'),
 }
 
@@ -39,6 +40,7 @@ const dbServices = {
     memoryDbService: Symbol('memoryDbService'),
     recentDbService: Symbol('recentDbService'),
     stateDbService: Symbol('stateDbService'),
+    dictionaryDbService: Symbol('dictionaryDbService'),
     sessionDbService: Symbol('sessionDbService'),
 }
 
