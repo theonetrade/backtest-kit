@@ -16,7 +16,7 @@ import {
 } from "../interfaces/Strategy.interface";
 
 /**
- * How many execution identities one `listenXPerSignal` subscription remembers.
+ * How many execution identities one `listenXUnique` subscription remembers.
  *
  * Each entry maps an execution key to the last signal id delivered for it, so one
  * entry per strategy/exchange/frame/mode/symbol combination being monitored. The
@@ -45,7 +45,7 @@ const SEEN_MAP_LIMIT = 200;
  *
  * Seven actions: Idle, Scheduled, Waiting, Opened, Active, Closed, Cancelled.
  *
- * Each also ships a `...PerSignal` variant taking `(filterFn, fn)`, which fires the
+ * Each also ships a `...Unique` variant taking `(filterFn, fn)`, which fires the
  * callback once per NEW signal rather than on every emission:
  *
  *   listenSignal<Action>(async (event) => {
@@ -100,26 +100,26 @@ const LISTEN_SIGNAL_BACKTEST_ACTIVE_METHOD_NAME = "alias.listenSignalBacktestAct
 const LISTEN_SIGNAL_BACKTEST_CLOSED_METHOD_NAME = "alias.listenSignalBacktestClosed";
 const LISTEN_SIGNAL_BACKTEST_CANCELLED_METHOD_NAME = "alias.listenSignalBacktestCancelled";
 
-const LISTEN_SIGNAL_SCHEDULED_PER_SIGNAL_METHOD_NAME = "alias.listenSignalScheduledPerSignal";
-const LISTEN_SIGNAL_WAITING_PER_SIGNAL_METHOD_NAME = "alias.listenSignalWaitingPerSignal";
-const LISTEN_SIGNAL_OPENED_PER_SIGNAL_METHOD_NAME = "alias.listenSignalOpenedPerSignal";
-const LISTEN_SIGNAL_ACTIVE_PER_SIGNAL_METHOD_NAME = "alias.listenSignalActivePerSignal";
-const LISTEN_SIGNAL_CLOSED_PER_SIGNAL_METHOD_NAME = "alias.listenSignalClosedPerSignal";
-const LISTEN_SIGNAL_CANCELLED_PER_SIGNAL_METHOD_NAME = "alias.listenSignalCancelledPerSignal";
+const LISTEN_SIGNAL_SCHEDULED_UNIQUE_METHOD_NAME = "alias.listenSignalScheduledUnique";
+const LISTEN_SIGNAL_WAITING_UNIQUE_METHOD_NAME = "alias.listenSignalWaitingUnique";
+const LISTEN_SIGNAL_OPENED_UNIQUE_METHOD_NAME = "alias.listenSignalOpenedUnique";
+const LISTEN_SIGNAL_ACTIVE_UNIQUE_METHOD_NAME = "alias.listenSignalActiveUnique";
+const LISTEN_SIGNAL_CLOSED_UNIQUE_METHOD_NAME = "alias.listenSignalClosedUnique";
+const LISTEN_SIGNAL_CANCELLED_UNIQUE_METHOD_NAME = "alias.listenSignalCancelledUnique";
 
-const LISTEN_SIGNAL_LIVE_SCHEDULED_PER_SIGNAL_METHOD_NAME = "alias.listenSignalLiveScheduledPerSignal";
-const LISTEN_SIGNAL_LIVE_WAITING_PER_SIGNAL_METHOD_NAME = "alias.listenSignalLiveWaitingPerSignal";
-const LISTEN_SIGNAL_LIVE_OPENED_PER_SIGNAL_METHOD_NAME = "alias.listenSignalLiveOpenedPerSignal";
-const LISTEN_SIGNAL_LIVE_ACTIVE_PER_SIGNAL_METHOD_NAME = "alias.listenSignalLiveActivePerSignal";
-const LISTEN_SIGNAL_LIVE_CLOSED_PER_SIGNAL_METHOD_NAME = "alias.listenSignalLiveClosedPerSignal";
-const LISTEN_SIGNAL_LIVE_CANCELLED_PER_SIGNAL_METHOD_NAME = "alias.listenSignalLiveCancelledPerSignal";
+const LISTEN_SIGNAL_LIVE_SCHEDULED_UNIQUE_METHOD_NAME = "alias.listenSignalLiveScheduledUnique";
+const LISTEN_SIGNAL_LIVE_WAITING_UNIQUE_METHOD_NAME = "alias.listenSignalLiveWaitingUnique";
+const LISTEN_SIGNAL_LIVE_OPENED_UNIQUE_METHOD_NAME = "alias.listenSignalLiveOpenedUnique";
+const LISTEN_SIGNAL_LIVE_ACTIVE_UNIQUE_METHOD_NAME = "alias.listenSignalLiveActiveUnique";
+const LISTEN_SIGNAL_LIVE_CLOSED_UNIQUE_METHOD_NAME = "alias.listenSignalLiveClosedUnique";
+const LISTEN_SIGNAL_LIVE_CANCELLED_UNIQUE_METHOD_NAME = "alias.listenSignalLiveCancelledUnique";
 
-const LISTEN_SIGNAL_BACKTEST_SCHEDULED_PER_SIGNAL_METHOD_NAME = "alias.listenSignalBacktestScheduledPerSignal";
-const LISTEN_SIGNAL_BACKTEST_WAITING_PER_SIGNAL_METHOD_NAME = "alias.listenSignalBacktestWaitingPerSignal";
-const LISTEN_SIGNAL_BACKTEST_OPENED_PER_SIGNAL_METHOD_NAME = "alias.listenSignalBacktestOpenedPerSignal";
-const LISTEN_SIGNAL_BACKTEST_ACTIVE_PER_SIGNAL_METHOD_NAME = "alias.listenSignalBacktestActivePerSignal";
-const LISTEN_SIGNAL_BACKTEST_CLOSED_PER_SIGNAL_METHOD_NAME = "alias.listenSignalBacktestClosedPerSignal";
-const LISTEN_SIGNAL_BACKTEST_CANCELLED_PER_SIGNAL_METHOD_NAME = "alias.listenSignalBacktestCancelledPerSignal";
+const LISTEN_SIGNAL_BACKTEST_SCHEDULED_UNIQUE_METHOD_NAME = "alias.listenSignalBacktestScheduledUnique";
+const LISTEN_SIGNAL_BACKTEST_WAITING_UNIQUE_METHOD_NAME = "alias.listenSignalBacktestWaitingUnique";
+const LISTEN_SIGNAL_BACKTEST_OPENED_UNIQUE_METHOD_NAME = "alias.listenSignalBacktestOpenedUnique";
+const LISTEN_SIGNAL_BACKTEST_ACTIVE_UNIQUE_METHOD_NAME = "alias.listenSignalBacktestActiveUnique";
+const LISTEN_SIGNAL_BACKTEST_CLOSED_UNIQUE_METHOD_NAME = "alias.listenSignalBacktestClosedUnique";
+const LISTEN_SIGNAL_BACKTEST_CANCELLED_UNIQUE_METHOD_NAME = "alias.listenSignalBacktestCancelledUnique";
 
 /**
  * Subscribes to idle tick results (live + backtest).
@@ -167,7 +167,7 @@ export function listenSignalScheduled(fn: (event: IStrategyTickResultScheduled) 
  * Subscribes to waiting tick results (live + backtest).
  *
  * Fires on every tick while a scheduled signal has not yet activated. High volume:
- * one event per tick per waiting signal. Use the `listenSignalWaitingPerSignal`
+ * one event per tick per waiting signal. Use the `listenSignalWaitingUnique`
  * form to collapse that down to one callback per signal.
  *
  * @param fn - Callback receiving waiting events
@@ -211,7 +211,7 @@ export function listenSignalOpened(fn: (event: IStrategyTickResultOpened) => voi
  *
  * Fires on every tick while a position is open, carrying live `pnl`, `percentTp` and
  * `percentSl`. High volume: one event per tick per open position. Use the
- * `listenSignalActivePerSignal` form to collapse that down to one callback per
+ * `listenSignalActiveUnique` form to collapse that down to one callback per
  * position.
  *
  * @param fn - Callback receiving active events
@@ -640,11 +640,11 @@ export function listenSignalBacktestCancelled(fn: (event: IStrategyTickResultCan
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-export function listenSignalScheduledPerSignal(
+export function listenSignalScheduledUnique(
   filterFn: (event: IStrategyTickResultScheduled) => boolean,
   fn: (event: IStrategyTickResultScheduled) => void
 ) {
-  backtest.loggerService.log(LISTEN_SIGNAL_SCHEDULED_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_SIGNAL_SCHEDULED_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -686,11 +686,11 @@ export function listenSignalScheduledPerSignal(
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-export function listenSignalWaitingPerSignal(
+export function listenSignalWaitingUnique(
   filterFn: (event: IStrategyTickResultWaiting) => boolean,
   fn: (event: IStrategyTickResultWaiting) => void
 ) {
-  backtest.loggerService.log(LISTEN_SIGNAL_WAITING_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_SIGNAL_WAITING_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -729,11 +729,11 @@ export function listenSignalWaitingPerSignal(
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-export function listenSignalOpenedPerSignal(
+export function listenSignalOpenedUnique(
   filterFn: (event: IStrategyTickResultOpened) => boolean,
   fn: (event: IStrategyTickResultOpened) => void
 ) {
-  backtest.loggerService.log(LISTEN_SIGNAL_OPENED_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_SIGNAL_OPENED_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -777,20 +777,20 @@ export function listenSignalOpenedPerSignal(
  *
  * @example
  * ```typescript
- * import { listenSignalActivePerSignal } from "backtest-kit";
+ * import { listenSignalActiveUnique } from "backtest-kit";
  *
  * // Alert once per position when it first crosses 5% unrealized profit
- * listenSignalActivePerSignal(
+ * listenSignalActiveUnique(
  *   (event) => event.pnl.pnlPercentage > 5,
  *   (event) => console.log("Up 5%:", event.signal.id)
  * );
  * ```
  */
-export function listenSignalActivePerSignal(
+export function listenSignalActiveUnique(
   filterFn: (event: IStrategyTickResultActive) => boolean,
   fn: (event: IStrategyTickResultActive) => void
 ) {
-  backtest.loggerService.log(LISTEN_SIGNAL_ACTIVE_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_SIGNAL_ACTIVE_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -829,11 +829,11 @@ export function listenSignalActivePerSignal(
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-export function listenSignalClosedPerSignal(
+export function listenSignalClosedUnique(
   filterFn: (event: IStrategyTickResultClosed) => boolean,
   fn: (event: IStrategyTickResultClosed) => void
 ) {
-  backtest.loggerService.log(LISTEN_SIGNAL_CLOSED_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_SIGNAL_CLOSED_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -872,11 +872,11 @@ export function listenSignalClosedPerSignal(
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-export function listenSignalCancelledPerSignal(
+export function listenSignalCancelledUnique(
   filterFn: (event: IStrategyTickResultCancelled) => boolean,
   fn: (event: IStrategyTickResultCancelled) => void
 ) {
-  backtest.loggerService.log(LISTEN_SIGNAL_CANCELLED_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_SIGNAL_CANCELLED_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -930,11 +930,11 @@ export function listenSignalCancelledPerSignal(
  * @param fn - Callback invoked at most once per signal
  * @returns Unsubscribe function to stop listening
  */
-export function listenSignalLiveScheduledPerSignal(
+export function listenSignalLiveScheduledUnique(
   filterFn: (event: IStrategyTickResultScheduled) => boolean,
   fn: (event: IStrategyTickResultScheduled) => void
 ) {
-  backtest.loggerService.log(LISTEN_SIGNAL_LIVE_SCHEDULED_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_SIGNAL_LIVE_SCHEDULED_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -989,11 +989,11 @@ export function listenSignalLiveScheduledPerSignal(
  * @param fn - Callback invoked at most once per signal
  * @returns Unsubscribe function to stop listening
  */
-export function listenSignalLiveWaitingPerSignal(
+export function listenSignalLiveWaitingUnique(
   filterFn: (event: IStrategyTickResultWaiting) => boolean,
   fn: (event: IStrategyTickResultWaiting) => void
 ) {
-  backtest.loggerService.log(LISTEN_SIGNAL_LIVE_WAITING_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_SIGNAL_LIVE_WAITING_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -1047,11 +1047,11 @@ export function listenSignalLiveWaitingPerSignal(
  * @param fn - Callback invoked at most once per signal
  * @returns Unsubscribe function to stop listening
  */
-export function listenSignalLiveOpenedPerSignal(
+export function listenSignalLiveOpenedUnique(
   filterFn: (event: IStrategyTickResultOpened) => boolean,
   fn: (event: IStrategyTickResultOpened) => void
 ) {
-  backtest.loggerService.log(LISTEN_SIGNAL_LIVE_OPENED_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_SIGNAL_LIVE_OPENED_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -1106,11 +1106,11 @@ export function listenSignalLiveOpenedPerSignal(
  * @param fn - Callback invoked at most once per signal
  * @returns Unsubscribe function to stop listening
  */
-export function listenSignalLiveActivePerSignal(
+export function listenSignalLiveActiveUnique(
   filterFn: (event: IStrategyTickResultActive) => boolean,
   fn: (event: IStrategyTickResultActive) => void
 ) {
-  backtest.loggerService.log(LISTEN_SIGNAL_LIVE_ACTIVE_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_SIGNAL_LIVE_ACTIVE_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -1164,11 +1164,11 @@ export function listenSignalLiveActivePerSignal(
  * @param fn - Callback invoked at most once per signal
  * @returns Unsubscribe function to stop listening
  */
-export function listenSignalLiveClosedPerSignal(
+export function listenSignalLiveClosedUnique(
   filterFn: (event: IStrategyTickResultClosed) => boolean,
   fn: (event: IStrategyTickResultClosed) => void
 ) {
-  backtest.loggerService.log(LISTEN_SIGNAL_LIVE_CLOSED_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_SIGNAL_LIVE_CLOSED_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -1222,11 +1222,11 @@ export function listenSignalLiveClosedPerSignal(
  * @param fn - Callback invoked at most once per signal
  * @returns Unsubscribe function to stop listening
  */
-export function listenSignalLiveCancelledPerSignal(
+export function listenSignalLiveCancelledUnique(
   filterFn: (event: IStrategyTickResultCancelled) => boolean,
   fn: (event: IStrategyTickResultCancelled) => void
 ) {
-  backtest.loggerService.log(LISTEN_SIGNAL_LIVE_CANCELLED_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_SIGNAL_LIVE_CANCELLED_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -1280,11 +1280,11 @@ export function listenSignalLiveCancelledPerSignal(
  * @param fn - Callback invoked at most once per signal
  * @returns Unsubscribe function to stop listening
  */
-export function listenSignalBacktestScheduledPerSignal(
+export function listenSignalBacktestScheduledUnique(
   filterFn: (event: IStrategyTickResultScheduled) => boolean,
   fn: (event: IStrategyTickResultScheduled) => void
 ) {
-  backtest.loggerService.log(LISTEN_SIGNAL_BACKTEST_SCHEDULED_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_SIGNAL_BACKTEST_SCHEDULED_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -1339,11 +1339,11 @@ export function listenSignalBacktestScheduledPerSignal(
  * @param fn - Callback invoked at most once per signal
  * @returns Unsubscribe function to stop listening
  */
-export function listenSignalBacktestWaitingPerSignal(
+export function listenSignalBacktestWaitingUnique(
   filterFn: (event: IStrategyTickResultWaiting) => boolean,
   fn: (event: IStrategyTickResultWaiting) => void
 ) {
-  backtest.loggerService.log(LISTEN_SIGNAL_BACKTEST_WAITING_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_SIGNAL_BACKTEST_WAITING_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -1397,11 +1397,11 @@ export function listenSignalBacktestWaitingPerSignal(
  * @param fn - Callback invoked at most once per signal
  * @returns Unsubscribe function to stop listening
  */
-export function listenSignalBacktestOpenedPerSignal(
+export function listenSignalBacktestOpenedUnique(
   filterFn: (event: IStrategyTickResultOpened) => boolean,
   fn: (event: IStrategyTickResultOpened) => void
 ) {
-  backtest.loggerService.log(LISTEN_SIGNAL_BACKTEST_OPENED_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_SIGNAL_BACKTEST_OPENED_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -1456,11 +1456,11 @@ export function listenSignalBacktestOpenedPerSignal(
  * @param fn - Callback invoked at most once per signal
  * @returns Unsubscribe function to stop listening
  */
-export function listenSignalBacktestActivePerSignal(
+export function listenSignalBacktestActiveUnique(
   filterFn: (event: IStrategyTickResultActive) => boolean,
   fn: (event: IStrategyTickResultActive) => void
 ) {
-  backtest.loggerService.log(LISTEN_SIGNAL_BACKTEST_ACTIVE_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_SIGNAL_BACKTEST_ACTIVE_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -1514,11 +1514,11 @@ export function listenSignalBacktestActivePerSignal(
  * @param fn - Callback invoked at most once per signal
  * @returns Unsubscribe function to stop listening
  */
-export function listenSignalBacktestClosedPerSignal(
+export function listenSignalBacktestClosedUnique(
   filterFn: (event: IStrategyTickResultClosed) => boolean,
   fn: (event: IStrategyTickResultClosed) => void
 ) {
-  backtest.loggerService.log(LISTEN_SIGNAL_BACKTEST_CLOSED_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_SIGNAL_BACKTEST_CLOSED_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -1572,11 +1572,11 @@ export function listenSignalBacktestClosedPerSignal(
  * @param fn - Callback invoked at most once per signal
  * @returns Unsubscribe function to stop listening
  */
-export function listenSignalBacktestCancelledPerSignal(
+export function listenSignalBacktestCancelledUnique(
   filterFn: (event: IStrategyTickResultCancelled) => boolean,
   fn: (event: IStrategyTickResultCancelled) => void
 ) {
-  backtest.loggerService.log(LISTEN_SIGNAL_BACKTEST_CANCELLED_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_SIGNAL_BACKTEST_CANCELLED_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.

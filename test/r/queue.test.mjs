@@ -3,8 +3,8 @@ import { test } from "worker-testbed";
 import {
   addExchangeSchema,
   addStrategySchema,
-  listenSignalPerSignal,
-  listenSignalActivePerSignal,
+  listenSignalUnique,
+  listenSignalActiveUnique,
   listenSignalOnce,
   emitters,
 } from "../../build/index.mjs";
@@ -84,10 +84,10 @@ const tick = (signalId, extra = {}) => ({
 // ---------------------------------------------------------------------------
 // 1. The predicate runs in lockstep with the callback, not ahead of it
 // ---------------------------------------------------------------------------
-test("listenSignalPerSignal evaluates its predicate inside the callback queue", async ({ pass, fail }) => {
+test("listenSignalUnique evaluates its predicate inside the callback queue", async ({ pass, fail }) => {
   const order = [];
 
-  const unsubscribe = listenSignalPerSignal(
+  const unsubscribe = listenSignalUnique(
     (event) => {
       order.push(`F${event.signal.id}`);
       return event.exchangeName === "q-exchange";
@@ -123,10 +123,10 @@ test("listenSignalPerSignal evaluates its predicate inside the callback queue", 
 // ---------------------------------------------------------------------------
 // 2. Same guarantee for the action-scoped alias form
 // ---------------------------------------------------------------------------
-test("listenSignalActivePerSignal evaluates its predicate inside the callback queue", async ({ pass, fail }) => {
+test("listenSignalActiveUnique evaluates its predicate inside the callback queue", async ({ pass, fail }) => {
   const order = [];
 
-  const unsubscribe = listenSignalActivePerSignal(
+  const unsubscribe = listenSignalActiveUnique(
     (event) => {
       order.push(`F${event.signal.id}`);
       return event.exchangeName === "q-alias-exchange";
@@ -192,7 +192,7 @@ test("per-signal and Once forms interleave identically (same single-queue shape)
 
   // Now the per-signal form over the same emission pattern.
   const perOrder = [];
-  const unsubscribe = listenSignalPerSignal(
+  const unsubscribe = listenSignalUnique(
     (event) => {
       if (event.exchangeName !== "q-cmp-exchange") return false;
       perOrder.push(`F${event.signal.id}`);
@@ -230,7 +230,7 @@ test("the remembered id advances in step with delivery, not ahead of it", async 
   let inCallback = false;
   let decidedWhileBusy = false;
 
-  const unsubscribe = listenSignalPerSignal(
+  const unsubscribe = listenSignalUnique(
     (event) => {
       if (event.exchangeName !== "q-busy-exchange") return false;
       // If the queue were bypassed, this would run while an earlier callback was

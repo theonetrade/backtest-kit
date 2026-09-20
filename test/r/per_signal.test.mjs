@@ -3,14 +3,14 @@ import { test } from "worker-testbed";
 import {
   addExchangeSchema,
   addStrategySchema,
-  listenSignalPerSignal,
-  listenSignalLivePerSignal,
-  listenSignalBacktestPerSignal,
-  listenSignalEventPerSignal,
-  listenOrderSchedulePerSignal,
-  listenHighestProfitPerSignal,
-  listenMaxDrawdownPerSignal,
-  listenStrategyCommitPerSignal,
+  listenSignalUnique,
+  listenSignalLiveUnique,
+  listenSignalBacktestUnique,
+  listenSignalEventUnique,
+  listenOrderScheduleUnique,
+  listenHighestProfitUnique,
+  listenMaxDrawdownUnique,
+  listenStrategyCommitUnique,
   emitters,
 } from "../../build/index.mjs";
 
@@ -47,7 +47,7 @@ const registerSchemas = (strategyNames, exchangeNames) => {
 registerSchemas(["r-strategy", "r-gated-strategy", "alpha", "beta"], ["r-exchange", "r-gated-exchange", "ex"]);
 
 // ---------------------------------------------------------------------------
-// The `...PerSignal` listeners in src/function/event.ts all share one pipeline:
+// The `...Unique` listeners in src/function/event.ts all share one pipeline:
 //
 //   subject.filter(filterFn).operator(Operator.distinct(id)).connect(queued(fn))
 //
@@ -113,9 +113,9 @@ const signalRow = (id) => ({
 // ---------------------------------------------------------------------------
 // 1. Core dedup contract on the global signal emitter
 // ---------------------------------------------------------------------------
-test("listenSignalPerSignal fires once per new signal id", async ({ pass, fail }) => {
+test("listenSignalUnique fires once per new signal id", async ({ pass, fail }) => {
   const seen = [];
-  const unsubscribe = listenSignalPerSignal(
+  const unsubscribe = listenSignalUnique(
     (event) => event.action === "active",
     (event) => seen.push(event.signal.id)
   );
@@ -144,9 +144,9 @@ test("listenSignalPerSignal fires once per new signal id", async ({ pass, fail }
 // filtered-out event between two identical matching ones is the exact case that
 // separates the two orderings.
 // ---------------------------------------------------------------------------
-test("listenSignalPerSignal: a filtered-out event does not reset the dedup state", async ({ pass, fail }) => {
+test("listenSignalUnique: a filtered-out event does not reset the dedup state", async ({ pass, fail }) => {
   const seen = [];
-  const unsubscribe = listenSignalPerSignal(
+  const unsubscribe = listenSignalUnique(
     (event) => event.action === "active",
     (event) => seen.push(event.signal.id)
   );
@@ -173,9 +173,9 @@ test("listenSignalPerSignal: a filtered-out event does not reset the dedup state
 // twice: the slot legitimately moved to B in between. What must NOT happen is a
 // repeat of the CURRENT signal, which test 1 covers.
 // ---------------------------------------------------------------------------
-test("listenSignalPerSignal tracks the latest signal id per execution", async ({ pass, fail }) => {
+test("listenSignalUnique tracks the latest signal id per execution", async ({ pass, fail }) => {
   const seen = [];
-  const unsubscribe = listenSignalPerSignal(
+  const unsubscribe = listenSignalUnique(
     (event) => event.action === "active",
     (event) => seen.push(event.signal.id)
   );
@@ -196,9 +196,9 @@ test("listenSignalPerSignal tracks the latest signal id per execution", async ({
 // ---------------------------------------------------------------------------
 // 4. Idle events carry `signal: null` and must never reach the callback
 // ---------------------------------------------------------------------------
-test("listenSignalPerSignal skips idle events (signal is null)", async ({ pass, fail }) => {
+test("listenSignalUnique skips idle events (signal is null)", async ({ pass, fail }) => {
   const seen = [];
-  const unsubscribe = listenSignalPerSignal(
+  const unsubscribe = listenSignalUnique(
     () => true,
     (event) => seen.push(event.signal === null ? "NULL" : event.signal.id)
   );
@@ -219,9 +219,9 @@ test("listenSignalPerSignal skips idle events (signal is null)", async ({ pass, 
 // ---------------------------------------------------------------------------
 // 5. Unsubscribe detaches the whole chain
 // ---------------------------------------------------------------------------
-test("listenSignalPerSignal unsubscribe stops delivery", async ({ pass, fail }) => {
+test("listenSignalUnique unsubscribe stops delivery", async ({ pass, fail }) => {
   const seen = [];
-  const unsubscribe = listenSignalPerSignal(
+  const unsubscribe = listenSignalUnique(
     () => true,
     (event) => seen.push(event.signal.id)
   );
@@ -242,14 +242,14 @@ test("listenSignalPerSignal unsubscribe stops delivery", async ({ pass, fail }) 
 // ---------------------------------------------------------------------------
 // 6. Live / backtest emitter isolation
 // ---------------------------------------------------------------------------
-test("listenSignalLivePerSignal and listenSignalBacktestPerSignal stay on their own emitter", async ({ pass, fail }) => {
+test("listenSignalLiveUnique and listenSignalBacktestUnique stay on their own emitter", async ({ pass, fail }) => {
   const live = [];
   const backtested = [];
-  const unsubscribeLive = listenSignalLivePerSignal(
+  const unsubscribeLive = listenSignalLiveUnique(
     () => true,
     (event) => live.push(event.signal.id)
   );
-  const unsubscribeBacktest = listenSignalBacktestPerSignal(
+  const unsubscribeBacktest = listenSignalBacktestUnique(
     () => true,
     (event) => backtested.push(event.signal.id)
   );
@@ -290,16 +290,16 @@ test("listenSignalLivePerSignal and listenSignalBacktestPerSignal stay on their 
 test("data.id channels dedup per signal (signalEvent, orderSchedule)", async ({ pass, fail }) => {
   const cases = [
     {
-      name: "listenSignalEventPerSignal",
-      listen: listenSignalEventPerSignal,
+      name: "listenSignalEventUnique",
+      listen: listenSignalEventUnique,
       subject: emitters.signalEventSubject,
       match: { action: "opened" },
       skip: { action: "closed" },
       filter: (event) => event.action === "opened",
     },
     {
-      name: "listenOrderSchedulePerSignal",
-      listen: listenOrderSchedulePerSignal,
+      name: "listenOrderScheduleUnique",
+      listen: listenOrderScheduleUnique,
       subject: emitters.scheduleEventSubject,
       match: { action: "scheduled" },
       skip: { action: "cancelled" },
@@ -402,9 +402,9 @@ test("data.id channels dedup per signal (signalEvent, orderSchedule)", async ({ 
 test("gated per-signal channels drop events with no live position behind them", async ({ pass, fail }) => {
   const delivered = [];
   const unsubscribes = [
-    listenHighestProfitPerSignal(() => true, () => delivered.push("highestProfit")),
-    listenMaxDrawdownPerSignal(() => true, () => delivered.push("maxDrawdown")),
-    listenStrategyCommitPerSignal(() => true, () => delivered.push("commit")),
+    listenHighestProfitUnique(() => true, () => delivered.push("highestProfit")),
+    listenMaxDrawdownUnique(() => true, () => delivered.push("maxDrawdown")),
+    listenStrategyCommitUnique(() => true, () => delivered.push("commit")),
   ];
 
   const base = {
@@ -462,7 +462,7 @@ test("gated per-signal channels drop events with no live position behind them", 
 // ---------------------------------------------------------------------------
 test("dedup key is scoped by execution identity, not just the signal id", async ({ pass, fail }) => {
   const seen = [];
-  const unsubscribe = listenSignalPerSignal(
+  const unsubscribe = listenSignalUnique(
     (event) => event.action === "active",
     (event) => seen.push(`${event.strategyName}/${event.symbol}/${event.signal.id}`)
   );
@@ -494,7 +494,7 @@ test("dedup key is scoped by execution identity, not just the signal id", async 
 // ---------------------------------------------------------------------------
 test("interleaved executions keep independent dedup state", async ({ pass, fail }) => {
   const seen = [];
-  const unsubscribe = listenSignalPerSignal(
+  const unsubscribe = listenSignalUnique(
     (event) => event.action === "active",
     (event) => seen.push(`${event.strategyName}:${event.signal.id}`)
   );
@@ -521,12 +521,12 @@ test("interleaved executions keep independent dedup state", async ({ pass, fail 
 // ---------------------------------------------------------------------------
 // 10. Async callbacks are queued, never run concurrently
 // ---------------------------------------------------------------------------
-test("listenSignalPerSignal serialises async callbacks", async ({ pass, fail }) => {
+test("listenSignalUnique serialises async callbacks", async ({ pass, fail }) => {
   const order = [];
   let inFlight = 0;
   let overlapped = false;
 
-  const unsubscribe = listenSignalPerSignal(
+  const unsubscribe = listenSignalUnique(
     () => true,
     async (event) => {
       inFlight += 1;

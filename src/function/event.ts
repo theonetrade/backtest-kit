@@ -91,7 +91,7 @@ const LISTEN_AFTER_END_METHOD_NAME = "event.listenAfterEnd";
 const LISTEN_AFTER_END_ONCE_METHOD_NAME = "event.listenAfterEndOnce";
 
 /**
- * How many execution identities one `listenXPerSignal` subscription remembers.
+ * How many execution identities one `listenXUnique` subscription remembers.
  *
  * Each entry is `executionKey -> last delivered signal id`. One entry per
  * strategy/exchange/frame/mode/symbol combination being monitored, so the bound
@@ -101,20 +101,20 @@ const LISTEN_AFTER_END_ONCE_METHOD_NAME = "event.listenAfterEndOnce";
  */
 const SEEN_MAP_LIMIT = 200;
 
-const LISTEN_SIGNAL_PER_SIGNAL_METHOD_NAME = "event.listenSignalPerSignal";
-const LISTEN_SIGNAL_LIVE_PER_SIGNAL_METHOD_NAME = "event.listenSignalLivePerSignal";
-const LISTEN_SIGNAL_BACKTEST_PER_SIGNAL_METHOD_NAME = "event.listenSignalBacktestPerSignal";
-const LISTEN_SIGNAL_EVENT_PER_SIGNAL_METHOD_NAME = "event.listenSignalEventPerSignal";
-const LISTEN_ORDER_SCHEDULE_PER_SIGNAL_METHOD_NAME = "event.listenOrderSchedulePerSignal";
-const LISTEN_ACTIVE_PING_PER_SIGNAL_METHOD_NAME = "event.listenActivePingPerSignal";
-const LISTEN_SCHEDULE_PING_PER_SIGNAL_METHOD_NAME = "event.listenSchedulePingPerSignal";
-const LISTEN_PARTIAL_PROFIT_PER_SIGNAL_METHOD_NAME = "event.listenPartialProfitAvailablePerSignal";
-const LISTEN_PARTIAL_LOSS_PER_SIGNAL_METHOD_NAME = "event.listenPartialLossAvailablePerSignal";
-const LISTEN_BREAKEVEN_PER_SIGNAL_METHOD_NAME = "event.listenBreakevenAvailablePerSignal";
-const LISTEN_HIGHEST_PROFIT_PER_SIGNAL_METHOD_NAME = "event.listenHighestProfitPerSignal";
-const LISTEN_MAX_DRAWDOWN_PER_SIGNAL_METHOD_NAME = "event.listenMaxDrawdownPerSignal";
-const LISTEN_SIGNAL_NOTIFY_PER_SIGNAL_METHOD_NAME = "event.listenSignalNotifyPerSignal";
-const LISTEN_STRATEGY_COMMIT_PER_SIGNAL_METHOD_NAME = "event.listenStrategyCommitPerSignal";
+const LISTEN_SIGNAL_UNIQUE_METHOD_NAME = "event.listenSignalUnique";
+const LISTEN_SIGNAL_LIVE_UNIQUE_METHOD_NAME = "event.listenSignalLiveUnique";
+const LISTEN_SIGNAL_BACKTEST_UNIQUE_METHOD_NAME = "event.listenSignalBacktestUnique";
+const LISTEN_SIGNAL_EVENT_UNIQUE_METHOD_NAME = "event.listenSignalEventUnique";
+const LISTEN_ORDER_SCHEDULE_UNIQUE_METHOD_NAME = "event.listenOrderScheduleUnique";
+const LISTEN_ACTIVE_PING_UNIQUE_METHOD_NAME = "event.listenActivePingUnique";
+const LISTEN_SCHEDULE_PING_UNIQUE_METHOD_NAME = "event.listenSchedulePingUnique";
+const LISTEN_PARTIAL_PROFIT_UNIQUE_METHOD_NAME = "event.listenPartialProfitAvailableUnique";
+const LISTEN_PARTIAL_LOSS_UNIQUE_METHOD_NAME = "event.listenPartialLossAvailableUnique";
+const LISTEN_BREAKEVEN_UNIQUE_METHOD_NAME = "event.listenBreakevenAvailableUnique";
+const LISTEN_HIGHEST_PROFIT_UNIQUE_METHOD_NAME = "event.listenHighestProfitUnique";
+const LISTEN_MAX_DRAWDOWN_UNIQUE_METHOD_NAME = "event.listenMaxDrawdownUnique";
+const LISTEN_SIGNAL_NOTIFY_UNIQUE_METHOD_NAME = "event.listenSignalNotifyUnique";
+const LISTEN_STRATEGY_COMMIT_UNIQUE_METHOD_NAME = "event.listenStrategyCommitUnique";
 
 /**
  * Subscribes to all signal events with queued async processing.
@@ -2273,11 +2273,11 @@ export function listenAfterEndOnce(
  *
  * @example
  * ```typescript
- * import { listenSignalPerSignal } from "backtest-kit";
+ * import { listenSignalUnique } from "backtest-kit";
  *
  * // Notify once per signal that closed in profit, no matter how many
  * // closed events the channel replays for it
- * const unsubscribe = listenSignalPerSignal(
+ * const unsubscribe = listenSignalUnique(
  *   (event) => event.action === "closed" && event.pnl.pnlPercentage > 0,
  *   (event) => console.log("Profitable close:", event.signal.id)
  * );
@@ -2285,11 +2285,11 @@ export function listenAfterEndOnce(
  * unsubscribe();
  * ```
  */
-export function listenSignalPerSignal(
+export function listenSignalUnique(
   filterFn: (event: IStrategyTickResult) => boolean,
   fn: (event: IStrategyTickResult) => void
 ) {
-  backtest.loggerService.log(LISTEN_SIGNAL_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_SIGNAL_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -2334,11 +2334,11 @@ export function listenSignalPerSignal(
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-export function listenSignalLivePerSignal(
+export function listenSignalLiveUnique(
   filterFn: (event: IStrategyTickResult) => boolean,
   fn: (event: IStrategyTickResult) => void
 ) {
-  backtest.loggerService.log(LISTEN_SIGNAL_LIVE_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_SIGNAL_LIVE_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -2383,11 +2383,11 @@ export function listenSignalLivePerSignal(
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-export function listenSignalBacktestPerSignal(
+export function listenSignalBacktestUnique(
   filterFn: (event: IStrategyTickResult) => boolean,
   fn: (event: IStrategyTickResult) => void
 ) {
-  backtest.loggerService.log(LISTEN_SIGNAL_BACKTEST_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_SIGNAL_BACKTEST_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -2435,19 +2435,19 @@ export function listenSignalBacktestPerSignal(
  *
  * @example
  * ```typescript
- * import { listenSignalEventPerSignal } from "backtest-kit";
+ * import { listenSignalEventUnique } from "backtest-kit";
  *
- * listenSignalEventPerSignal(
+ * listenSignalEventUnique(
  *   (event) => event.action === "opened",
  *   (event) => console.log("New position:", event.data.id, event.data.priceOpen)
  * );
  * ```
  */
-export function listenSignalEventPerSignal(
+export function listenSignalEventUnique(
   filterFn: (event: SignalEventContract) => boolean,
   fn: (event: SignalEventContract) => void
 ) {
-  backtest.loggerService.log(LISTEN_SIGNAL_EVENT_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_SIGNAL_EVENT_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -2489,11 +2489,11 @@ export function listenSignalEventPerSignal(
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-export function listenOrderSchedulePerSignal(
+export function listenOrderScheduleUnique(
   filterFn: (event: ScheduleEventContract) => boolean,
   fn: (event: ScheduleEventContract) => void
 ) {
-  backtest.loggerService.log(LISTEN_ORDER_SCHEDULE_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_ORDER_SCHEDULE_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -2538,20 +2538,20 @@ export function listenOrderSchedulePerSignal(
  *
  * @example
  * ```typescript
- * import { listenActivePingPerSignal } from "backtest-kit";
+ * import { listenActivePingUnique } from "backtest-kit";
  *
  * // Alert once per position when it first crosses 5% unrealized profit
- * listenActivePingPerSignal(
+ * listenActivePingUnique(
  *   (event) => event.data.position === "long" && event.currentPrice > event.data.priceOpen * 1.05,
  *   (event) => console.log("Position up 5%:", event.data.id)
  * );
  * ```
  */
-export function listenActivePingPerSignal(
+export function listenActivePingUnique(
   filterFn: (event: ActivePingContract) => boolean,
   fn: (event: ActivePingContract) => void
 ) {
-  backtest.loggerService.log(LISTEN_ACTIVE_PING_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_ACTIVE_PING_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -2593,11 +2593,11 @@ export function listenActivePingPerSignal(
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-export function listenSchedulePingPerSignal(
+export function listenSchedulePingUnique(
   filterFn: (event: SchedulePingContract) => boolean,
   fn: (event: SchedulePingContract) => void
 ) {
-  backtest.loggerService.log(LISTEN_SCHEDULE_PING_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_SCHEDULE_PING_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -2641,11 +2641,11 @@ export function listenSchedulePingPerSignal(
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-export function listenPartialProfitAvailablePerSignal(
+export function listenPartialProfitAvailableUnique(
   filterFn: (event: PartialProfitContract) => boolean,
   fn: (event: PartialProfitContract) => void
 ) {
-  backtest.loggerService.log(LISTEN_PARTIAL_PROFIT_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_PARTIAL_PROFIT_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -2688,11 +2688,11 @@ export function listenPartialProfitAvailablePerSignal(
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-export function listenPartialLossAvailablePerSignal(
+export function listenPartialLossAvailableUnique(
   filterFn: (event: PartialLossContract) => boolean,
   fn: (event: PartialLossContract) => void
 ) {
-  backtest.loggerService.log(LISTEN_PARTIAL_LOSS_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_PARTIAL_LOSS_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -2731,11 +2731,11 @@ export function listenPartialLossAvailablePerSignal(
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-export function listenBreakevenAvailablePerSignal(
+export function listenBreakevenAvailableUnique(
   filterFn: (event: BreakevenContract) => boolean,
   fn: (event: BreakevenContract) => void
 ) {
-  backtest.loggerService.log(LISTEN_BREAKEVEN_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_BREAKEVEN_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -2778,11 +2778,11 @@ export function listenBreakevenAvailablePerSignal(
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-export function listenHighestProfitPerSignal(
+export function listenHighestProfitUnique(
   filterFn: (event: HighestProfitContract) => boolean,
   fn: (event: HighestProfitContract) => void
 ) {
-  backtest.loggerService.log(LISTEN_HIGHEST_PROFIT_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_HIGHEST_PROFIT_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -2824,11 +2824,11 @@ export function listenHighestProfitPerSignal(
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-export function listenMaxDrawdownPerSignal(
+export function listenMaxDrawdownUnique(
   filterFn: (event: MaxDrawdownContract) => boolean,
   fn: (event: MaxDrawdownContract) => void
 ) {
-  backtest.loggerService.log(LISTEN_MAX_DRAWDOWN_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_MAX_DRAWDOWN_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -2870,11 +2870,11 @@ export function listenMaxDrawdownPerSignal(
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-export function listenSignalNotifyPerSignal(
+export function listenSignalNotifyUnique(
   filterFn: (event: SignalInfoContract) => boolean,
   fn: (event: SignalInfoContract) => void
 ) {
-  backtest.loggerService.log(LISTEN_SIGNAL_NOTIFY_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_SIGNAL_NOTIFY_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.
@@ -2918,20 +2918,20 @@ export function listenSignalNotifyPerSignal(
  *
  * @example
  * ```typescript
- * import { listenStrategyCommitPerSignal } from "backtest-kit";
+ * import { listenStrategyCommitUnique } from "backtest-kit";
  *
  * // Report the first trailing-stop adjustment of each position
- * listenStrategyCommitPerSignal(
+ * listenStrategyCommitUnique(
  *   (event) => event.action === "trailing-stop",
  *   (event) => console.log("First trailing stop for", event.signalId)
  * );
  * ```
  */
-export function listenStrategyCommitPerSignal(
+export function listenStrategyCommitUnique(
   filterFn: (event: StrategyCommitContract) => boolean,
   fn: (event: StrategyCommitContract) => void
 ) {
-  backtest.loggerService.log(LISTEN_STRATEGY_COMMIT_PER_SIGNAL_METHOD_NAME);
+  backtest.loggerService.log(LISTEN_STRATEGY_COMMIT_UNIQUE_METHOD_NAME);
 
   // Last delivered signal id per execution identity. Bounded so a long-lived
   // subscription over many strategies/symbols cannot grow without limit.

@@ -3,8 +3,8 @@ import { test } from "worker-testbed";
 import {
   addExchangeSchema,
   addStrategySchema,
-  listenSignalPerSignal,
-  listenSignalActivePerSignal,
+  listenSignalUnique,
+  listenSignalActiveUnique,
   emitters,
 } from "../../build/index.mjs";
 
@@ -81,7 +81,7 @@ test("parallel strategies each get exactly one callback per signal", async ({ pa
   const TICKS_PER_STRATEGY = 20;
 
   const seen = [];
-  const unsubscribe = listenSignalPerSignal(
+  const unsubscribe = listenSignalUnique(
     (event) => event.action === "active" && event.exchangeName === "par-1",
     (event) => seen.push(`${event.strategyName}/${event.signal.id}`)
   );
@@ -132,7 +132,7 @@ test("one strategy across parallel symbols keeps per-symbol dedup", async ({ pas
   const SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT"];
 
   const seen = [];
-  const unsubscribe = listenSignalPerSignal(
+  const unsubscribe = listenSignalUnique(
     (event) => event.action === "active" && event.exchangeName === "par-2",
     (event) => seen.push(`${event.symbol}/${event.signal.id}`)
   );
@@ -175,7 +175,7 @@ test("alternating parallel strategies do not resurrect each other's signals", as
   const ROUNDS = 25;
 
   const seen = [];
-  const unsubscribe = listenSignalPerSignal(
+  const unsubscribe = listenSignalUnique(
     (event) => event.action === "active" && event.exchangeName === "par-3",
     (event) => seen.push(`${event.strategyName}/${event.signal.id}`)
   );
@@ -215,7 +215,7 @@ test("parallel strategies rotating signals report each of their own exactly once
   const TICKS_PER_SIGNAL = 4;
 
   const seen = [];
-  const unsubscribe = listenSignalPerSignal(
+  const unsubscribe = listenSignalUnique(
     (event) => event.action === "active" && event.exchangeName === "par-4",
     (event) => seen.push(`${event.strategyName}/${event.signal.id}`)
   );
@@ -282,7 +282,7 @@ test("parallel strategies rotating signals report each of their own exactly once
 // ---------------------------------------------------------------------------
 test("live and backtest of the same strategy dedup separately", async ({ pass, fail }) => {
   const seen = [];
-  const unsubscribe = listenSignalPerSignal(
+  const unsubscribe = listenSignalUnique(
     (event) => event.action === "active" && event.exchangeName === "par-5",
     (event) => seen.push(`${event.backtest ? "backtest" : "live"}/${event.signal.id}`)
   );
@@ -319,11 +319,11 @@ test("live and backtest of the same strategy dedup separately", async ({ pass, f
 // ---------------------------------------------------------------------------
 // 6. The same guarantee on an action-scoped alias
 // ---------------------------------------------------------------------------
-test("listenSignalActivePerSignal holds up across parallel strategies", async ({ pass, fail }) => {
+test("listenSignalActiveUnique holds up across parallel strategies", async ({ pass, fail }) => {
   const STRATEGIES = ["alpha", "beta", "gamma", "delta"];
 
   const seen = [];
-  const unsubscribe = listenSignalActivePerSignal(
+  const unsubscribe = listenSignalActiveUnique(
     (event) => event.exchangeName === "par-7",
     (event) => seen.push(`${event.strategyName}/${event.signal.id}`)
   );

@@ -24,16 +24,16 @@ import {
   listenSignalBacktestActive,
   listenSignalBacktestClosed,
   listenSignalBacktestCancelled,
-  listenSignalScheduledPerSignal,
-  listenSignalWaitingPerSignal,
-  listenSignalOpenedPerSignal,
-  listenSignalActivePerSignal,
-  listenSignalClosedPerSignal,
-  listenSignalCancelledPerSignal,
-  listenSignalLiveActivePerSignal,
-  listenSignalLiveClosedPerSignal,
-  listenSignalBacktestActivePerSignal,
-  listenSignalBacktestClosedPerSignal,
+  listenSignalScheduledUnique,
+  listenSignalWaitingUnique,
+  listenSignalOpenedUnique,
+  listenSignalActiveUnique,
+  listenSignalClosedUnique,
+  listenSignalCancelledUnique,
+  listenSignalLiveActiveUnique,
+  listenSignalLiveClosedUnique,
+  listenSignalBacktestActiveUnique,
+  listenSignalBacktestClosedUnique,
   emitters,
 } from "../../build/index.mjs";
 
@@ -76,7 +76,7 @@ registerSchemas(["r-strategy"], ["r-exchange"]);
 // What matters behaviourally (types are checked by tsc, not here):
 //   - each alias receives ONLY its own action,
 //   - the three emitter families never bleed into each other,
-//   - the PerSignal forms dedup on signal.id after the predicate.
+//   - the Unique forms dedup on signal.id after the predicate.
 //
 // The subjects are driven directly: this is stream wiring, independent of any
 // running strategy, so feeding them keeps the assertions deterministic.
@@ -183,7 +183,7 @@ test("closed and cancelled aliases deliver their variant-specific fields", async
 // 3. Idle carries signal: null and must still be delivered
 //
 // listenSignalIdle is the one alias whose event has no signal, which is exactly
-// why it has no PerSignal counterpart.
+// why it has no Unique counterpart.
 // ---------------------------------------------------------------------------
 test("listenSignalIdle delivers events whose signal is null", async ({ pass, fail }) => {
   const seen = [];
@@ -271,16 +271,16 @@ test("backtest action aliases receive only backtest emitter events", async ({ pa
 });
 
 // ---------------------------------------------------------------------------
-// 6. PerSignal aliases dedup within their action
+// 6. Unique aliases dedup within their action
 // ---------------------------------------------------------------------------
-test("global PerSignal aliases fire once per new signal id", async ({ pass, fail }) => {
+test("global Unique aliases fire once per new signal id", async ({ pass, fail }) => {
   const cases = [
-    { name: "Scheduled", listen: listenSignalScheduledPerSignal, action: "scheduled" },
-    { name: "Waiting", listen: listenSignalWaitingPerSignal, action: "waiting" },
-    { name: "Opened", listen: listenSignalOpenedPerSignal, action: "opened" },
-    { name: "Active", listen: listenSignalActivePerSignal, action: "active" },
-    { name: "Closed", listen: listenSignalClosedPerSignal, action: "closed" },
-    { name: "Cancelled", listen: listenSignalCancelledPerSignal, action: "cancelled" },
+    { name: "Scheduled", listen: listenSignalScheduledUnique, action: "scheduled" },
+    { name: "Waiting", listen: listenSignalWaitingUnique, action: "waiting" },
+    { name: "Opened", listen: listenSignalOpenedUnique, action: "opened" },
+    { name: "Active", listen: listenSignalActiveUnique, action: "active" },
+    { name: "Closed", listen: listenSignalClosedUnique, action: "closed" },
+    { name: "Cancelled", listen: listenSignalCancelledUnique, action: "cancelled" },
   ];
 
   for (const testCase of cases) {
@@ -297,20 +297,20 @@ test("global PerSignal aliases fire once per new signal id", async ({ pass, fail
     unsubscribe();
 
     if (JSON.stringify(seen) !== JSON.stringify(["A", "B"])) {
-      fail(`listenSignal${testCase.name}PerSignal: delivered ${JSON.stringify(seen)} expected ["A","B"]`);
+      fail(`listenSignal${testCase.name}Unique: delivered ${JSON.stringify(seen)} expected ["A","B"]`);
       return;
     }
   }
 
-  pass(`${cases.length} PerSignal aliases dedup within their own action`);
+  pass(`${cases.length} Unique aliases dedup within their own action`);
 });
 
 // ---------------------------------------------------------------------------
-// 7. PerSignal aliases honour the predicate before deduplicating
+// 7. Unique aliases honour the predicate before deduplicating
 // ---------------------------------------------------------------------------
-test("PerSignal aliases apply the predicate before the distinct operator", async ({ pass, fail }) => {
+test("Unique aliases apply the predicate before the distinct operator", async ({ pass, fail }) => {
   const seen = [];
-  const unsubscribe = listenSignalActivePerSignal(
+  const unsubscribe = listenSignalActiveUnique(
     (event) => event.pnl?.pnlPercentage > 5,
     (event) => seen.push(event.signal.id)
   );
@@ -333,19 +333,19 @@ test("PerSignal aliases apply the predicate before the distinct operator", async
 });
 
 // ---------------------------------------------------------------------------
-// 8. Scoped PerSignal aliases keep their emitter isolation
+// 8. Scoped Unique aliases keep their emitter isolation
 // ---------------------------------------------------------------------------
-test("live and backtest PerSignal aliases stay on their own emitter", async ({ pass, fail }) => {
+test("live and backtest Unique aliases stay on their own emitter", async ({ pass, fail }) => {
   const liveActive = [];
   const liveClosed = [];
   const backtestActive = [];
   const backtestClosed = [];
 
   const unsubscribes = [
-    listenSignalLiveActivePerSignal(() => true, (event) => liveActive.push(event.signal.id)),
-    listenSignalLiveClosedPerSignal(() => true, (event) => liveClosed.push(event.signal.id)),
-    listenSignalBacktestActivePerSignal(() => true, (event) => backtestActive.push(event.signal.id)),
-    listenSignalBacktestClosedPerSignal(() => true, (event) => backtestClosed.push(event.signal.id)),
+    listenSignalLiveActiveUnique(() => true, (event) => liveActive.push(event.signal.id)),
+    listenSignalLiveClosedUnique(() => true, (event) => liveClosed.push(event.signal.id)),
+    listenSignalBacktestActiveUnique(() => true, (event) => backtestActive.push(event.signal.id)),
+    listenSignalBacktestClosedUnique(() => true, (event) => backtestClosed.push(event.signal.id)),
   ];
 
   await emitters.signalLiveEmitter.next(tick("active", "L1"));
@@ -371,18 +371,18 @@ test("live and backtest PerSignal aliases stay on their own emitter", async ({ p
       return;
     }
   }
-  pass("scoped PerSignal aliases deduped and stayed isolated from the global emitter");
+  pass("scoped Unique aliases deduped and stayed isolated from the global emitter");
 });
 
 // ---------------------------------------------------------------------------
 // 9. Unsubscribe works for both alias shapes
 // ---------------------------------------------------------------------------
-test("alias unsubscribe stops delivery for plain and PerSignal forms", async ({ pass, fail }) => {
+test("alias unsubscribe stops delivery for plain and Unique forms", async ({ pass, fail }) => {
   const plain = [];
   const perSignal = [];
 
   const unsubscribePlain = listenSignalActive((event) => plain.push(event.signal.id));
-  const unsubscribePerSignal = listenSignalActivePerSignal(
+  const unsubscribeUnique = listenSignalActiveUnique(
     () => true,
     (event) => perSignal.push(event.signal.id)
   );
@@ -390,7 +390,7 @@ test("alias unsubscribe stops delivery for plain and PerSignal forms", async ({ 
   await emitters.signalEmitter.next(tick("active", "P"));
   await flush();
   unsubscribePlain();
-  unsubscribePerSignal();
+  unsubscribeUnique();
   await emitters.signalEmitter.next(tick("active", "Q"));
   await flush();
 
