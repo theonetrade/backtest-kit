@@ -6,6 +6,7 @@ import "./e2e/hold.test.mjs";
 import "./e2e/action.test.mjs";
 import "./e2e/breakeven.test.mjs";
 import "./e2e/cache.test.mjs";
+import "./e2e/dictionary.test.mjs";
 import "./e2e/shutdown.test.mjs";
 import "./e2e/markdown.test.mjs";
 import "./e2e/partial.test.mjs"

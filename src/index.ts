@@ -644,6 +644,11 @@ export {
   IPersistStateInstance,
   PersistStateInstance,
   TPersistStateInstanceCtor,
+  DictionaryData,
+  PersistDictionaryAdapter,
+  IPersistDictionaryInstance,
+  PersistDictionaryInstance,
+  TPersistDictionaryInstanceCtor,
   SessionData,
   PersistSessionAdapter,
   IPersistSessionInstance,
@@ -756,6 +761,15 @@ export {
   IStateInstance,
   TStateInstanceCtor,
 } from "./classes/State";
+export {
+  Dictionary,
+  DictionaryLive,
+  DictionaryBacktest,
+  DictionaryBacktestAdapter,
+  DictionaryLiveAdapter,
+  IDictionaryInstance,
+  TDictionaryInstanceCtor,
+} from "./classes/Dictionary";
 export {
   Dump,
   IDumpInstance,

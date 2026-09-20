@@ -237,6 +237,23 @@ const PERSIST_STATE_UTILS_METHOD_NAME_USE_DUMMY =
 const PERSIST_STATE_UTILS_METHOD_NAME_USE_JSON =
   "PersistStateUtils.useJson";
 
+const PERSIST_DICTIONARY_UTILS_METHOD_NAME_USE_PERSIST_DICTIONARY_ADAPTER =
+  "PersistDictionaryUtils.usePersistDictionaryAdapter";
+const PERSIST_DICTIONARY_UTILS_METHOD_NAME_READ_DATA =
+  "PersistDictionaryUtils.readDictionaryData";
+const PERSIST_DICTIONARY_UTILS_METHOD_NAME_WRITE_DATA =
+  "PersistDictionaryUtils.writeDictionaryData";
+const PERSIST_DICTIONARY_UTILS_METHOD_NAME_CLEAR =
+  "PersistDictionaryUtils.clear";
+const PERSIST_DICTIONARY_UTILS_METHOD_NAME_DISPOSE =
+  "PersistDictionaryUtils.dispose";
+const PERSIST_DICTIONARY_UTILS_METHOD_NAME_WAIT_FOR_INIT =
+  "PersistDictionaryUtils.waitForInit";
+const PERSIST_DICTIONARY_UTILS_METHOD_NAME_USE_DUMMY =
+  "PersistDictionaryUtils.useDummy";
+const PERSIST_DICTIONARY_UTILS_METHOD_NAME_USE_JSON =
+  "PersistDictionaryUtils.useJson";
+
 const PERSIST_SESSION_UTILS_METHOD_NAME_USE_PERSIST_SESSION_ADAPTER =
   "PersistSessionUtils.usePersistSessionAdapter";
 const PERSIST_SESSION_UTILS_METHOD_NAME_READ_DATA =
@@ -5539,6 +5556,321 @@ export class PersistStateUtils {
  * Used by StatePersistInstance for crash-safe state persistence.
  */
 export const PersistStateAdapter = new PersistStateUtils();
+
+/**
+ * Type for persisted dictionary entry data.
+ * Wraps the whole dictionary as a single snapshot: `data` maps entry keys to
+ * `{ value, when }` records (per-entry look-ahead timestamps), the top-level
+ * `when` is the timestamp of the last write.
+ */
+export type DictionaryData = {
+  id: string;
+  data: Record<string, { value: unknown; when: number }>;
+  when: number;
+};
+
+/**
+ * Per-context dictionary persistence instance interface.
+ * Scoped to a specific (signalId, dictionaryName) pair.
+ *
+ * Used by DictionaryPersistInstance for crash-safe per-signal dictionary storage.
+ * Custom adapters should implement this interface to override the default
+ * file-based dictionary behavior.
+ */
+export interface IPersistDictionaryInstance {
+  /**
+   * Initialize storage for this dictionary context.
+   *
+   * @param initial - Whether this is the first initialization
+   * @returns Promise that resolves when initialization is complete
+   */
+  waitForInit(initial: boolean): Promise<void>;
+
+  /**
+   * Read persisted dictionary snapshot for this context.
+   *
+   * @returns Promise resolving to dictionary data or null if none persisted
+   */
+  readDictionaryData(): Promise<DictionaryData | null>;
+
+  /**
+   * Write dictionary snapshot for this context.
+   *
+   * @param data - Dictionary data to persist (already carries `data.when`)
+   * @param when - Logical timestamp this value belongs to (duplicates `data.when` for API consistency)
+   * @returns Promise that resolves when write is complete
+   */
+  writeDictionaryData(data: DictionaryData, when: Date): Promise<void>;
+
+  /**
+   * Release any resources held by this instance.
+   * Default implementations may treat this as a no-op.
+   */
+  dispose(): void;
+}
+
+/**
+ * Default file-based implementation of IPersistDictionaryInstance.
+ *
+ * Features:
+ * - Wraps PersistBase for atomic JSON writes
+ * - Uses dictionaryName as entity ID within a per-signal PersistBase
+ * - dispose is a no-op (memo cache is managed by PersistDictionaryUtils)
+ *
+ * @example
+ * ```typescript
+ * const instance = new PersistDictionaryInstance("signal-1", "llm");
+ * await instance.waitForInit(true);
+ * await instance.writeDictionaryData({ id: "signal-1_llm", data: {}, when: 0 });
+ * const dictionary = await instance.readDictionaryData();
+ * ```
+ */
+export class PersistDictionaryInstance implements IPersistDictionaryInstance {
+  /** Underlying file-based storage scoped to this context */
+  private readonly _storage: IPersistBase<DictionaryData>;
+
+  /**
+   * Creates new dictionary persistence instance.
+   *
+   * @param signalId - Signal identifier (folder name under dictionary/)
+   * @param dictionaryName - Dictionary name (file name)
+   */
+  constructor(
+    readonly signalId: string,
+    readonly dictionaryName: string,
+  ) {
+    this._storage = new PersistBase(dictionaryName, `./dump/dictionary/${signalId}/`);
+  }
+
+  /**
+   * Initializes the underlying PersistBase storage.
+   *
+   * @param initial - Whether this is the first initialization
+   * @returns Promise that resolves when initialization is complete
+   */
+  async waitForInit(initial: boolean): Promise<void> {
+    await this._storage.waitForInit(initial);
+  }
+
+  /**
+   * Reads the persisted dictionary using `dictionaryName` as the entity key.
+   *
+   * @returns Promise resolving to dictionary data or null if not found
+   */
+  async readDictionaryData(): Promise<DictionaryData | null> {
+    if (await this._storage.hasValue(this.dictionaryName)) {
+      return await this._storage.readValue(this.dictionaryName);
+    }
+    return null;
+  }
+
+  /**
+   * Writes the dictionary using `dictionaryName` as the entity key.
+   *
+   * @param data - Dictionary data to persist
+   * @returns Promise that resolves when write is complete
+   */
+  async writeDictionaryData(data: DictionaryData, _when: Date): Promise<void> {
+    await this._storage.writeValue(this.dictionaryName, data);
+  }
+
+  /**
+   * No-op for the default file-based implementation.
+   * Resource cleanup (memo cache invalidation) is handled by PersistDictionaryUtils.dispose().
+   */
+  dispose(): void { void 0; }
+}
+
+/**
+ * No-op IPersistDictionaryInstance implementation used by PersistDictionaryUtils.useDummy().
+ * All reads return null, all writes are discarded.
+ */
+class PersistDictionaryDummyInstance implements IPersistDictionaryInstance {
+  /**
+   * No-op constructor.
+   * Context arguments are accepted to satisfy TPersistDictionaryInstanceCtor.
+   */
+  constructor(_signalId: string, _dictionaryName: string) {}
+  /**
+   * No-op initialization.
+   * @returns Promise that resolves immediately
+   */
+  async waitForInit(_initial: boolean): Promise<void> { void 0; }
+  /**
+   * Always returns null (no persisted dictionary).
+   * @returns Promise resolving to null
+   */
+  async readDictionaryData(): Promise<DictionaryData | null> { return null; }
+  /**
+   * No-op write (discards the dictionary).
+   * @returns Promise that resolves immediately
+   */
+  async writeDictionaryData(_data: DictionaryData, _when: Date): Promise<void> { void 0; }
+  /**
+   * No-op dispose.
+   */
+  dispose(): void { void 0; }
+}
+
+/**
+ * Constructor type for IPersistDictionaryInstance.
+ * Used by PersistDictionaryUtils.usePersistDictionaryAdapter() to register custom adapters.
+ */
+export type TPersistDictionaryInstanceCtor = new (
+  signalId: string,
+  dictionaryName: string,
+) => IPersistDictionaryInstance;
+
+/**
+ * Utility class for managing dictionary persistence.
+ *
+ * Features:
+ * - Memoized storage instances per (signalId, dictionaryName) pair
+ * - Custom adapter support
+ * - Atomic read/write operations
+ *
+ * Storage layout: ./dump/dictionary/<signalId>/<dictionaryName>.json
+ *
+ * Used by DictionaryPersistInstance for crash-safe dictionary persistence.
+ */
+export class PersistDictionaryUtils {
+  /**
+   * Constructor used to create per-context dictionary instances.
+   * Replaceable via usePersistDictionaryAdapter() / useJson() / useDummy().
+   */
+  private PersistDictionaryInstanceCtor: TPersistDictionaryInstanceCtor = PersistDictionaryInstance;
+
+  /**
+   * Memoized factory creating one IPersistDictionaryInstance per (signalId, dictionaryName) pair.
+   */
+  private getDictionaryStorage = memoize(
+    ([signalId, dictionaryName]: [string, string]): string =>
+      `${signalId}:${dictionaryName}`,
+    (signalId: string, dictionaryName: string): IPersistDictionaryInstance =>
+      Reflect.construct(this.PersistDictionaryInstanceCtor, [signalId, dictionaryName])
+  );
+
+  /**
+   * Registers a custom IPersistDictionaryInstance constructor.
+   * Clears the memoization cache so subsequent calls use the new adapter.
+   *
+   * @param Ctor - Custom IPersistDictionaryInstance constructor
+   */
+  public usePersistDictionaryAdapter(Ctor: TPersistDictionaryInstanceCtor): void {
+    LOGGER_SERVICE.info(PERSIST_DICTIONARY_UTILS_METHOD_NAME_USE_PERSIST_DICTIONARY_ADAPTER);
+    this.PersistDictionaryInstanceCtor = Ctor;
+    this.getDictionaryStorage.clear();
+  }
+
+  /**
+   * Initializes the dictionary storage for the given context.
+   * Skips initialization when `initial` is false (used to gate first-time setup).
+   *
+   * @param signalId - Signal identifier
+   * @param dictionaryName - Dictionary name
+   * @param initial - Whether this is the first initialization
+   * @returns Promise that resolves when initialization is complete
+   */
+  public waitForInit = async (
+    signalId: string,
+    dictionaryName: string,
+    initial: boolean
+  ): Promise<void> => {
+    LOGGER_SERVICE.info(PERSIST_DICTIONARY_UTILS_METHOD_NAME_WAIT_FOR_INIT, { signalId, dictionaryName, initial });
+    const key = `${signalId}:${dictionaryName}`;
+    const isInitial = initial && !this.getDictionaryStorage.has(key);
+    const instance = this.getDictionaryStorage(signalId, dictionaryName);
+    await instance.waitForInit(isInitial);
+  };
+
+  /**
+   * Reads persisted dictionary snapshot for the given context.
+   * Lazily initializes the instance on first access.
+   *
+   * @param signalId - Signal identifier
+   * @param dictionaryName - Dictionary name
+   * @returns Promise resolving to dictionary data or null if none persisted
+   */
+  public readDictionaryData = async (
+    signalId: string,
+    dictionaryName: string
+  ): Promise<DictionaryData | null> => {
+    LOGGER_SERVICE.info(PERSIST_DICTIONARY_UTILS_METHOD_NAME_READ_DATA, { signalId, dictionaryName });
+    const key = `${signalId}:${dictionaryName}`;
+    const isInitial = !this.getDictionaryStorage.has(key);
+    const instance = this.getDictionaryStorage(signalId, dictionaryName);
+    await instance.waitForInit(isInitial);
+    return instance.readDictionaryData();
+  };
+
+  /**
+   * Writes dictionary snapshot for the given context.
+   * Lazily initializes the instance on first access.
+   *
+   * @param data - Dictionary data to persist (already carries `data.when`)
+   * @param signalId - Signal identifier
+   * @param dictionaryName - Dictionary name
+   * @param when - Logical timestamp this value belongs to (duplicates `data.when` for API consistency)
+   * @returns Promise that resolves when write is complete
+   */
+  public writeDictionaryData = async (
+    data: DictionaryData,
+    signalId: string,
+    dictionaryName: string,
+    when: Date,
+  ): Promise<void> => {
+    LOGGER_SERVICE.info(PERSIST_DICTIONARY_UTILS_METHOD_NAME_WRITE_DATA, { signalId, dictionaryName });
+    const key = `${signalId}:${dictionaryName}`;
+    const isInitial = !this.getDictionaryStorage.has(key);
+    const instance = this.getDictionaryStorage(signalId, dictionaryName);
+    await instance.waitForInit(isInitial);
+    return instance.writeDictionaryData(data, when);
+  };
+
+  /**
+   * Switches to PersistDictionaryDummyInstance (all operations are no-ops).
+   */
+  public useDummy = () => {
+    LOGGER_SERVICE.log(PERSIST_DICTIONARY_UTILS_METHOD_NAME_USE_DUMMY);
+    this.usePersistDictionaryAdapter(PersistDictionaryDummyInstance);
+  }
+
+  /**
+   * Switches to the default file-based PersistDictionaryInstance.
+   */
+  public useJson = () => {
+    LOGGER_SERVICE.log(PERSIST_DICTIONARY_UTILS_METHOD_NAME_USE_JSON);
+    this.usePersistDictionaryAdapter(PersistDictionaryInstance);
+  }
+
+  /**
+   * Clears the memoized instance cache.
+   * Call when process.cwd() changes between strategy iterations.
+   */
+  public clear = () => {
+    LOGGER_SERVICE.info(PERSIST_DICTIONARY_UTILS_METHOD_NAME_CLEAR);
+    this.getDictionaryStorage.clear();
+  };
+
+  /**
+   * Drops the memoized instance for the given context.
+   * Call when a signal is removed to clean up its associated storage entry.
+   *
+   * @param signalId - Signal identifier
+   * @param dictionaryName - Dictionary name
+   */
+  public dispose = (signalId: string, dictionaryName: string) => {
+    LOGGER_SERVICE.info(PERSIST_DICTIONARY_UTILS_METHOD_NAME_DISPOSE);
+    const key = `${signalId}:${dictionaryName}`;
+    this.getDictionaryStorage.clear(key);
+  };
+}
+
+/**
+ * Global singleton instance of PersistDictionaryUtils.
+ * Used by DictionaryPersistInstance for crash-safe dictionary persistence.
+ */
+export const PersistDictionaryAdapter = new PersistDictionaryUtils();
 
 /**
  * Session data structure for session persistence.

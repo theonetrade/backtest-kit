@@ -21650,6 +21650,201 @@ declare class PersistStateUtils {
  */
 declare const PersistStateAdapter: PersistStateUtils;
 /**
+ * Type for persisted dictionary entry data.
+ * Wraps the whole dictionary as a single snapshot: `data` maps entry keys to
+ * `{ value, when }` records (per-entry look-ahead timestamps), the top-level
+ * `when` is the timestamp of the last write.
+ */
+type DictionaryData = {
+    id: string;
+    data: Record<string, {
+        value: unknown;
+        when: number;
+    }>;
+    when: number;
+};
+/**
+ * Per-context dictionary persistence instance interface.
+ * Scoped to a specific (signalId, dictionaryName) pair.
+ *
+ * Used by DictionaryPersistInstance for crash-safe per-signal dictionary storage.
+ * Custom adapters should implement this interface to override the default
+ * file-based dictionary behavior.
+ */
+interface IPersistDictionaryInstance {
+    /**
+     * Initialize storage for this dictionary context.
+     *
+     * @param initial - Whether this is the first initialization
+     * @returns Promise that resolves when initialization is complete
+     */
+    waitForInit(initial: boolean): Promise<void>;
+    /**
+     * Read persisted dictionary snapshot for this context.
+     *
+     * @returns Promise resolving to dictionary data or null if none persisted
+     */
+    readDictionaryData(): Promise<DictionaryData | null>;
+    /**
+     * Write dictionary snapshot for this context.
+     *
+     * @param data - Dictionary data to persist (already carries `data.when`)
+     * @param when - Logical timestamp this value belongs to (duplicates `data.when` for API consistency)
+     * @returns Promise that resolves when write is complete
+     */
+    writeDictionaryData(data: DictionaryData, when: Date): Promise<void>;
+    /**
+     * Release any resources held by this instance.
+     * Default implementations may treat this as a no-op.
+     */
+    dispose(): void;
+}
+/**
+ * Default file-based implementation of IPersistDictionaryInstance.
+ *
+ * Features:
+ * - Wraps PersistBase for atomic JSON writes
+ * - Uses dictionaryName as entity ID within a per-signal PersistBase
+ * - dispose is a no-op (memo cache is managed by PersistDictionaryUtils)
+ *
+ * @example
+ * ```typescript
+ * const instance = new PersistDictionaryInstance("signal-1", "llm");
+ * await instance.waitForInit(true);
+ * await instance.writeDictionaryData({ id: "signal-1_llm", data: {}, when: 0 });
+ * const dictionary = await instance.readDictionaryData();
+ * ```
+ */
+declare class PersistDictionaryInstance implements IPersistDictionaryInstance {
+    readonly signalId: string;
+    readonly dictionaryName: string;
+    /** Underlying file-based storage scoped to this context */
+    private readonly _storage;
+    /**
+     * Creates new dictionary persistence instance.
+     *
+     * @param signalId - Signal identifier (folder name under dictionary/)
+     * @param dictionaryName - Dictionary name (file name)
+     */
+    constructor(signalId: string, dictionaryName: string);
+    /**
+     * Initializes the underlying PersistBase storage.
+     *
+     * @param initial - Whether this is the first initialization
+     * @returns Promise that resolves when initialization is complete
+     */
+    waitForInit(initial: boolean): Promise<void>;
+    /**
+     * Reads the persisted dictionary using `dictionaryName` as the entity key.
+     *
+     * @returns Promise resolving to dictionary data or null if not found
+     */
+    readDictionaryData(): Promise<DictionaryData | null>;
+    /**
+     * Writes the dictionary using `dictionaryName` as the entity key.
+     *
+     * @param data - Dictionary data to persist
+     * @returns Promise that resolves when write is complete
+     */
+    writeDictionaryData(data: DictionaryData, _when: Date): Promise<void>;
+    /**
+     * No-op for the default file-based implementation.
+     * Resource cleanup (memo cache invalidation) is handled by PersistDictionaryUtils.dispose().
+     */
+    dispose(): void;
+}
+/**
+ * Constructor type for IPersistDictionaryInstance.
+ * Used by PersistDictionaryUtils.usePersistDictionaryAdapter() to register custom adapters.
+ */
+type TPersistDictionaryInstanceCtor = new (signalId: string, dictionaryName: string) => IPersistDictionaryInstance;
+/**
+ * Utility class for managing dictionary persistence.
+ *
+ * Features:
+ * - Memoized storage instances per (signalId, dictionaryName) pair
+ * - Custom adapter support
+ * - Atomic read/write operations
+ *
+ * Storage layout: ./dump/dictionary/<signalId>/<dictionaryName>.json
+ *
+ * Used by DictionaryPersistInstance for crash-safe dictionary persistence.
+ */
+declare class PersistDictionaryUtils {
+    /**
+     * Constructor used to create per-context dictionary instances.
+     * Replaceable via usePersistDictionaryAdapter() / useJson() / useDummy().
+     */
+    private PersistDictionaryInstanceCtor;
+    /**
+     * Memoized factory creating one IPersistDictionaryInstance per (signalId, dictionaryName) pair.
+     */
+    private getDictionaryStorage;
+    /**
+     * Registers a custom IPersistDictionaryInstance constructor.
+     * Clears the memoization cache so subsequent calls use the new adapter.
+     *
+     * @param Ctor - Custom IPersistDictionaryInstance constructor
+     */
+    usePersistDictionaryAdapter(Ctor: TPersistDictionaryInstanceCtor): void;
+    /**
+     * Initializes the dictionary storage for the given context.
+     * Skips initialization when `initial` is false (used to gate first-time setup).
+     *
+     * @param signalId - Signal identifier
+     * @param dictionaryName - Dictionary name
+     * @param initial - Whether this is the first initialization
+     * @returns Promise that resolves when initialization is complete
+     */
+    waitForInit: (signalId: string, dictionaryName: string, initial: boolean) => Promise<void>;
+    /**
+     * Reads persisted dictionary snapshot for the given context.
+     * Lazily initializes the instance on first access.
+     *
+     * @param signalId - Signal identifier
+     * @param dictionaryName - Dictionary name
+     * @returns Promise resolving to dictionary data or null if none persisted
+     */
+    readDictionaryData: (signalId: string, dictionaryName: string) => Promise<DictionaryData | null>;
+    /**
+     * Writes dictionary snapshot for the given context.
+     * Lazily initializes the instance on first access.
+     *
+     * @param data - Dictionary data to persist (already carries `data.when`)
+     * @param signalId - Signal identifier
+     * @param dictionaryName - Dictionary name
+     * @param when - Logical timestamp this value belongs to (duplicates `data.when` for API consistency)
+     * @returns Promise that resolves when write is complete
+     */
+    writeDictionaryData: (data: DictionaryData, signalId: string, dictionaryName: string, when: Date) => Promise<void>;
+    /**
+     * Switches to PersistDictionaryDummyInstance (all operations are no-ops).
+     */
+    useDummy: () => void;
+    /**
+     * Switches to the default file-based PersistDictionaryInstance.
+     */
+    useJson: () => void;
+    /**
+     * Clears the memoized instance cache.
+     * Call when process.cwd() changes between strategy iterations.
+     */
+    clear: () => void;
+    /**
+     * Drops the memoized instance for the given context.
+     * Call when a signal is removed to clean up its associated storage entry.
+     *
+     * @param signalId - Signal identifier
+     * @param dictionaryName - Dictionary name
+     */
+    dispose: (signalId: string, dictionaryName: string) => void;
+}
+/**
+ * Global singleton instance of PersistDictionaryUtils.
+ * Used by DictionaryPersistInstance for crash-safe dictionary persistence.
+ */
+declare const PersistDictionaryAdapter: PersistDictionaryUtils;
+/**
  * Session data structure for session persistence.
  * Each session is identified by a unique id and contains an arbitrary JSON-serializable data object.
  */
@@ -31682,6 +31877,686 @@ declare const MemoryLive: MemoryLiveAdapter;
  * Provides backtest memory storage with pluggable backends.
  */
 declare const MemoryBacktest: MemoryBacktestAdapter;
+
+/**
+ * Logical name of a dictionary, e.g. "llm" or "levels".
+ * Used to scope dictionary entries for different purposes within the same signal —
+ * the name becomes the persisted file name (like `name` in Cache.file).
+ */
+type DictionaryName = string;
+/**
+ * Interface for dictionary instance implementations.
+ * Defines the contract for local, persist, and dummy backends.
+ *
+ * Intended use: per-signal Map-like storage for strategy callbacks — e.g.
+ * caching LLM annotations, per-level flags, or any keyed data tied to the
+ * lifetime of one signal.
+ *
+ * Every operation receives the logical `when` timestamp for look-ahead bias
+ * protection: an entry whose stored `when` is greater than the requested `when`
+ * is invisible (get returns null, has returns false, keys/values/entries/size
+ * skip it). A write with a smaller `when` overwrites an existing record —
+ * that lets a restarted backtest reset live-written entries.
+ */
+interface IDictionaryInstance {
+    /**
+     * Initialize the dictionary instance.
+     * @param initial - Whether this is the first initialization
+     */
+    waitForInit(initial: boolean): Promise<void>;
+    /**
+     * Read the value stored under `key`.
+     * Returns null when the entry is missing or its stored `when` is greater
+     * than the requested `when` (look-ahead bias protection).
+     * @param key - Entry key
+     * @param when - Logical timestamp at which the read is happening
+     * @returns Stored value, or null
+     */
+    get<Value = unknown>(key: string, when: Date): Promise<Value | null>;
+    /**
+     * Write `value` under `key`, stamping it with `when`.
+     * A write with a smaller `when` overwrites an existing record.
+     * @param key - Entry key
+     * @param value - Value to store
+     * @param when - Logical timestamp this value belongs to
+     */
+    set<Value = unknown>(key: string, value: Value, when: Date): Promise<void>;
+    /**
+     * Check whether a visible entry exists under `key`.
+     * An entry with a stored `when` greater than the requested `when` counts as absent.
+     * @param key - Entry key
+     * @param when - Logical timestamp at which the check is happening
+     * @returns true if a visible entry exists
+     */
+    has(key: string, when: Date): Promise<boolean>;
+    /**
+     * Remove the entry under `key` (hard delete, regardless of its `when`).
+     * @param key - Entry key
+     * @param when - Logical timestamp at which the delete is happening
+     * @returns true if an entry existed and was removed
+     */
+    delete(key: string, when: Date): Promise<boolean>;
+    /**
+     * Remove all entries (hard delete).
+     * @param when - Logical timestamp at which the clear is happening
+     */
+    clear(when: Date): Promise<void>;
+    /**
+     * List keys of visible entries (look-ahead-guarded).
+     * @param when - Logical timestamp at which the read is happening
+     * @returns Array of keys
+     */
+    keys(when: Date): Promise<string[]>;
+    /**
+     * List values of visible entries (look-ahead-guarded).
+     * @param when - Logical timestamp at which the read is happening
+     * @returns Array of values
+     */
+    values<Value = unknown>(when: Date): Promise<Value[]>;
+    /**
+     * List [key, value] pairs of visible entries (look-ahead-guarded).
+     * @param when - Logical timestamp at which the read is happening
+     * @returns Array of [key, value] tuples
+     */
+    entries<Value = unknown>(when: Date): Promise<[string, Value][]>;
+    /**
+     * Count visible entries (look-ahead-guarded).
+     * @param when - Logical timestamp at which the read is happening
+     * @returns Number of visible entries
+     */
+    size(when: Date): Promise<number>;
+    /**
+     * Releases any resources held by this instance.
+     */
+    dispose(): Promise<void>;
+}
+/**
+ * Constructor type for dictionary instance implementations.
+ * Used for swapping backends via DictionaryBacktestAdapter / DictionaryLiveAdapter.
+ */
+type TDictionaryInstanceCtor = new (signalId: string, dictionaryName: string) => IDictionaryInstance;
+/**
+ * Public surface of DictionaryBacktestAdapter / DictionaryLiveAdapter — IDictionaryInstance minus waitForInit and dispose.
+ * waitForInit and dispose are managed internally by the adapter.
+ */
+type TDictionaryAdapter = {
+    [key in Exclude<keyof IDictionaryInstance, "waitForInit" | "dispose">]: any;
+};
+/**
+ * Backtest dictionary adapter with pluggable storage backend.
+ *
+ * Features:
+ * - Adapter pattern for swappable dictionary instance implementations
+ * - Default backend: DictionaryLocalInstance (in-memory, no disk persistence)
+ * - Alternative backends: DictionaryPersistInstance, DictionaryDummyInstance
+ * - Convenience methods: useLocal(), usePersist(), useDummy(), useDictionaryAdapter()
+ * - Memoized instances per (signalId, dictionaryName) pair; cleared via disposeSignal() from Dictionary.enable
+ */
+declare class DictionaryBacktestAdapter implements TDictionaryAdapter {
+    private DictionaryFactory;
+    private getInstance;
+    /**
+     * Disposes all memoized instances for the given signalId.
+     * Called by Dictionary.enable subscription when a signal is cancelled or closed.
+     * @param signalId - Signal identifier to dispose
+     */
+    disposeSignal: (signalId: string) => void;
+    /**
+     * Read the value stored under `key` for a signal.
+     * @param dto.signalId - Signal identifier
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.when - Logical timestamp at which the read is happening (look-ahead guard)
+     * @param key - Entry key
+     * @returns Stored value, or null
+     */
+    get: <Value = unknown>(dto: {
+        signalId: string;
+        dictionaryName: DictionaryName;
+        when: Date;
+    }, key: string) => Promise<Value | null>;
+    /**
+     * Write `value` under `key` for a signal.
+     * @param dto.signalId - Signal identifier
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.when - Logical timestamp this value belongs to
+     * @param key - Entry key
+     * @param value - Value to store
+     */
+    set: <Value = unknown>(dto: {
+        signalId: string;
+        dictionaryName: DictionaryName;
+        when: Date;
+    }, key: string, value: Value) => Promise<void>;
+    /**
+     * Check whether a visible entry exists under `key` for a signal.
+     * @param dto.signalId - Signal identifier
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.when - Logical timestamp at which the check is happening (look-ahead guard)
+     * @param key - Entry key
+     * @returns true if a visible entry exists
+     */
+    has: (dto: {
+        signalId: string;
+        dictionaryName: DictionaryName;
+        when: Date;
+    }, key: string) => Promise<boolean>;
+    /**
+     * Remove the entry under `key` for a signal (hard delete).
+     * @param dto.signalId - Signal identifier
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.when - Logical timestamp at which the delete is happening
+     * @param key - Entry key
+     * @returns true if an entry existed and was removed
+     */
+    delete: (dto: {
+        signalId: string;
+        dictionaryName: DictionaryName;
+        when: Date;
+    }, key: string) => Promise<boolean>;
+    /**
+     * Remove all entries for a signal (hard delete).
+     * @param dto.signalId - Signal identifier
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.when - Logical timestamp at which the clear is happening
+     */
+    clear: (dto: {
+        signalId: string;
+        dictionaryName: DictionaryName;
+        when: Date;
+    }) => Promise<void>;
+    /**
+     * List keys of visible entries for a signal (look-ahead-guarded).
+     * @param dto.signalId - Signal identifier
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.when - Logical timestamp at which the read is happening (look-ahead guard)
+     * @returns Array of keys
+     */
+    keys: (dto: {
+        signalId: string;
+        dictionaryName: DictionaryName;
+        when: Date;
+    }) => Promise<string[]>;
+    /**
+     * List values of visible entries for a signal (look-ahead-guarded).
+     * @param dto.signalId - Signal identifier
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.when - Logical timestamp at which the read is happening (look-ahead guard)
+     * @returns Array of values
+     */
+    values: <Value = unknown>(dto: {
+        signalId: string;
+        dictionaryName: DictionaryName;
+        when: Date;
+    }) => Promise<Value[]>;
+    /**
+     * List [key, value] pairs of visible entries for a signal (look-ahead-guarded).
+     * @param dto.signalId - Signal identifier
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.when - Logical timestamp at which the read is happening (look-ahead guard)
+     * @returns Array of [key, value] tuples
+     */
+    entries: <Value = unknown>(dto: {
+        signalId: string;
+        dictionaryName: DictionaryName;
+        when: Date;
+    }) => Promise<[string, Value][]>;
+    /**
+     * Count visible entries for a signal (look-ahead-guarded).
+     * @param dto.signalId - Signal identifier
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.when - Logical timestamp at which the read is happening (look-ahead guard)
+     * @returns Number of visible entries
+     */
+    size: (dto: {
+        signalId: string;
+        dictionaryName: DictionaryName;
+        when: Date;
+    }) => Promise<number>;
+    /**
+     * Switches to in-memory adapter (default).
+     * All data lives in process memory only.
+     */
+    useLocal: () => void;
+    /**
+     * Switches to file-system backed adapter.
+     * Data is persisted to disk via PersistDictionaryAdapter.
+     */
+    usePersist: () => void;
+    /**
+     * Switches to dummy adapter that discards all writes.
+     */
+    useDummy: () => void;
+    /**
+     * Switches to a custom dictionary adapter implementation.
+     * @param Ctor - Constructor for the custom dictionary instance
+     */
+    useDictionaryAdapter: (Ctor: TDictionaryInstanceCtor) => void;
+}
+/**
+ * Live trading dictionary adapter with pluggable storage backend.
+ *
+ * Features:
+ * - Adapter pattern for swappable dictionary instance implementations
+ * - Default backend: DictionaryPersistInstance (file-system backed, survives restarts)
+ * - Alternative backends: DictionaryLocalInstance, DictionaryDummyInstance
+ * - Convenience methods: useLocal(), usePersist(), useDummy(), useDictionaryAdapter()
+ * - Memoized instances per (signalId, dictionaryName) pair; cleared via disposeSignal() from Dictionary.enable
+ */
+declare class DictionaryLiveAdapter implements TDictionaryAdapter {
+    private DictionaryFactory;
+    private getInstance;
+    /**
+     * Disposes all memoized instances for the given signalId.
+     * Called by Dictionary.enable subscription when a signal is cancelled or closed.
+     * @param signalId - Signal identifier to dispose
+     */
+    disposeSignal: (signalId: string) => void;
+    /**
+     * Read the value stored under `key` for a signal.
+     * @param dto.signalId - Signal identifier
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.when - Logical timestamp at which the read is happening (look-ahead guard)
+     * @param key - Entry key
+     * @returns Stored value, or null
+     */
+    get: <Value = unknown>(dto: {
+        signalId: string;
+        dictionaryName: DictionaryName;
+        when: Date;
+    }, key: string) => Promise<Value | null>;
+    /**
+     * Write `value` under `key` for a signal.
+     * @param dto.signalId - Signal identifier
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.when - Logical timestamp this value belongs to
+     * @param key - Entry key
+     * @param value - Value to store
+     */
+    set: <Value = unknown>(dto: {
+        signalId: string;
+        dictionaryName: DictionaryName;
+        when: Date;
+    }, key: string, value: Value) => Promise<void>;
+    /**
+     * Check whether a visible entry exists under `key` for a signal.
+     * @param dto.signalId - Signal identifier
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.when - Logical timestamp at which the check is happening (look-ahead guard)
+     * @param key - Entry key
+     * @returns true if a visible entry exists
+     */
+    has: (dto: {
+        signalId: string;
+        dictionaryName: DictionaryName;
+        when: Date;
+    }, key: string) => Promise<boolean>;
+    /**
+     * Remove the entry under `key` for a signal (hard delete).
+     * @param dto.signalId - Signal identifier
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.when - Logical timestamp at which the delete is happening
+     * @param key - Entry key
+     * @returns true if an entry existed and was removed
+     */
+    delete: (dto: {
+        signalId: string;
+        dictionaryName: DictionaryName;
+        when: Date;
+    }, key: string) => Promise<boolean>;
+    /**
+     * Remove all entries for a signal (hard delete).
+     * @param dto.signalId - Signal identifier
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.when - Logical timestamp at which the clear is happening
+     */
+    clear: (dto: {
+        signalId: string;
+        dictionaryName: DictionaryName;
+        when: Date;
+    }) => Promise<void>;
+    /**
+     * List keys of visible entries for a signal (look-ahead-guarded).
+     * @param dto.signalId - Signal identifier
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.when - Logical timestamp at which the read is happening (look-ahead guard)
+     * @returns Array of keys
+     */
+    keys: (dto: {
+        signalId: string;
+        dictionaryName: DictionaryName;
+        when: Date;
+    }) => Promise<string[]>;
+    /**
+     * List values of visible entries for a signal (look-ahead-guarded).
+     * @param dto.signalId - Signal identifier
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.when - Logical timestamp at which the read is happening (look-ahead guard)
+     * @returns Array of values
+     */
+    values: <Value = unknown>(dto: {
+        signalId: string;
+        dictionaryName: DictionaryName;
+        when: Date;
+    }) => Promise<Value[]>;
+    /**
+     * List [key, value] pairs of visible entries for a signal (look-ahead-guarded).
+     * @param dto.signalId - Signal identifier
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.when - Logical timestamp at which the read is happening (look-ahead guard)
+     * @returns Array of [key, value] tuples
+     */
+    entries: <Value = unknown>(dto: {
+        signalId: string;
+        dictionaryName: DictionaryName;
+        when: Date;
+    }) => Promise<[string, Value][]>;
+    /**
+     * Count visible entries for a signal (look-ahead-guarded).
+     * @param dto.signalId - Signal identifier
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.when - Logical timestamp at which the read is happening (look-ahead guard)
+     * @returns Number of visible entries
+     */
+    size: (dto: {
+        signalId: string;
+        dictionaryName: DictionaryName;
+        when: Date;
+    }) => Promise<number>;
+    /**
+     * Switches to in-memory adapter.
+     * All data lives in process memory only.
+     */
+    useLocal: () => void;
+    /**
+     * Switches to file-system backed adapter (default).
+     * Data is persisted to disk via PersistDictionaryAdapter.
+     */
+    usePersist: () => void;
+    /**
+     * Switches to dummy adapter that discards all writes.
+     */
+    useDummy: () => void;
+    /**
+     * Switches to a custom dictionary adapter implementation.
+     * @param Ctor - Constructor for the custom dictionary instance
+     */
+    useDictionaryAdapter: (Ctor: TDictionaryInstanceCtor) => void;
+}
+/**
+ * Per-signal Map-like storage scoped by dictionary name.
+ *
+ * Works like `new Map()` but the entries are bound to the CURRENT pending or
+ * scheduled signal: `new Dictionary({ name: "llm" }).set("key", value)` inside
+ * any strategy lifecycle callback. Unlike State, no context is passed through
+ * arguments — every instance method resolves the signal, mode and timestamp
+ * itself from `backtest.methodContextService` / `backtest.executionContextService`,
+ * so the class is unavailable outside async_hooks lifecycle callbacks by design.
+ *
+ * Look-ahead bias protection: every entry is stamped with the logical `when` it
+ * was written at; a read happening at an earlier `when` does not see it, and a
+ * write with a smaller `when` overwrites (a restarted backtest resets
+ * live-written entries).
+ *
+ * Requires an explicit `Dictionary.enable()` call before use — the subscription
+ * it creates disposes per-signal instances when the signal is cancelled or
+ * closed, preventing stale instances from accumulating.
+ *
+ * @example
+ * ```typescript
+ * Dictionary.enable();
+ *
+ * const dictionary = new Dictionary<{ note: string }>({ name: "llm" });
+ *
+ * // inside a strategy callback:
+ * await dictionary.set("thesis", { note: "breakout confirmed" });
+ * const thesis = await dictionary.get("thesis");
+ * ```
+ */
+declare class Dictionary<Value = unknown> {
+    readonly params: {
+        name: DictionaryName;
+    };
+    constructor(params: {
+        name: DictionaryName;
+    });
+    /**
+     * Enables dictionary storage by subscribing to signal lifecycle events.
+     * Clears memoized instances in DictionaryBacktest and DictionaryLive when a
+     * signal is cancelled or closed, preventing stale instances from accumulating.
+     * Uses singleshot to ensure one-time subscription.
+     *
+     * @returns Cleanup function that unsubscribes from all emitters
+     */
+    static enable: (() => (...args: any[]) => any) & functools_kit.ISingleshotClearable<() => (...args: any[]) => any>;
+    /**
+     * Disables dictionary storage by unsubscribing from signal lifecycle events.
+     * Safe to call multiple times.
+     */
+    static disable: () => void;
+    /**
+     * Context-free read of the value stored under `key`.
+     * Routes to DictionaryBacktest or DictionaryLive based on dto.backtest.
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.signalId - Signal identifier
+     * @param dto.backtest - Flag indicating if the context is backtest or live
+     * @param dto.when - Logical timestamp at which the read is happening (look-ahead guard)
+     * @param key - Entry key
+     * @returns Stored value, or null
+     * @throws Error if Dictionary is not enabled
+     */
+    static _get: <Value_1 = unknown>(dto: {
+        dictionaryName: DictionaryName;
+        signalId: string;
+        backtest: boolean;
+        when: Date;
+    }, key: string) => Promise<Value_1 | null>;
+    /**
+     * Context-free write of `value` under `key`.
+     * Routes to DictionaryBacktest or DictionaryLive based on dto.backtest.
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.signalId - Signal identifier
+     * @param dto.backtest - Flag indicating if the context is backtest or live
+     * @param dto.when - Logical timestamp this value belongs to
+     * @param key - Entry key
+     * @param value - Value to store
+     * @throws Error if Dictionary is not enabled
+     */
+    static _set: <Value_1 = unknown>(dto: {
+        dictionaryName: DictionaryName;
+        signalId: string;
+        backtest: boolean;
+        when: Date;
+    }, key: string, value: Value_1) => Promise<void>;
+    /**
+     * Context-free check whether a visible entry exists under `key`.
+     * Routes to DictionaryBacktest or DictionaryLive based on dto.backtest.
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.signalId - Signal identifier
+     * @param dto.backtest - Flag indicating if the context is backtest or live
+     * @param dto.when - Logical timestamp at which the check is happening (look-ahead guard)
+     * @param key - Entry key
+     * @returns true if a visible entry exists
+     * @throws Error if Dictionary is not enabled
+     */
+    static _has: (dto: {
+        dictionaryName: DictionaryName;
+        signalId: string;
+        backtest: boolean;
+        when: Date;
+    }, key: string) => Promise<boolean>;
+    /**
+     * Context-free removal of the entry under `key` (hard delete).
+     * Routes to DictionaryBacktest or DictionaryLive based on dto.backtest.
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.signalId - Signal identifier
+     * @param dto.backtest - Flag indicating if the context is backtest or live
+     * @param dto.when - Logical timestamp at which the delete is happening
+     * @param key - Entry key
+     * @returns true if an entry existed and was removed
+     * @throws Error if Dictionary is not enabled
+     */
+    static _delete: (dto: {
+        dictionaryName: DictionaryName;
+        signalId: string;
+        backtest: boolean;
+        when: Date;
+    }, key: string) => Promise<boolean>;
+    /**
+     * Context-free removal of all entries (hard delete).
+     * Routes to DictionaryBacktest or DictionaryLive based on dto.backtest.
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.signalId - Signal identifier
+     * @param dto.backtest - Flag indicating if the context is backtest or live
+     * @param dto.when - Logical timestamp at which the clear is happening
+     * @throws Error if Dictionary is not enabled
+     */
+    static _clear: (dto: {
+        dictionaryName: DictionaryName;
+        signalId: string;
+        backtest: boolean;
+        when: Date;
+    }) => Promise<void>;
+    /**
+     * Context-free listing of visible entry keys (look-ahead-guarded).
+     * Routes to DictionaryBacktest or DictionaryLive based on dto.backtest.
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.signalId - Signal identifier
+     * @param dto.backtest - Flag indicating if the context is backtest or live
+     * @param dto.when - Logical timestamp at which the read is happening (look-ahead guard)
+     * @returns Array of keys
+     * @throws Error if Dictionary is not enabled
+     */
+    static _keys: (dto: {
+        dictionaryName: DictionaryName;
+        signalId: string;
+        backtest: boolean;
+        when: Date;
+    }) => Promise<string[]>;
+    /**
+     * Context-free listing of visible entry values (look-ahead-guarded).
+     * Routes to DictionaryBacktest or DictionaryLive based on dto.backtest.
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.signalId - Signal identifier
+     * @param dto.backtest - Flag indicating if the context is backtest or live
+     * @param dto.when - Logical timestamp at which the read is happening (look-ahead guard)
+     * @returns Array of values
+     * @throws Error if Dictionary is not enabled
+     */
+    static _values: <Value_1 = unknown>(dto: {
+        dictionaryName: DictionaryName;
+        signalId: string;
+        backtest: boolean;
+        when: Date;
+    }) => Promise<Value_1[]>;
+    /**
+     * Context-free listing of visible [key, value] pairs (look-ahead-guarded).
+     * Routes to DictionaryBacktest or DictionaryLive based on dto.backtest.
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.signalId - Signal identifier
+     * @param dto.backtest - Flag indicating if the context is backtest or live
+     * @param dto.when - Logical timestamp at which the read is happening (look-ahead guard)
+     * @returns Array of [key, value] tuples
+     * @throws Error if Dictionary is not enabled
+     */
+    static _entries: <Value_1 = unknown>(dto: {
+        dictionaryName: DictionaryName;
+        signalId: string;
+        backtest: boolean;
+        when: Date;
+    }) => Promise<[string, Value_1][]>;
+    /**
+     * Context-free count of visible entries (look-ahead-guarded).
+     * Routes to DictionaryBacktest or DictionaryLive based on dto.backtest.
+     * @param dto.dictionaryName - Dictionary name
+     * @param dto.signalId - Signal identifier
+     * @param dto.backtest - Flag indicating if the context is backtest or live
+     * @param dto.when - Logical timestamp at which the read is happening (look-ahead guard)
+     * @returns Number of visible entries
+     * @throws Error if Dictionary is not enabled
+     */
+    static _size: (dto: {
+        dictionaryName: DictionaryName;
+        signalId: string;
+        backtest: boolean;
+        when: Date;
+    }) => Promise<number>;
+    /**
+     * Read the value stored under `key` for the active pending or scheduled signal.
+     * Resolves the signal, mode and timestamp from execution context — no context arguments required.
+     * @param key - Entry key
+     * @returns Stored value, or null
+     * @throws Error if no execution/method context or no pending/scheduled signal exists
+     */
+    get: (key: string) => Promise<Value | null>;
+    /**
+     * Write `value` under `key` for the active pending or scheduled signal.
+     * Resolves the signal, mode and timestamp from execution context — no context arguments required.
+     * @param key - Entry key
+     * @param value - Value to store
+     * @throws Error if no execution/method context or no pending/scheduled signal exists
+     */
+    set: (key: string, value: Value) => Promise<void>;
+    /**
+     * Check whether a visible entry exists under `key` for the active pending or scheduled signal.
+     * Resolves the signal, mode and timestamp from execution context — no context arguments required.
+     * @param key - Entry key
+     * @returns true if a visible entry exists
+     * @throws Error if no execution/method context or no pending/scheduled signal exists
+     */
+    has: (key: string) => Promise<boolean>;
+    /**
+     * Remove the entry under `key` for the active pending or scheduled signal (hard delete).
+     * Resolves the signal, mode and timestamp from execution context — no context arguments required.
+     * @param key - Entry key
+     * @returns true if an entry existed and was removed
+     * @throws Error if no execution/method context or no pending/scheduled signal exists
+     */
+    delete: (key: string) => Promise<boolean>;
+    /**
+     * Remove all entries for the active pending or scheduled signal (hard delete).
+     * Resolves the signal, mode and timestamp from execution context — no context arguments required.
+     * @throws Error if no execution/method context or no pending/scheduled signal exists
+     */
+    clear: () => Promise<void>;
+    /**
+     * List keys of visible entries for the active pending or scheduled signal.
+     * Resolves the signal, mode and timestamp from execution context — no context arguments required.
+     * @returns Array of keys
+     * @throws Error if no execution/method context or no pending/scheduled signal exists
+     */
+    keys: () => Promise<string[]>;
+    /**
+     * List values of visible entries for the active pending or scheduled signal.
+     * Resolves the signal, mode and timestamp from execution context — no context arguments required.
+     * @returns Array of values
+     * @throws Error if no execution/method context or no pending/scheduled signal exists
+     */
+    values: () => Promise<Value[]>;
+    /**
+     * List [key, value] pairs of visible entries for the active pending or scheduled signal.
+     * Resolves the signal, mode and timestamp from execution context — no context arguments required.
+     * @returns Array of [key, value] tuples
+     * @throws Error if no execution/method context or no pending/scheduled signal exists
+     */
+    entries: () => Promise<[string, Value][]>;
+    /**
+     * Count visible entries for the active pending or scheduled signal.
+     * Resolves the signal, mode and timestamp from execution context — no context arguments required.
+     * @returns Number of visible entries
+     * @throws Error if no execution/method context or no pending/scheduled signal exists
+     */
+    size: () => Promise<number>;
+}
+/**
+ * Global singleton instance of DictionaryLiveAdapter.
+ * Provides live trading dictionary storage with pluggable backends.
+ */
+declare const DictionaryLive: DictionaryLiveAdapter;
+/**
+ * Global singleton instance of DictionaryBacktestAdapter.
+ * Provides backtest dictionary storage with pluggable backends.
+ */
+declare const DictionaryBacktest: DictionaryBacktestAdapter;
 
 /**
  * Context required to identify a dump entry.
@@ -46283,4 +47158,4 @@ declare class GeneralUnexpectedError extends Error {
     static fromError(error: object): GeneralUnexpectedError;
 }
 
-export { ActionBase, type ActivateScheduledCommit, type ActivateScheduledCommitNotification, type ActivePingContract, type AfterEndContract, type AverageBuyCommit, type AverageBuyCommitNotification, BROKER_ORDER_VERDICT, Backtest, type BacktestStatisticsModel, type BeforeStartContract, Breakeven, type BreakevenAvailableNotification, type BreakevenCommit, type BreakevenCommitNotification, type BreakevenContract, type BreakevenData, type BreakevenEvent, type BreakevenStatisticsModel, Broker, type BrokerActivePingPayload, type BrokerAverageBuyPayload, BrokerBase, type BrokerBreakevenPayload, type BrokerIdlePingPayload, type BrokerOrderCheckPayload, type BrokerOrderClosePayload, type BrokerOrderOpenPayload, type BrokerPartialLossPayload, type BrokerPartialProfitPayload, type BrokerPendingClosePayload, type BrokerPendingOpenPayload, type BrokerScheduleCancelledPayload, type BrokerScheduleOpenPayload, type BrokerSchedulePingPayload, type BrokerTrailingStopPayload, type BrokerTrailingTakePayload, Cache, type CancelScheduledCommit, type CancelScheduledCommitNotification, type CandleData, type CandleInterval, type ClosePendingCommit, type ClosePendingCommitNotification, type ColumnConfig, type ColumnModel, type CommitPayload, Constant, type CriticalErrorNotification, Cron, type CronCallback, type CronEntry, type CronHandle, type DoneContract, Dump, type EntityId, Exchange, ExecutionContextService, type FrameInterval, GeneralExpectedError, GeneralUnexpectedError, type GlobalConfig, Heat, type HeatmapStatisticsModel, HighestProfit, type HighestProfitContract, type HighestProfitEvent, type HighestProfitStatisticsModel, type IActionSchema, type IActivateScheduledCommitRow, type IAgentLogger, type IAggregatedTradeData, type IBidData, type IBreakevenCommitRow, type IBroker, type IBrokerOrderVerdict, type ICandleData, type ICommitRow, type IDumpContext, type IDumpInstance, type IExchangeSchema, type IFrameSchema, type IHeatmapRow, type ILog, type ILogEntry, type ILogger, type IMCPAverageBuyCommand, type IMCPContext, type IMCPImageMessage, type IMCPMessage, type IMCPPositionCloseCommand, type IMCPPositionOpenCommand, type IMCPSchema, type IMCPSignalNotifyCommand, type IMCPTextMessage, type IMarkdownDumpOptions, type IMemoryInstance, type INotificationUtils, type IOrderBookData, type IPartialLossCommitRow, type IPartialProfitCommitRow, type IPersistBase, type IPersistBreakevenInstance, type IPersistCandleInstance, type IPersistIntervalInstance, type IPersistLogInstance, type IPersistMeasureInstance, type IPersistMemoryInstance, type IPersistNotificationInstance, type IPersistPartialInstance, type IPersistRecentInstance, type IPersistRiskInstance, type IPersistScheduleInstance, type IPersistSessionInstance, type IPersistSignalInstance, type IPersistStateInstance, type IPersistStorageInstance, type IPersistStrategyInstance, type IPositionSizeATRParams, type IPositionSizeFixedPercentageParams, type IPositionSizeKellyParams, type IPublicAction, type IPublicCandleData, type IPublicSignalRow, type IRecentUtils, type IReportDumpOptions, type IRiskActivePosition, type IRiskCheckArgs, type IRiskSchema, type IRiskSignalRow, type IRiskValidation, type IRiskValidationFn, type IRiskValidationPayload, type IRuntimeInfo, type IRuntimeRange, type IScheduledSignalCancelRow, type IScheduledSignalRow, type ISessionInstance, type ISignalDto, type ISignalIntervalDto, type ISignalRow, type ISizingCalculateParams, type ISizingCalculateParamsATR, type ISizingCalculateParamsFixedPercentage, type ISizingCalculateParamsKelly, type ISizingParams, type ISizingParamsATR, type ISizingParamsFixedPercentage, type ISizingParamsKelly, type ISizingSchema, type ISizingSchemaATR, type ISizingSchemaFixedPercentage, type ISizingSchemaKelly, type IStateInstance, type IStorageSignalRow, type IStorageUtils, type IStrategyPnL, type IStrategyResult, type IStrategySchema, type IStrategyTickResult, type IStrategyTickResultActive, type IStrategyTickResultCancelled, type IStrategyTickResultClosed, type IStrategyTickResultIdle, type IStrategyTickResultOpened, type IStrategyTickResultScheduled, type IStrategyTickResultWaiting, type ISweepBest, type ISweepGridAxes, type ISweepGridPoint, type ISweepIdea, type ISweepMetricReport, type ISweepPointReport, type ISweepResult, type ISweepSchema, type ISweepTrack, type ISweepTrade, type ITrailingStopCommitRow, type ITrailingTakeCommitRow, type IWalkerResults, type IWalkerSchema, type IWalkerStrategyResult, type IdlePingContract, type InfoErrorNotification, Interval, type IntervalData, Live, type LiveStatisticsModel, Log, type LogData, Lookup, MCP, type MCPMessageId, Markdown, MarkdownFileBase, MarkdownFolderBase, type MarkdownName, MarkdownWriter, MaxDrawdown, type MaxDrawdownContract, type MaxDrawdownEvent, type MaxDrawdownStatisticsModel, type MeasureData, Memory, MemoryBacktest, MemoryBacktestAdapter, type MemoryData, MemoryLive, MemoryLiveAdapter, type MessageModel, type MessageRole, type MessageToolCall, MethodContextService, type MetricStats, Notification, NotificationBacktest, type NotificationData, NotificationLive, type NotificationModel, type OrderCheckContract, type OrderCloseContract, type OrderContinueContract, OrderDeletedError, type OrderFillCloseContract, type OrderFillContract, type OrderFillOpenContract, type OrderOpenContract, type OrderRejectCloseContract, type OrderRejectContract, type OrderRejectOpenContract, OrderRejectedError, type OrderStopContract, type OrderSyncCheckNotification, type OrderSyncCloseNotification, type OrderSyncContract, type OrderSyncOpenNotification, OrderTransientError, Partial$1 as Partial, type PartialData, type PartialEvent, type PartialLossAvailableNotification, type PartialLossCommit, type PartialLossCommitNotification, type PartialLossContract, type PartialProfitAvailableNotification, type PartialProfitCommit, type PartialProfitCommitNotification, type PartialProfitContract, type PartialStatisticsModel, type PauseContract, Performance, type PerformanceContract, type PerformanceMetricType, type PerformanceStatisticsModel, PersistBase, PersistBreakevenAdapter, PersistBreakevenInstance, PersistCandleAdapter, PersistCandleInstance, PersistIntervalAdapter, PersistIntervalInstance, PersistLogAdapter, PersistLogInstance, PersistMeasureAdapter, PersistMeasureInstance, PersistMemoryAdapter, PersistMemoryInstance, PersistNotificationAdapter, PersistNotificationInstance, PersistPartialAdapter, PersistPartialInstance, PersistRecentAdapter, PersistRecentInstance, PersistRiskAdapter, PersistRiskInstance, PersistScheduleAdapter, PersistScheduleInstance, PersistSessionAdapter, PersistSessionInstance, PersistSignalAdapter, PersistSignalInstance, PersistStateAdapter, PersistStateInstance, PersistStorageAdapter, PersistStorageInstance, PersistStrategyAdapter, PersistStrategyInstance, Position, PositionSize, type ProgressBacktestContract, type ProgressWalkerContract, Recent, RecentBacktest, type RecentData, RecentLive, Reflect, Report, ReportBase, type ReportName, ReportWriter, Risk, type RiskContract, type RiskData, type RiskEvent, type RiskRejectionNotification, type RiskStatisticsModel, type RuntimeData, Schedule, type ScheduleData, type ScheduleEventContract, type SchedulePingContract, type ScheduleStatisticsModel, type ScheduledEvent, Session, SessionBacktest, type SessionData, SessionLive, type SignalCancelledNotification, type SignalClosedNotification, type SignalData, type SignalEventContract, type SignalInfoContract, type SignalInfoNotification, type SignalInterval, type SignalOpenedNotification, type SignalScheduledNotification, State, StateBacktest, StateBacktestAdapter, type StateData, StateLive, StateLiveAdapter, Storage, StorageBacktest, type StorageData, StorageLive, Strategy, type StrategyActionType, type StrategyCancelReason, type StrategyCloseReason, type StrategyCommitContract, type StrategyData, type StrategyEvent, type StrategyPauseNotification, type StrategyStatisticsModel, type StrategyStatus, Sweep, Sync, type SyncEvent, type SyncStatisticsModel, System, type TBrokerCtor, type TDumpInstanceCtor, type TLogCtor, type TMarkdownBase, type TMemoryInstanceCtor, type TNotificationUtilsCtor, type TPersistBase, type TPersistBaseCtor, type TPersistBreakevenInstanceCtor, type TPersistCandleInstanceCtor, type TPersistIntervalInstanceCtor, type TPersistLogInstanceCtor, type TPersistMeasureInstanceCtor, type TPersistMemoryInstanceCtor, type TPersistNotificationInstanceCtor, type TPersistPartialInstanceCtor, type TPersistRecentInstanceCtor, type TPersistRiskInstanceCtor, type TPersistScheduleInstanceCtor, type TPersistSessionInstanceCtor, type TPersistSignalInstanceCtor, type TPersistStateInstanceCtor, type TPersistStorageInstanceCtor, type TPersistStrategyInstanceCtor, type TRecentUtilsCtor, type TReportBase, type TSessionInstanceCtor, type TStateInstanceCtor, type TStorageUtilsCtor, type TickEvent, type TrailingStopCommit, type TrailingStopCommitNotification, type TrailingTakeCommit, type TrailingTakeCommitNotification, type ValidationErrorNotification, Walker, type WalkerCompleteContract, type WalkerContract, type WalkerMetric, type SignalData$1 as WalkerSignalData, type WalkerStatisticsModel, addActionSchema, addExchangeSchema, addFrameSchema, addMCPSchema, addRiskSchema, addSizingSchema, addStrategySchema, addSweepSchema, addWalkerSchema, alignToInterval, beginContext, beginTime, cacheCandles, checkCandles, commitActivateScheduled, commitAverageBuy, commitBreakeven, commitCancelScheduled, commitClosePending, commitCreateSignal, commitCreateStopLoss, commitCreateTakeProfit, commitPartialLoss, commitPartialLossCost, commitPartialProfit, commitPartialProfitCost, commitSignalNotify, commitTrailingStop, commitTrailingStopCost, commitTrailingTake, commitTrailingTakeCost, createSignalState, dumpAgentAnswer, dumpError, dumpJson, dumpMCPStatus, dumpRecord, dumpTable, dumpText, emitters, formatPrice, formatQuantity, get, getActionSchema, getAggregatedTrades, getAveragePrice, getBacktestTimeframe, getBreakeven, getCandles, getClosePrice, getColumns, getConfig, getContext, getDate, getDefaultColumns, getDefaultConfig, getEffectivePriceOpen, getExchangeSchema, getFrameSchema, getLatestSignal, getLiquidationPrice, getMCPSchema, getMaxDrawdownDistancePnlCost, getMaxDrawdownDistancePnlPercentage, getMinutesSinceLatestSignalCreated, getMode, getNextCandles, getOrderBook, getPendingSignal, getPositionActiveMinutes, getPositionCountdownMinutes, getPositionDrawdownMinutes, getPositionEffectivePrice, getPositionEntries, getPositionEntryOverlap, getPositionEstimateMinutes, getPositionHighestMaxDrawdownPnlCost, getPositionHighestMaxDrawdownPnlPercentage, getPositionHighestPnlCost, getPositionHighestPnlPercentage, getPositionHighestProfitBreakeven, getPositionHighestProfitDistancePnlCost, getPositionHighestProfitDistancePnlPercentage, getPositionHighestProfitMinutes, getPositionHighestProfitPrice, getPositionHighestProfitTimestamp, getPositionInvestedCost, getPositionInvestedCount, getPositionLevels, getPositionMaxDrawdownMinutes, getPositionMaxDrawdownPnlCost, getPositionMaxDrawdownPnlPercentage, getPositionMaxDrawdownPrice, getPositionMaxDrawdownTimestamp, getPositionPartialOverlap, getPositionPartials, getPositionPnlCost, getPositionPnlPercent, getPositionWaitingMinutes, getPriceScale, getRawCandles, getRemainingCostBasis, getRiskSchema, getRuntimeInfo, getScheduledSignal, getSessionData, getSignalState, getSizingSchema, getStrategyPaused, getStrategySchema, getStrategyStatus, getSweepSchema, getSymbol, getTimestamp, getTotalClosed, getTotalPercentHeld, getWalkerSchema, hasNoPendingSignal, hasNoScheduledSignal, hasTradeContext, intervalStart, intervalStepMs, investedCostToPercent, backtest as lib, listExchangeSchema, listFrameSchema, listMCPSchema, listMemory, listRiskSchema, listSizingSchema, listStrategySchema, listSweepSchema, listWalkerSchema, listenActivePing, listenActivePingFilter, listenActivePingOnce, listenActivePingUnique, listenAfterEnd, listenAfterEndFilter, listenAfterEndOnce, listenBacktestProgress, listenBeforeStart, listenBeforeStartFilter, listenBeforeStartOnce, listenBreakevenAvailable, listenBreakevenAvailableFilter, listenBreakevenAvailableOnce, listenBreakevenAvailableUnique, listenCheck, listenDoneBacktest, listenDoneBacktestFilter, listenDoneBacktestOnce, listenDoneLive, listenDoneLiveFilter, listenDoneLiveOnce, listenDoneWalker, listenDoneWalkerFilter, listenDoneWalkerOnce, listenError, listenExit, listenHighestProfit, listenHighestProfitFilter, listenHighestProfitOnce, listenHighestProfitUnique, listenIdlePing, listenIdlePingFilter, listenIdlePingOnce, listenMaxDrawdown, listenMaxDrawdownFilter, listenMaxDrawdownOnce, listenMaxDrawdownUnique, listenOrderContinue, listenOrderFill, listenOrderReject, listenOrderSchedule, listenOrderScheduleUnique, listenOrderStop, listenPartialLossAvailable, listenPartialLossAvailableFilter, listenPartialLossAvailableOnce, listenPartialLossAvailableUnique, listenPartialProfitAvailable, listenPartialProfitAvailableFilter, listenPartialProfitAvailableOnce, listenPartialProfitAvailableUnique, listenPause, listenPauseFilter, listenPauseOnce, listenPerformance, listenRisk, listenRiskFilter, listenRiskOnce, listenSchedulePing, listenSchedulePingFilter, listenSchedulePingOnce, listenSchedulePingUnique, listenSignal, listenSignalActive, listenSignalActiveUnique, listenSignalBacktest, listenSignalBacktestActive, listenSignalBacktestActiveUnique, listenSignalBacktestCancelled, listenSignalBacktestCancelledUnique, listenSignalBacktestClosed, listenSignalBacktestClosedUnique, listenSignalBacktestFilter, listenSignalBacktestIdle, listenSignalBacktestOnce, listenSignalBacktestOpened, listenSignalBacktestOpenedUnique, listenSignalBacktestScheduled, listenSignalBacktestScheduledUnique, listenSignalBacktestUnique, listenSignalBacktestWaiting, listenSignalBacktestWaitingUnique, listenSignalCancelled, listenSignalCancelledUnique, listenSignalClosed, listenSignalClosedUnique, listenSignalEvent, listenSignalEventFilter, listenSignalEventOnce, listenSignalEventUnique, listenSignalFilter, listenSignalIdle, listenSignalLive, listenSignalLiveActive, listenSignalLiveActiveUnique, listenSignalLiveCancelled, listenSignalLiveCancelledUnique, listenSignalLiveClosed, listenSignalLiveClosedUnique, listenSignalLiveFilter, listenSignalLiveIdle, listenSignalLiveOnce, listenSignalLiveOpened, listenSignalLiveOpenedUnique, listenSignalLiveScheduled, listenSignalLiveScheduledUnique, listenSignalLiveUnique, listenSignalLiveWaiting, listenSignalLiveWaitingUnique, listenSignalNotify, listenSignalNotifyFilter, listenSignalNotifyOnce, listenSignalNotifyUnique, listenSignalOnce, listenSignalOpened, listenSignalOpenedUnique, listenSignalScheduled, listenSignalScheduledUnique, listenSignalUnique, listenSignalWaiting, listenSignalWaitingUnique, listenStrategyCommit, listenStrategyCommitFilter, listenStrategyCommitOnce, listenStrategyCommitUnique, listenSync, listenValidation, listenWalker, listenWalkerComplete, listenWalkerFilter, listenWalkerOnce, listenWalkerProgress, overrideActionSchema, overrideExchangeSchema, overrideFrameSchema, overrideMCPSchema, overrideRiskSchema, overrideSizingSchema, overrideStrategySchema, overrideSweepSchema, overrideWalkerSchema, parseArgs, percentDiff, percentToCloseCost, percentValue, readMemory, removeMemory, roundTicks, runInMockContext, searchMemory, set, setColumns, setConfig, setLogger, setSessionData, setSignalState, setStrategyPaused, shutdown, slPercentShiftToPrice, slPriceToPercentShift, stopStrategy, toPlainString, toProfitLossDto, tpPercentShiftToPrice, tpPriceToPercentShift, validate, validateCandles, validateCommonSignal, validatePendingSignal, validateScheduledSignal, validateSignal, waitForCandle, waitForReady, warmCandles, writeMemory };
+export { ActionBase, type ActivateScheduledCommit, type ActivateScheduledCommitNotification, type ActivePingContract, type AfterEndContract, type AverageBuyCommit, type AverageBuyCommitNotification, BROKER_ORDER_VERDICT, Backtest, type BacktestStatisticsModel, type BeforeStartContract, Breakeven, type BreakevenAvailableNotification, type BreakevenCommit, type BreakevenCommitNotification, type BreakevenContract, type BreakevenData, type BreakevenEvent, type BreakevenStatisticsModel, Broker, type BrokerActivePingPayload, type BrokerAverageBuyPayload, BrokerBase, type BrokerBreakevenPayload, type BrokerIdlePingPayload, type BrokerOrderCheckPayload, type BrokerOrderClosePayload, type BrokerOrderOpenPayload, type BrokerPartialLossPayload, type BrokerPartialProfitPayload, type BrokerPendingClosePayload, type BrokerPendingOpenPayload, type BrokerScheduleCancelledPayload, type BrokerScheduleOpenPayload, type BrokerSchedulePingPayload, type BrokerTrailingStopPayload, type BrokerTrailingTakePayload, Cache, type CancelScheduledCommit, type CancelScheduledCommitNotification, type CandleData, type CandleInterval, type ClosePendingCommit, type ClosePendingCommitNotification, type ColumnConfig, type ColumnModel, type CommitPayload, Constant, type CriticalErrorNotification, Cron, type CronCallback, type CronEntry, type CronHandle, Dictionary, DictionaryBacktest, DictionaryBacktestAdapter, type DictionaryData, DictionaryLive, DictionaryLiveAdapter, type DoneContract, Dump, type EntityId, Exchange, ExecutionContextService, type FrameInterval, GeneralExpectedError, GeneralUnexpectedError, type GlobalConfig, Heat, type HeatmapStatisticsModel, HighestProfit, type HighestProfitContract, type HighestProfitEvent, type HighestProfitStatisticsModel, type IActionSchema, type IActivateScheduledCommitRow, type IAgentLogger, type IAggregatedTradeData, type IBidData, type IBreakevenCommitRow, type IBroker, type IBrokerOrderVerdict, type ICandleData, type ICommitRow, type IDictionaryInstance, type IDumpContext, type IDumpInstance, type IExchangeSchema, type IFrameSchema, type IHeatmapRow, type ILog, type ILogEntry, type ILogger, type IMCPAverageBuyCommand, type IMCPContext, type IMCPImageMessage, type IMCPMessage, type IMCPPositionCloseCommand, type IMCPPositionOpenCommand, type IMCPSchema, type IMCPSignalNotifyCommand, type IMCPTextMessage, type IMarkdownDumpOptions, type IMemoryInstance, type INotificationUtils, type IOrderBookData, type IPartialLossCommitRow, type IPartialProfitCommitRow, type IPersistBase, type IPersistBreakevenInstance, type IPersistCandleInstance, type IPersistDictionaryInstance, type IPersistIntervalInstance, type IPersistLogInstance, type IPersistMeasureInstance, type IPersistMemoryInstance, type IPersistNotificationInstance, type IPersistPartialInstance, type IPersistRecentInstance, type IPersistRiskInstance, type IPersistScheduleInstance, type IPersistSessionInstance, type IPersistSignalInstance, type IPersistStateInstance, type IPersistStorageInstance, type IPersistStrategyInstance, type IPositionSizeATRParams, type IPositionSizeFixedPercentageParams, type IPositionSizeKellyParams, type IPublicAction, type IPublicCandleData, type IPublicSignalRow, type IRecentUtils, type IReportDumpOptions, type IRiskActivePosition, type IRiskCheckArgs, type IRiskSchema, type IRiskSignalRow, type IRiskValidation, type IRiskValidationFn, type IRiskValidationPayload, type IRuntimeInfo, type IRuntimeRange, type IScheduledSignalCancelRow, type IScheduledSignalRow, type ISessionInstance, type ISignalDto, type ISignalIntervalDto, type ISignalRow, type ISizingCalculateParams, type ISizingCalculateParamsATR, type ISizingCalculateParamsFixedPercentage, type ISizingCalculateParamsKelly, type ISizingParams, type ISizingParamsATR, type ISizingParamsFixedPercentage, type ISizingParamsKelly, type ISizingSchema, type ISizingSchemaATR, type ISizingSchemaFixedPercentage, type ISizingSchemaKelly, type IStateInstance, type IStorageSignalRow, type IStorageUtils, type IStrategyPnL, type IStrategyResult, type IStrategySchema, type IStrategyTickResult, type IStrategyTickResultActive, type IStrategyTickResultCancelled, type IStrategyTickResultClosed, type IStrategyTickResultIdle, type IStrategyTickResultOpened, type IStrategyTickResultScheduled, type IStrategyTickResultWaiting, type ISweepBest, type ISweepGridAxes, type ISweepGridPoint, type ISweepIdea, type ISweepMetricReport, type ISweepPointReport, type ISweepResult, type ISweepSchema, type ISweepTrack, type ISweepTrade, type ITrailingStopCommitRow, type ITrailingTakeCommitRow, type IWalkerResults, type IWalkerSchema, type IWalkerStrategyResult, type IdlePingContract, type InfoErrorNotification, Interval, type IntervalData, Live, type LiveStatisticsModel, Log, type LogData, Lookup, MCP, type MCPMessageId, Markdown, MarkdownFileBase, MarkdownFolderBase, type MarkdownName, MarkdownWriter, MaxDrawdown, type MaxDrawdownContract, type MaxDrawdownEvent, type MaxDrawdownStatisticsModel, type MeasureData, Memory, MemoryBacktest, MemoryBacktestAdapter, type MemoryData, MemoryLive, MemoryLiveAdapter, type MessageModel, type MessageRole, type MessageToolCall, MethodContextService, type MetricStats, Notification, NotificationBacktest, type NotificationData, NotificationLive, type NotificationModel, type OrderCheckContract, type OrderCloseContract, type OrderContinueContract, OrderDeletedError, type OrderFillCloseContract, type OrderFillContract, type OrderFillOpenContract, type OrderOpenContract, type OrderRejectCloseContract, type OrderRejectContract, type OrderRejectOpenContract, OrderRejectedError, type OrderStopContract, type OrderSyncCheckNotification, type OrderSyncCloseNotification, type OrderSyncContract, type OrderSyncOpenNotification, OrderTransientError, Partial$1 as Partial, type PartialData, type PartialEvent, type PartialLossAvailableNotification, type PartialLossCommit, type PartialLossCommitNotification, type PartialLossContract, type PartialProfitAvailableNotification, type PartialProfitCommit, type PartialProfitCommitNotification, type PartialProfitContract, type PartialStatisticsModel, type PauseContract, Performance, type PerformanceContract, type PerformanceMetricType, type PerformanceStatisticsModel, PersistBase, PersistBreakevenAdapter, PersistBreakevenInstance, PersistCandleAdapter, PersistCandleInstance, PersistDictionaryAdapter, PersistDictionaryInstance, PersistIntervalAdapter, PersistIntervalInstance, PersistLogAdapter, PersistLogInstance, PersistMeasureAdapter, PersistMeasureInstance, PersistMemoryAdapter, PersistMemoryInstance, PersistNotificationAdapter, PersistNotificationInstance, PersistPartialAdapter, PersistPartialInstance, PersistRecentAdapter, PersistRecentInstance, PersistRiskAdapter, PersistRiskInstance, PersistScheduleAdapter, PersistScheduleInstance, PersistSessionAdapter, PersistSessionInstance, PersistSignalAdapter, PersistSignalInstance, PersistStateAdapter, PersistStateInstance, PersistStorageAdapter, PersistStorageInstance, PersistStrategyAdapter, PersistStrategyInstance, Position, PositionSize, type ProgressBacktestContract, type ProgressWalkerContract, Recent, RecentBacktest, type RecentData, RecentLive, Reflect, Report, ReportBase, type ReportName, ReportWriter, Risk, type RiskContract, type RiskData, type RiskEvent, type RiskRejectionNotification, type RiskStatisticsModel, type RuntimeData, Schedule, type ScheduleData, type ScheduleEventContract, type SchedulePingContract, type ScheduleStatisticsModel, type ScheduledEvent, Session, SessionBacktest, type SessionData, SessionLive, type SignalCancelledNotification, type SignalClosedNotification, type SignalData, type SignalEventContract, type SignalInfoContract, type SignalInfoNotification, type SignalInterval, type SignalOpenedNotification, type SignalScheduledNotification, State, StateBacktest, StateBacktestAdapter, type StateData, StateLive, StateLiveAdapter, Storage, StorageBacktest, type StorageData, StorageLive, Strategy, type StrategyActionType, type StrategyCancelReason, type StrategyCloseReason, type StrategyCommitContract, type StrategyData, type StrategyEvent, type StrategyPauseNotification, type StrategyStatisticsModel, type StrategyStatus, Sweep, Sync, type SyncEvent, type SyncStatisticsModel, System, type TBrokerCtor, type TDictionaryInstanceCtor, type TDumpInstanceCtor, type TLogCtor, type TMarkdownBase, type TMemoryInstanceCtor, type TNotificationUtilsCtor, type TPersistBase, type TPersistBaseCtor, type TPersistBreakevenInstanceCtor, type TPersistCandleInstanceCtor, type TPersistDictionaryInstanceCtor, type TPersistIntervalInstanceCtor, type TPersistLogInstanceCtor, type TPersistMeasureInstanceCtor, type TPersistMemoryInstanceCtor, type TPersistNotificationInstanceCtor, type TPersistPartialInstanceCtor, type TPersistRecentInstanceCtor, type TPersistRiskInstanceCtor, type TPersistScheduleInstanceCtor, type TPersistSessionInstanceCtor, type TPersistSignalInstanceCtor, type TPersistStateInstanceCtor, type TPersistStorageInstanceCtor, type TPersistStrategyInstanceCtor, type TRecentUtilsCtor, type TReportBase, type TSessionInstanceCtor, type TStateInstanceCtor, type TStorageUtilsCtor, type TickEvent, type TrailingStopCommit, type TrailingStopCommitNotification, type TrailingTakeCommit, type TrailingTakeCommitNotification, type ValidationErrorNotification, Walker, type WalkerCompleteContract, type WalkerContract, type WalkerMetric, type SignalData$1 as WalkerSignalData, type WalkerStatisticsModel, addActionSchema, addExchangeSchema, addFrameSchema, addMCPSchema, addRiskSchema, addSizingSchema, addStrategySchema, addSweepSchema, addWalkerSchema, alignToInterval, beginContext, beginTime, cacheCandles, checkCandles, commitActivateScheduled, commitAverageBuy, commitBreakeven, commitCancelScheduled, commitClosePending, commitCreateSignal, commitCreateStopLoss, commitCreateTakeProfit, commitPartialLoss, commitPartialLossCost, commitPartialProfit, commitPartialProfitCost, commitSignalNotify, commitTrailingStop, commitTrailingStopCost, commitTrailingTake, commitTrailingTakeCost, createSignalState, dumpAgentAnswer, dumpError, dumpJson, dumpMCPStatus, dumpRecord, dumpTable, dumpText, emitters, formatPrice, formatQuantity, get, getActionSchema, getAggregatedTrades, getAveragePrice, getBacktestTimeframe, getBreakeven, getCandles, getClosePrice, getColumns, getConfig, getContext, getDate, getDefaultColumns, getDefaultConfig, getEffectivePriceOpen, getExchangeSchema, getFrameSchema, getLatestSignal, getLiquidationPrice, getMCPSchema, getMaxDrawdownDistancePnlCost, getMaxDrawdownDistancePnlPercentage, getMinutesSinceLatestSignalCreated, getMode, getNextCandles, getOrderBook, getPendingSignal, getPositionActiveMinutes, getPositionCountdownMinutes, getPositionDrawdownMinutes, getPositionEffectivePrice, getPositionEntries, getPositionEntryOverlap, getPositionEstimateMinutes, getPositionHighestMaxDrawdownPnlCost, getPositionHighestMaxDrawdownPnlPercentage, getPositionHighestPnlCost, getPositionHighestPnlPercentage, getPositionHighestProfitBreakeven, getPositionHighestProfitDistancePnlCost, getPositionHighestProfitDistancePnlPercentage, getPositionHighestProfitMinutes, getPositionHighestProfitPrice, getPositionHighestProfitTimestamp, getPositionInvestedCost, getPositionInvestedCount, getPositionLevels, getPositionMaxDrawdownMinutes, getPositionMaxDrawdownPnlCost, getPositionMaxDrawdownPnlPercentage, getPositionMaxDrawdownPrice, getPositionMaxDrawdownTimestamp, getPositionPartialOverlap, getPositionPartials, getPositionPnlCost, getPositionPnlPercent, getPositionWaitingMinutes, getPriceScale, getRawCandles, getRemainingCostBasis, getRiskSchema, getRuntimeInfo, getScheduledSignal, getSessionData, getSignalState, getSizingSchema, getStrategyPaused, getStrategySchema, getStrategyStatus, getSweepSchema, getSymbol, getTimestamp, getTotalClosed, getTotalPercentHeld, getWalkerSchema, hasNoPendingSignal, hasNoScheduledSignal, hasTradeContext, intervalStart, intervalStepMs, investedCostToPercent, backtest as lib, listExchangeSchema, listFrameSchema, listMCPSchema, listMemory, listRiskSchema, listSizingSchema, listStrategySchema, listSweepSchema, listWalkerSchema, listenActivePing, listenActivePingFilter, listenActivePingOnce, listenActivePingUnique, listenAfterEnd, listenAfterEndFilter, listenAfterEndOnce, listenBacktestProgress, listenBeforeStart, listenBeforeStartFilter, listenBeforeStartOnce, listenBreakevenAvailable, listenBreakevenAvailableFilter, listenBreakevenAvailableOnce, listenBreakevenAvailableUnique, listenCheck, listenDoneBacktest, listenDoneBacktestFilter, listenDoneBacktestOnce, listenDoneLive, listenDoneLiveFilter, listenDoneLiveOnce, listenDoneWalker, listenDoneWalkerFilter, listenDoneWalkerOnce, listenError, listenExit, listenHighestProfit, listenHighestProfitFilter, listenHighestProfitOnce, listenHighestProfitUnique, listenIdlePing, listenIdlePingFilter, listenIdlePingOnce, listenMaxDrawdown, listenMaxDrawdownFilter, listenMaxDrawdownOnce, listenMaxDrawdownUnique, listenOrderContinue, listenOrderFill, listenOrderReject, listenOrderSchedule, listenOrderScheduleUnique, listenOrderStop, listenPartialLossAvailable, listenPartialLossAvailableFilter, listenPartialLossAvailableOnce, listenPartialLossAvailableUnique, listenPartialProfitAvailable, listenPartialProfitAvailableFilter, listenPartialProfitAvailableOnce, listenPartialProfitAvailableUnique, listenPause, listenPauseFilter, listenPauseOnce, listenPerformance, listenRisk, listenRiskFilter, listenRiskOnce, listenSchedulePing, listenSchedulePingFilter, listenSchedulePingOnce, listenSchedulePingUnique, listenSignal, listenSignalActive, listenSignalActiveUnique, listenSignalBacktest, listenSignalBacktestActive, listenSignalBacktestActiveUnique, listenSignalBacktestCancelled, listenSignalBacktestCancelledUnique, listenSignalBacktestClosed, listenSignalBacktestClosedUnique, listenSignalBacktestFilter, listenSignalBacktestIdle, listenSignalBacktestOnce, listenSignalBacktestOpened, listenSignalBacktestOpenedUnique, listenSignalBacktestScheduled, listenSignalBacktestScheduledUnique, listenSignalBacktestUnique, listenSignalBacktestWaiting, listenSignalBacktestWaitingUnique, listenSignalCancelled, listenSignalCancelledUnique, listenSignalClosed, listenSignalClosedUnique, listenSignalEvent, listenSignalEventFilter, listenSignalEventOnce, listenSignalEventUnique, listenSignalFilter, listenSignalIdle, listenSignalLive, listenSignalLiveActive, listenSignalLiveActiveUnique, listenSignalLiveCancelled, listenSignalLiveCancelledUnique, listenSignalLiveClosed, listenSignalLiveClosedUnique, listenSignalLiveFilter, listenSignalLiveIdle, listenSignalLiveOnce, listenSignalLiveOpened, listenSignalLiveOpenedUnique, listenSignalLiveScheduled, listenSignalLiveScheduledUnique, listenSignalLiveUnique, listenSignalLiveWaiting, listenSignalLiveWaitingUnique, listenSignalNotify, listenSignalNotifyFilter, listenSignalNotifyOnce, listenSignalNotifyUnique, listenSignalOnce, listenSignalOpened, listenSignalOpenedUnique, listenSignalScheduled, listenSignalScheduledUnique, listenSignalUnique, listenSignalWaiting, listenSignalWaitingUnique, listenStrategyCommit, listenStrategyCommitFilter, listenStrategyCommitOnce, listenStrategyCommitUnique, listenSync, listenValidation, listenWalker, listenWalkerComplete, listenWalkerFilter, listenWalkerOnce, listenWalkerProgress, overrideActionSchema, overrideExchangeSchema, overrideFrameSchema, overrideMCPSchema, overrideRiskSchema, overrideSizingSchema, overrideStrategySchema, overrideSweepSchema, overrideWalkerSchema, parseArgs, percentDiff, percentToCloseCost, percentValue, readMemory, removeMemory, roundTicks, runInMockContext, searchMemory, set, setColumns, setConfig, setLogger, setSessionData, setSignalState, setStrategyPaused, shutdown, slPercentShiftToPrice, slPriceToPercentShift, stopStrategy, toPlainString, toProfitLossDto, tpPercentShiftToPrice, tpPriceToPercentShift, validate, validateCandles, validateCommonSignal, validatePendingSignal, validateScheduledSignal, validateSignal, waitForCandle, waitForReady, warmCandles, writeMemory };
