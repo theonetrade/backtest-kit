@@ -3431,6 +3431,12 @@ interface ISignalDto {
     position: "long" | "short";
     /** Human-readable description of signal reason */
     note?: string;
+    /**
+     * Custom user-defined dictionary attached to the signal.
+     * Free-form data for external logic, monitoring or reporting — not interpreted by the system.
+     * Defaults to {} if not provided (initialized in ClientStrategy).
+     */
+    payload?: Record<string, unknown>;
     /** Entry price for the position */
     priceOpen?: number;
     /** Take profit target price (must be > priceOpen for long, < priceOpen for short) */
@@ -3486,6 +3492,8 @@ interface ISignalRow extends ISignalDto {
     multiplier: number;
     /** Isolated-margin mode: force-close at -100% leveraged PNL with closeReason "liquidation" (required in row, defaults applied in ClientStrategy) */
     isolated: boolean;
+    /** Custom user-defined dictionary attached to the signal (required in row, defaults to {} in ClientStrategy) */
+    payload: Record<string, unknown>;
     /** Unique exchange identifier for execution */
     exchangeName: ExchangeName;
     /** Unique strategy identifier for execution */

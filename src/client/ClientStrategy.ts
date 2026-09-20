@@ -1057,6 +1057,7 @@ const TO_PUBLIC_SIGNAL = <T extends ISignalDto | ISignalRow | IScheduledSignalRo
     // undefined (rows built by GET_SIGNAL_FN already carry the value).
     multiplier: signal.multiplier ?? GLOBAL_CONFIG.CC_SIGNAL_LEVERAGE_MULTIPLIER,
     isolated: signal.isolated ?? GLOBAL_CONFIG.CC_SIGNAL_ISOLATED_MARGIN,
+    payload: signal.payload ?? {},
     priceStopLoss: hasTrailingSL ? signal._trailingPriceStopLoss : signal.priceStopLoss,
     priceTakeProfit: hasTrailingTP ? signal._trailingPriceTakeProfit : signal.priceTakeProfit,
     originalPriceOpen: signal.priceOpen,
@@ -1321,6 +1322,7 @@ const GET_SIGNAL_FN = trycatch(
           priceOpen: signal.priceOpen, // Используем priceOpen из сигнала
           position: signal.position,
           note: signal.note || "",
+          payload: signal.payload ?? {},
           priceTakeProfit: signal.priceTakeProfit,
           priceStopLoss: signal.priceStopLoss,
           minuteEstimatedTime: signal.minuteEstimatedTime ?? GLOBAL_CONFIG.CC_MAX_SIGNAL_LIFETIME_MINUTES,
@@ -1364,6 +1366,7 @@ const GET_SIGNAL_FN = trycatch(
         priceOpen: signal.priceOpen,
         position: signal.position,
         note: signal.note || "",
+        payload: signal.payload ?? {},
         priceTakeProfit: signal.priceTakeProfit,
         priceStopLoss: signal.priceStopLoss,
         minuteEstimatedTime: signal.minuteEstimatedTime ?? GLOBAL_CONFIG.CC_MAX_SIGNAL_LIFETIME_MINUTES,
@@ -1397,6 +1400,7 @@ const GET_SIGNAL_FN = trycatch(
       cost: signal.cost || GLOBAL_CONFIG.CC_POSITION_ENTRY_COST,
       priceOpen: currentPrice,
       note: signal.note || "",
+      payload: signal.payload ?? {},
       minuteEstimatedTime: signal.minuteEstimatedTime ?? GLOBAL_CONFIG.CC_MAX_SIGNAL_LIFETIME_MINUTES,
       multiplier: signal.multiplier ?? GLOBAL_CONFIG.CC_SIGNAL_LEVERAGE_MULTIPLIER,
       isolated: signal.isolated ?? GLOBAL_CONFIG.CC_SIGNAL_ISOLATED_MARGIN,
@@ -1694,6 +1698,11 @@ const WAIT_FOR_INIT_FN = async (self: ClientStrategy) => {
     if (pendingSignal.isolated == null) {
       pendingSignal.isolated = GLOBAL_CONFIG.CC_SIGNAL_ISOLATED_MARGIN;
     }
+    // Back-compat: rows persisted before the payload field existed read back
+    // without it — restore the empty-dictionary default.
+    if (pendingSignal.payload == null) {
+      pendingSignal.payload = {};
+    }
     self._pendingSignal = pendingSignal;
 
     // A restored position's id is consumed BY DEFINITION (mirror of the
@@ -1807,6 +1816,11 @@ const WAIT_FOR_INIT_FN = async (self: ClientStrategy) => {
     }
     if (scheduledSignal.isolated == null) {
       scheduledSignal.isolated = GLOBAL_CONFIG.CC_SIGNAL_ISOLATED_MARGIN;
+    }
+    // Back-compat: rows persisted before the payload field existed read back
+    // without it — restore the empty-dictionary default.
+    if (scheduledSignal.payload == null) {
+      scheduledSignal.payload = {};
     }
     self._scheduledSignal = scheduledSignal;
 

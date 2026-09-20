@@ -99,6 +99,7 @@ const TO_RISK_SIGNAL = <T extends ISignalRow>(signal: T, currentPrice: number, t
     // validations reading currentSignal.multiplier must see 1, not undefined.
     multiplier: signal.multiplier ?? GLOBAL_CONFIG.CC_SIGNAL_LEVERAGE_MULTIPLIER,
     isolated: signal.isolated ?? GLOBAL_CONFIG.CC_SIGNAL_ISOLATED_MARGIN,
+    payload: signal.payload ?? {},
     timestamp: signal.timestamp ?? timestamp,
     totalEntries: 1,
     totalPartials: 0,
