@@ -3,6 +3,8 @@ import treeKill from "../helpers/treeKill";
 
 const DRAIN_MAX_AWAIT = 250;
 
+const KILL_SYMBOL = Symbol.for("backtest-kit-kill");
+
 const drainStream = (stream: NodeJS.WriteStream): Promise<void> =>
   new Promise((resolve) => {
     if (stream.writableLength === 0) {
@@ -24,6 +26,7 @@ const flushStream = (stream: NodeJS.WriteStream): Promise<void> => {
 };
 
 export const kill = singleshot(async (code = -1) => {
+  globalThis[KILL_SYMBOL] = 1;
   await Promise.race([
     Promise.all([
       flushStream(process.stdout),

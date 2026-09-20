@@ -14,6 +14,8 @@ import {
 } from "../../../../interfaces/Strategy.interface";
 import { alignToInterval } from "../../../../utils/alignToInterval";
 
+const KILL_SYMBOL = Symbol.for("backtest-kit-kill");
+
 /**
  * Private service for live trading orchestration using async generators.
  *
@@ -71,6 +73,16 @@ export class LiveLogicPrivateService {
     while (true) {
       const tickStartTime = performance.now();
       const when = alignToInterval(new Date(), "1m");
+
+      if (globalThis[KILL_SYMBOL]) {
+        this.loggerService.info(
+          "liveLogicPrivateService stopped by kill flag",
+          {
+            symbol,
+          }
+        );
+        break;
+      }
 
       let result: IStrategyTickResult;
       try {

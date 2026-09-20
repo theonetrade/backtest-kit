@@ -25,6 +25,8 @@ import PriceMetaService from "../../meta/PriceMetaService";
 const ACTIVE_CANDLE_INCLUDED = 1;
 const SCHEDULE_ACTIVATION_CANDLE_SKIP = 1;
 
+const KILL_SYMBOL = Symbol.for("backtest-kit-kill");
+
 const SYMBOL_FN_ERROR = Symbol("backtest-fn-error");
 
 /**
@@ -688,6 +690,19 @@ export class BacktestLogicPrivateService {
         const when = timeframes[i];
 
         await EMIT_PROGRESS_FN(this, symbol, totalFrames, i, when);
+
+        if (globalThis[KILL_SYMBOL]) {
+          this.loggerService.info(
+            "backtestLogicPrivateService stopped by kill flag",
+            {
+              symbol,
+              when: when.toISOString(),
+              processedFrames: i,
+              totalFrames,
+            }
+          );
+          break;
+        }
 
         if (await CHECK_STOPPED_FN(this, symbol, "before tick", { when: when.toISOString(), processedFrames: i, totalFrames })) {
           break;

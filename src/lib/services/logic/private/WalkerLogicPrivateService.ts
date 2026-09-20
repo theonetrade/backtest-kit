@@ -23,6 +23,8 @@ import { IWalkerSchema } from "../../../../interfaces/Walker.interface";
 import { BacktestStatisticsModel } from "../../../../model/BacktestStatistics.model";
 import { Lookup } from "../../../../classes/Lookup";
 
+const KILL_SYMBOL = Symbol.for("backtest-kit-kill");
+
 /**
  * Wrapper to call onStrategyStart callback with error handling.
  * Catches and logs any errors thrown by the user-provided callback.
@@ -270,6 +272,20 @@ export class WalkerLogicPrivateService {
     try {
       // Run backtest for each strategy
       for (const strategyName of strategies) {
+        if (globalThis[KILL_SYMBOL]) {
+          this.loggerService.info(
+            "walkerLogicPrivateService stopped by kill flag",
+            {
+              symbol,
+              walkerName: context.walkerName,
+              strategyName,
+              strategiesTested,
+              totalStrategies: strategies.length,
+            }
+          );
+          break;
+        }
+
         // Check if this strategy should be stopped before starting
         if (stoppedStrategies.has(strategyName)) {
           this.loggerService.info(
