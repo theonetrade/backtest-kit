@@ -486,6 +486,7 @@ export {
   StrategyActionType,
 } from "./model/StrategyStatistics.model";
 
+export { InitialDispatchContract } from "./contract/InitialDispatch.contract";
 export { PartialLossContract } from "./contract/PartialLoss.contract";
 export { PartialProfitContract } from "./contract/PartialProfit.contract";
 export { WalkerContract } from "./contract/Walker.contract";

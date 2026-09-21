@@ -5,16 +5,25 @@ import {
   IPublicSignalRow,
   IScheduledSignalRow,
 } from "../interfaces/Strategy.interface";
+import { InitialDispatchContract } from "../contract/InitialDispatch.contract";
 import swarm, { ExecutionContextService, MethodContextService } from "../lib";
 
 const CREATE_KEY_FN = (signalId: string, bucketName: string) =>
   `${signalId}_${bucketName}`;
 
-/** 
+/**
  * Updater function for setState — receives current value and returns the next value.
  * Used for functional updates to state, e.g. `setState(prev => ({ ...prev, peakPercent: newPeak }))`
  */
 export type Dispatch<Value extends object = object> = (value: Value) => Value | Promise<Value>;
+
+/**
+ * Factory form of `initialData` in `new State({ name, initialData })` — receives the
+ * resolved signal context ({@link InitialDispatchContract}) and returns the default
+ * state value, sync or async. Runs on every access for a signal that has no persisted
+ * value yet, so the default can be derived from the actual entry.
+ */
+export type InitialDataFn<Data extends object = object> = (payload: InitialDispatchContract) => Data | Promise<Data>;
 
 /** 
  * Logical namespace for grouping state buckets within a signal, e.g. "trade" or "metrics".
@@ -619,8 +628,11 @@ export class StateLiveAdapter implements TStateAdapter {
  * so the class is unavailable outside async_hooks lifecycle callbacks by design.
  *
  * `initialData` provides the default value when no state exists yet — a plain
- * object or a sync/async factory returning one (the factory yields a fresh
- * object per access, so the default is never shared by reference).
+ * object or a sync/async factory returning one. The factory receives an
+ * {@link InitialDispatchContract} payload with the resolved signal context
+ * (signal row, active/schedule type, currentPrice, mode, logical time), so the
+ * initial state can be derived from the actual entry; it yields a fresh object
+ * per access, so the default is never shared by reference.
  *
  * Look-ahead bias protection: a read at a `when` earlier than the stored `when`
  * yields `initialData`, and a write with a smaller `when` overwrites (a
@@ -649,7 +661,7 @@ export class StateLiveAdapter implements TStateAdapter {
  */
 export class State<Data extends object = object> {
 
-  constructor(readonly params: { name: BucketName; initialData: Data | (() => Data | Promise<Data>) }) { }
+  constructor(readonly params: { name: BucketName; initialData: Data | InitialDataFn<Data> }) { }
 
   /**
    * Enables state storage by subscribing to signal lifecycle events.
@@ -766,38 +778,60 @@ export class State<Data extends object = object> {
       swarm.executionContextService.context;
     const { exchangeName, frameName, strategyName } =
       swarm.methodContextService.context;
-    const initialValue = typeof this.params.initialData === "function"
-      ? await (<() => Data | Promise<Data>>this.params.initialData)()
-      : this.params.initialData;
     const currentPrice =
       await swarm.exchangeConnectionService.getAveragePrice(symbol);
-    let signal: IPublicSignalRow | IScheduledSignalRow;
-    if (
-      signal = await swarm.strategyCoreService.getPendingSignal(
-        isBacktest,
-        symbol,
-        currentPrice,
-        { exchangeName, frameName, strategyName },
-      )
-    ) {
+    const pendingSignal: IPublicSignalRow = await swarm.strategyCoreService.getPendingSignal(
+      isBacktest,
+      symbol,
+      currentPrice,
+      { exchangeName, frameName, strategyName },
+    );
+    if (pendingSignal) {
+      const initialValue = typeof this.params.initialData === "function"
+        ? await (<InitialDataFn<Data>>this.params.initialData)({
+            type: "active",
+            signal: pendingSignal,
+            symbol,
+            strategyName,
+            exchangeName,
+            frameName,
+            currentPrice,
+            backtest: isBacktest,
+            timestamp: when.getTime(),
+            when,
+          })
+        : this.params.initialData;
       return await State._getState<Data>({
-        signalId: signal.id,
+        signalId: pendingSignal.id,
         bucketName: this.params.name,
         initialValue,
         backtest: isBacktest,
         when,
       });
     }
-    if (
-      signal = await swarm.strategyCoreService.getScheduledSignal(
-        isBacktest,
-        symbol,
-        currentPrice,
-        { exchangeName, frameName, strategyName },
-      )
-    ) {
+    const scheduledSignal: IScheduledSignalRow = await swarm.strategyCoreService.getScheduledSignal(
+      isBacktest,
+      symbol,
+      currentPrice,
+      { exchangeName, frameName, strategyName },
+    );
+    if (scheduledSignal) {
+      const initialValue = typeof this.params.initialData === "function"
+        ? await (<InitialDataFn<Data>>this.params.initialData)({
+            type: "schedule",
+            signal: scheduledSignal,
+            symbol,
+            strategyName,
+            exchangeName,
+            frameName,
+            currentPrice,
+            backtest: isBacktest,
+            timestamp: when.getTime(),
+            when,
+          })
+        : this.params.initialData;
       return await State._getState<Data>({
-        signalId: signal.id,
+        signalId: scheduledSignal.id,
         bucketName: this.params.name,
         initialValue,
         backtest: isBacktest,
@@ -828,38 +862,60 @@ export class State<Data extends object = object> {
       swarm.executionContextService.context;
     const { exchangeName, frameName, strategyName } =
       swarm.methodContextService.context;
-    const initialValue = typeof this.params.initialData === "function"
-      ? await (<() => Data | Promise<Data>>this.params.initialData)()
-      : this.params.initialData;
     const currentPrice =
       await swarm.exchangeConnectionService.getAveragePrice(symbol);
-    let signal: IPublicSignalRow | IScheduledSignalRow;
-    if (
-      signal = await swarm.strategyCoreService.getPendingSignal(
-        isBacktest,
-        symbol,
-        currentPrice,
-        { exchangeName, frameName, strategyName },
-      )
-    ) {
+    const pendingSignal: IPublicSignalRow = await swarm.strategyCoreService.getPendingSignal(
+      isBacktest,
+      symbol,
+      currentPrice,
+      { exchangeName, frameName, strategyName },
+    );
+    if (pendingSignal) {
+      const initialValue = typeof this.params.initialData === "function"
+        ? await (<InitialDataFn<Data>>this.params.initialData)({
+            type: "active",
+            signal: pendingSignal,
+            symbol,
+            strategyName,
+            exchangeName,
+            frameName,
+            currentPrice,
+            backtest: isBacktest,
+            timestamp: when.getTime(),
+            when,
+          })
+        : this.params.initialData;
       return await State._setState<Data>(dispatch, {
-        signalId: signal.id,
+        signalId: pendingSignal.id,
         bucketName: this.params.name,
         initialValue,
         backtest: isBacktest,
         when,
       });
     }
-    if (
-      signal = await swarm.strategyCoreService.getScheduledSignal(
-        isBacktest,
-        symbol,
-        currentPrice,
-        { exchangeName, frameName, strategyName },
-      )
-    ) {
+    const scheduledSignal: IScheduledSignalRow = await swarm.strategyCoreService.getScheduledSignal(
+      isBacktest,
+      symbol,
+      currentPrice,
+      { exchangeName, frameName, strategyName },
+    );
+    if (scheduledSignal) {
+      const initialValue = typeof this.params.initialData === "function"
+        ? await (<InitialDataFn<Data>>this.params.initialData)({
+            type: "schedule",
+            signal: scheduledSignal,
+            symbol,
+            strategyName,
+            exchangeName,
+            frameName,
+            currentPrice,
+            backtest: isBacktest,
+            timestamp: when.getTime(),
+            when,
+          })
+        : this.params.initialData;
       return await State._setState<Data>(dispatch, {
-        signalId: signal.id,
+        signalId: scheduledSignal.id,
         bucketName: this.params.name,
         initialValue,
         backtest: isBacktest,
