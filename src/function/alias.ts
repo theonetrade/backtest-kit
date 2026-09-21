@@ -49,7 +49,7 @@ const SEEN_MAP_LIMIT = 200;
  * callback once per NEW signal rather than on every emission:
  *
  *   listenSignal<Action>(async (event) => {
- *     if (!filterFn(event)) return;   // 1. condition
+ *     if (!(await filterFn(event))) return;   // 1. condition
  *     if (alreadySeen(event)) return; // 2. collapse repeats
  *     await fn(event);                // 3. deliver
  *   })
@@ -641,7 +641,7 @@ export function listenSignalBacktestCancelled(fn: (event: IStrategyTickResultCan
  * @returns Unsubscribe function to stop listening
  */
 export function listenSignalScheduledUnique(
-  filterFn: (event: IStrategyTickResultScheduled) => boolean,
+  filterFn: (event: IStrategyTickResultScheduled) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResultScheduled) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_SCHEDULED_UNIQUE_METHOD_NAME);
@@ -657,7 +657,7 @@ export function listenSignalScheduledUnique(
   // still pending - advancing the remembered id before the subscriber had actually
   // been handed the event it stands for.
   const wrappedFn = async (event: IStrategyTickResultScheduled) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -687,7 +687,7 @@ export function listenSignalScheduledUnique(
  * @returns Unsubscribe function to stop listening
  */
 export function listenSignalWaitingUnique(
-  filterFn: (event: IStrategyTickResultWaiting) => boolean,
+  filterFn: (event: IStrategyTickResultWaiting) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResultWaiting) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_WAITING_UNIQUE_METHOD_NAME);
@@ -703,7 +703,7 @@ export function listenSignalWaitingUnique(
   // still pending - advancing the remembered id before the subscriber had actually
   // been handed the event it stands for.
   const wrappedFn = async (event: IStrategyTickResultWaiting) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -730,7 +730,7 @@ export function listenSignalWaitingUnique(
  * @returns Unsubscribe function to stop listening
  */
 export function listenSignalOpenedUnique(
-  filterFn: (event: IStrategyTickResultOpened) => boolean,
+  filterFn: (event: IStrategyTickResultOpened) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResultOpened) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_OPENED_UNIQUE_METHOD_NAME);
@@ -746,7 +746,7 @@ export function listenSignalOpenedUnique(
   // still pending - advancing the remembered id before the subscriber had actually
   // been handed the event it stands for.
   const wrappedFn = async (event: IStrategyTickResultOpened) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -787,7 +787,7 @@ export function listenSignalOpenedUnique(
  * ```
  */
 export function listenSignalActiveUnique(
-  filterFn: (event: IStrategyTickResultActive) => boolean,
+  filterFn: (event: IStrategyTickResultActive) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResultActive) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_ACTIVE_UNIQUE_METHOD_NAME);
@@ -803,7 +803,7 @@ export function listenSignalActiveUnique(
   // still pending - advancing the remembered id before the subscriber had actually
   // been handed the event it stands for.
   const wrappedFn = async (event: IStrategyTickResultActive) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -830,7 +830,7 @@ export function listenSignalActiveUnique(
  * @returns Unsubscribe function to stop listening
  */
 export function listenSignalClosedUnique(
-  filterFn: (event: IStrategyTickResultClosed) => boolean,
+  filterFn: (event: IStrategyTickResultClosed) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResultClosed) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_CLOSED_UNIQUE_METHOD_NAME);
@@ -846,7 +846,7 @@ export function listenSignalClosedUnique(
   // still pending - advancing the remembered id before the subscriber had actually
   // been handed the event it stands for.
   const wrappedFn = async (event: IStrategyTickResultClosed) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -873,7 +873,7 @@ export function listenSignalClosedUnique(
  * @returns Unsubscribe function to stop listening
  */
 export function listenSignalCancelledUnique(
-  filterFn: (event: IStrategyTickResultCancelled) => boolean,
+  filterFn: (event: IStrategyTickResultCancelled) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResultCancelled) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_CANCELLED_UNIQUE_METHOD_NAME);
@@ -889,7 +889,7 @@ export function listenSignalCancelledUnique(
   // still pending - advancing the remembered id before the subscriber had actually
   // been handed the event it stands for.
   const wrappedFn = async (event: IStrategyTickResultCancelled) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -931,7 +931,7 @@ export function listenSignalCancelledUnique(
  * @returns Unsubscribe function to stop listening
  */
 export function listenSignalLiveScheduledUnique(
-  filterFn: (event: IStrategyTickResultScheduled) => boolean,
+  filterFn: (event: IStrategyTickResultScheduled) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResultScheduled) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_LIVE_SCHEDULED_UNIQUE_METHOD_NAME);
@@ -947,7 +947,7 @@ export function listenSignalLiveScheduledUnique(
   // still pending - advancing the remembered id before the subscriber had actually
   // been handed the event it stands for.
   const wrappedFn = async (event: IStrategyTickResultScheduled) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -990,7 +990,7 @@ export function listenSignalLiveScheduledUnique(
  * @returns Unsubscribe function to stop listening
  */
 export function listenSignalLiveWaitingUnique(
-  filterFn: (event: IStrategyTickResultWaiting) => boolean,
+  filterFn: (event: IStrategyTickResultWaiting) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResultWaiting) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_LIVE_WAITING_UNIQUE_METHOD_NAME);
@@ -1006,7 +1006,7 @@ export function listenSignalLiveWaitingUnique(
   // still pending - advancing the remembered id before the subscriber had actually
   // been handed the event it stands for.
   const wrappedFn = async (event: IStrategyTickResultWaiting) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -1048,7 +1048,7 @@ export function listenSignalLiveWaitingUnique(
  * @returns Unsubscribe function to stop listening
  */
 export function listenSignalLiveOpenedUnique(
-  filterFn: (event: IStrategyTickResultOpened) => boolean,
+  filterFn: (event: IStrategyTickResultOpened) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResultOpened) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_LIVE_OPENED_UNIQUE_METHOD_NAME);
@@ -1064,7 +1064,7 @@ export function listenSignalLiveOpenedUnique(
   // still pending - advancing the remembered id before the subscriber had actually
   // been handed the event it stands for.
   const wrappedFn = async (event: IStrategyTickResultOpened) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -1107,7 +1107,7 @@ export function listenSignalLiveOpenedUnique(
  * @returns Unsubscribe function to stop listening
  */
 export function listenSignalLiveActiveUnique(
-  filterFn: (event: IStrategyTickResultActive) => boolean,
+  filterFn: (event: IStrategyTickResultActive) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResultActive) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_LIVE_ACTIVE_UNIQUE_METHOD_NAME);
@@ -1123,7 +1123,7 @@ export function listenSignalLiveActiveUnique(
   // still pending - advancing the remembered id before the subscriber had actually
   // been handed the event it stands for.
   const wrappedFn = async (event: IStrategyTickResultActive) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -1165,7 +1165,7 @@ export function listenSignalLiveActiveUnique(
  * @returns Unsubscribe function to stop listening
  */
 export function listenSignalLiveClosedUnique(
-  filterFn: (event: IStrategyTickResultClosed) => boolean,
+  filterFn: (event: IStrategyTickResultClosed) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResultClosed) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_LIVE_CLOSED_UNIQUE_METHOD_NAME);
@@ -1181,7 +1181,7 @@ export function listenSignalLiveClosedUnique(
   // still pending - advancing the remembered id before the subscriber had actually
   // been handed the event it stands for.
   const wrappedFn = async (event: IStrategyTickResultClosed) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -1223,7 +1223,7 @@ export function listenSignalLiveClosedUnique(
  * @returns Unsubscribe function to stop listening
  */
 export function listenSignalLiveCancelledUnique(
-  filterFn: (event: IStrategyTickResultCancelled) => boolean,
+  filterFn: (event: IStrategyTickResultCancelled) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResultCancelled) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_LIVE_CANCELLED_UNIQUE_METHOD_NAME);
@@ -1239,7 +1239,7 @@ export function listenSignalLiveCancelledUnique(
   // still pending - advancing the remembered id before the subscriber had actually
   // been handed the event it stands for.
   const wrappedFn = async (event: IStrategyTickResultCancelled) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -1281,7 +1281,7 @@ export function listenSignalLiveCancelledUnique(
  * @returns Unsubscribe function to stop listening
  */
 export function listenSignalBacktestScheduledUnique(
-  filterFn: (event: IStrategyTickResultScheduled) => boolean,
+  filterFn: (event: IStrategyTickResultScheduled) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResultScheduled) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_BACKTEST_SCHEDULED_UNIQUE_METHOD_NAME);
@@ -1297,7 +1297,7 @@ export function listenSignalBacktestScheduledUnique(
   // still pending - advancing the remembered id before the subscriber had actually
   // been handed the event it stands for.
   const wrappedFn = async (event: IStrategyTickResultScheduled) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -1340,7 +1340,7 @@ export function listenSignalBacktestScheduledUnique(
  * @returns Unsubscribe function to stop listening
  */
 export function listenSignalBacktestWaitingUnique(
-  filterFn: (event: IStrategyTickResultWaiting) => boolean,
+  filterFn: (event: IStrategyTickResultWaiting) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResultWaiting) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_BACKTEST_WAITING_UNIQUE_METHOD_NAME);
@@ -1356,7 +1356,7 @@ export function listenSignalBacktestWaitingUnique(
   // still pending - advancing the remembered id before the subscriber had actually
   // been handed the event it stands for.
   const wrappedFn = async (event: IStrategyTickResultWaiting) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -1398,7 +1398,7 @@ export function listenSignalBacktestWaitingUnique(
  * @returns Unsubscribe function to stop listening
  */
 export function listenSignalBacktestOpenedUnique(
-  filterFn: (event: IStrategyTickResultOpened) => boolean,
+  filterFn: (event: IStrategyTickResultOpened) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResultOpened) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_BACKTEST_OPENED_UNIQUE_METHOD_NAME);
@@ -1414,7 +1414,7 @@ export function listenSignalBacktestOpenedUnique(
   // still pending - advancing the remembered id before the subscriber had actually
   // been handed the event it stands for.
   const wrappedFn = async (event: IStrategyTickResultOpened) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -1457,7 +1457,7 @@ export function listenSignalBacktestOpenedUnique(
  * @returns Unsubscribe function to stop listening
  */
 export function listenSignalBacktestActiveUnique(
-  filterFn: (event: IStrategyTickResultActive) => boolean,
+  filterFn: (event: IStrategyTickResultActive) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResultActive) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_BACKTEST_ACTIVE_UNIQUE_METHOD_NAME);
@@ -1473,7 +1473,7 @@ export function listenSignalBacktestActiveUnique(
   // still pending - advancing the remembered id before the subscriber had actually
   // been handed the event it stands for.
   const wrappedFn = async (event: IStrategyTickResultActive) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -1515,7 +1515,7 @@ export function listenSignalBacktestActiveUnique(
  * @returns Unsubscribe function to stop listening
  */
 export function listenSignalBacktestClosedUnique(
-  filterFn: (event: IStrategyTickResultClosed) => boolean,
+  filterFn: (event: IStrategyTickResultClosed) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResultClosed) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_BACKTEST_CLOSED_UNIQUE_METHOD_NAME);
@@ -1531,7 +1531,7 @@ export function listenSignalBacktestClosedUnique(
   // still pending - advancing the remembered id before the subscriber had actually
   // been handed the event it stands for.
   const wrappedFn = async (event: IStrategyTickResultClosed) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -1573,7 +1573,7 @@ export function listenSignalBacktestClosedUnique(
  * @returns Unsubscribe function to stop listening
  */
 export function listenSignalBacktestCancelledUnique(
-  filterFn: (event: IStrategyTickResultCancelled) => boolean,
+  filterFn: (event: IStrategyTickResultCancelled) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResultCancelled) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_BACKTEST_CANCELLED_UNIQUE_METHOD_NAME);
@@ -1589,7 +1589,7 @@ export function listenSignalBacktestCancelledUnique(
   // still pending - advancing the remembered id before the subscriber had actually
   // been handed the event it stands for.
   const wrappedFn = async (event: IStrategyTickResultCancelled) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];

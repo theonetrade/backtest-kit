@@ -11157,7 +11157,7 @@ declare function listenSignal(fn: (event: IStrategyTickResult) => void): () => v
  * cancel();
  * ```
  */
-declare function listenSignalOnce(filterFn: (event: IStrategyTickResult) => boolean, fn: (event: IStrategyTickResult) => void): () => void;
+declare function listenSignalOnce(filterFn: (event: IStrategyTickResult) => boolean | Promise<boolean>, fn: (event: IStrategyTickResult) => void): () => void;
 /**
  * Subscribes to live trading signal events with queued async processing.
  *
@@ -11200,7 +11200,7 @@ declare function listenSignalLive(fn: (event: IStrategyTickResult) => void): () 
  * );
  * ```
  */
-declare function listenSignalLiveOnce(filterFn: (event: IStrategyTickResult) => boolean, fn: (event: IStrategyTickResult) => void): () => void;
+declare function listenSignalLiveOnce(filterFn: (event: IStrategyTickResult) => boolean | Promise<boolean>, fn: (event: IStrategyTickResult) => void): () => void;
 /**
  * Subscribes to backtest signal events with queued async processing.
  *
@@ -11243,7 +11243,7 @@ declare function listenSignalBacktest(fn: (event: IStrategyTickResult) => void):
  * );
  * ```
  */
-declare function listenSignalBacktestOnce(filterFn: (event: IStrategyTickResult) => boolean, fn: (event: IStrategyTickResult) => void): () => void;
+declare function listenSignalBacktestOnce(filterFn: (event: IStrategyTickResult) => boolean | Promise<boolean>, fn: (event: IStrategyTickResult) => void): () => void;
 /**
  * Subscribes to recoverable execution errors with queued async processing.
  *
@@ -11348,7 +11348,7 @@ declare function listenDoneLive(fn: (event: DoneContract) => void): () => void;
  * });
  * ```
  */
-declare function listenDoneLiveOnce(filterFn: (event: DoneContract) => boolean, fn: (event: DoneContract) => void): () => void;
+declare function listenDoneLiveOnce(filterFn: (event: DoneContract) => boolean | Promise<boolean>, fn: (event: DoneContract) => void): () => void;
 /**
  * Subscribes to backtest background execution completion events with queued async processing.
  *
@@ -11405,7 +11405,7 @@ declare function listenDoneBacktest(fn: (event: DoneContract) => void): () => vo
  * });
  * ```
  */
-declare function listenDoneBacktestOnce(filterFn: (event: DoneContract) => boolean, fn: (event: DoneContract) => void): () => void;
+declare function listenDoneBacktestOnce(filterFn: (event: DoneContract) => boolean | Promise<boolean>, fn: (event: DoneContract) => void): () => void;
 /**
  * Subscribes to walker background execution completion events with queued async processing.
  *
@@ -11458,7 +11458,7 @@ declare function listenDoneWalker(fn: (event: DoneContract) => void): () => void
  * });
  * ```
  */
-declare function listenDoneWalkerOnce(filterFn: (event: DoneContract) => boolean, fn: (event: DoneContract) => void): () => void;
+declare function listenDoneWalkerOnce(filterFn: (event: DoneContract) => boolean | Promise<boolean>, fn: (event: DoneContract) => void): () => void;
 /**
  * Subscribes to backtest progress events with queued async processing.
  *
@@ -11624,7 +11624,7 @@ declare function listenWalker(fn: (event: WalkerContract) => void): () => void;
  * cancel();
  * ```
  */
-declare function listenWalkerOnce(filterFn: (event: WalkerContract) => boolean, fn: (event: WalkerContract) => void): () => void;
+declare function listenWalkerOnce(filterFn: (event: WalkerContract) => boolean | Promise<boolean>, fn: (event: WalkerContract) => void): () => void;
 /**
  * Subscribes to walker completion events with queued async processing.
  *
@@ -11737,7 +11737,7 @@ declare function listenPartialProfitAvailable(fn: (event: PartialProfitContract)
  * cancel();
  * ```
  */
-declare function listenPartialProfitAvailableOnce(filterFn: (event: PartialProfitContract) => boolean, fn: (event: PartialProfitContract) => void): () => void;
+declare function listenPartialProfitAvailableOnce(filterFn: (event: PartialProfitContract) => boolean | Promise<boolean>, fn: (event: PartialProfitContract) => void): () => void;
 /**
  * Subscribes to partial loss level events with queued async processing.
  *
@@ -11793,7 +11793,7 @@ declare function listenPartialLossAvailable(fn: (event: PartialLossContract) => 
  * cancel();
  * ```
  */
-declare function listenPartialLossAvailableOnce(filterFn: (event: PartialLossContract) => boolean, fn: (event: PartialLossContract) => void): () => void;
+declare function listenPartialLossAvailableOnce(filterFn: (event: PartialLossContract) => boolean | Promise<boolean>, fn: (event: PartialLossContract) => void): () => void;
 /**
  * Subscribes to breakeven protection events with queued async processing.
  *
@@ -11851,7 +11851,7 @@ declare function listenBreakevenAvailable(fn: (event: BreakevenContract) => void
  * cancel();
  * ```
  */
-declare function listenBreakevenAvailableOnce(filterFn: (event: BreakevenContract) => boolean, fn: (event: BreakevenContract) => void): () => void;
+declare function listenBreakevenAvailableOnce(filterFn: (event: BreakevenContract) => boolean | Promise<boolean>, fn: (event: BreakevenContract) => void): () => void;
 /**
  * Subscribes to risk rejection events with queued async processing.
  *
@@ -11914,7 +11914,7 @@ declare function listenRisk(fn: (event: RiskContract) => void): () => void;
  * cancel();
  * ```
  */
-declare function listenRiskOnce(filterFn: (event: RiskContract) => boolean, fn: (event: RiskContract) => void): () => void;
+declare function listenRiskOnce(filterFn: (event: RiskContract) => boolean | Promise<boolean>, fn: (event: RiskContract) => void): () => void;
 /**
  * Subscribes to ping events during scheduled signal monitoring with queued async processing.
  *
@@ -11969,7 +11969,7 @@ declare function listenSchedulePing(fn: (event: SchedulePingContract) => void): 
  * cancel();
  * ```
  */
-declare function listenSchedulePingOnce(filterFn: (event: SchedulePingContract) => boolean, fn: (event: SchedulePingContract) => void): () => void;
+declare function listenSchedulePingOnce(filterFn: (event: SchedulePingContract) => boolean | Promise<boolean>, fn: (event: SchedulePingContract) => void): () => void;
 /**
  * Subscribes to resting-entry (scheduled order) lifecycle events with queued async processing.
  *
@@ -12063,7 +12063,7 @@ declare function listenSignalEvent(fn: (event: SignalEventContract) => void): ()
  * );
  * ```
  */
-declare function listenSignalEventOnce(filterFn: (event: SignalEventContract) => boolean, fn: (event: SignalEventContract) => void): () => void;
+declare function listenSignalEventOnce(filterFn: (event: SignalEventContract) => boolean | Promise<boolean>, fn: (event: SignalEventContract) => void): () => void;
 /**
  * Subscribes to active ping events with queued async processing.
  *
@@ -12122,7 +12122,7 @@ declare function listenActivePing(fn: (event: ActivePingContract) => void): () =
  * cancel();
  * ```
  */
-declare function listenActivePingOnce(filterFn: (event: ActivePingContract) => boolean, fn: (event: ActivePingContract) => void): () => void;
+declare function listenActivePingOnce(filterFn: (event: ActivePingContract) => boolean | Promise<boolean>, fn: (event: ActivePingContract) => void): () => void;
 /**
  * Subscribes to idle ping events with queued async processing.
  *
@@ -12139,7 +12139,7 @@ declare function listenIdlePing(fn: (event: IdlePingContract) => void): () => vo
  * @param fn - Callback function to handle the matching event
  * @returns Unsubscribe function to cancel the listener before it fires
  */
-declare function listenIdlePingOnce(filterFn: (event: IdlePingContract) => boolean, fn: (event: IdlePingContract) => void): () => void;
+declare function listenIdlePingOnce(filterFn: (event: IdlePingContract) => boolean | Promise<boolean>, fn: (event: IdlePingContract) => void): () => void;
 /**
  * Subscribes to strategy management events with queued async processing.
  *
@@ -12205,7 +12205,7 @@ declare function listenStrategyCommit(fn: (event: StrategyCommitContract) => voi
  * cancel();
  * ```
  */
-declare function listenStrategyCommitOnce(filterFn: (event: StrategyCommitContract) => boolean, fn: (event: StrategyCommitContract) => void): () => void;
+declare function listenStrategyCommitOnce(filterFn: (event: StrategyCommitContract) => boolean | Promise<boolean>, fn: (event: StrategyCommitContract) => void): () => void;
 /**
  * Subscribes to signal synchronization events with queued async processing.
  * This is an order GATE: a throw from the listener rejects the open/close.
@@ -12361,7 +12361,7 @@ declare function listenHighestProfit(fn: (event: HighestProfitContract) => void)
  * @param fn - Callback function to handle the filtered event (called only once)
  * @returns Unsubscribe function to cancel the listener before it fires
  */
-declare function listenHighestProfitOnce(filterFn: (event: HighestProfitContract) => boolean, fn: (event: HighestProfitContract) => void): () => void;
+declare function listenHighestProfitOnce(filterFn: (event: HighestProfitContract) => boolean | Promise<boolean>, fn: (event: HighestProfitContract) => void): () => void;
 /**
  * Subscribes to max drawdown events with queued async processing.
  * Emits when a signal reaches a new maximum drawdown level during its lifecycle.
@@ -12380,7 +12380,7 @@ declare function listenMaxDrawdown(fn: (event: MaxDrawdownContract) => void): ()
  * @param fn - Callback function to handle the filtered event (called only once)
  * @return Unsubscribe function to cancel the listener before it fires
  */
-declare function listenMaxDrawdownOnce(filterFn: (event: MaxDrawdownContract) => boolean, fn: (event: MaxDrawdownContract) => void): () => void;
+declare function listenMaxDrawdownOnce(filterFn: (event: MaxDrawdownContract) => boolean | Promise<boolean>, fn: (event: MaxDrawdownContract) => void): () => void;
 /**
  * Subscribes to signal info events with queued async processing.
  * Emits when a strategy calls commitSignalInfo() to broadcast a user-defined note for an open position.
@@ -12417,7 +12417,7 @@ declare function listenPause(fn: (event: PauseContract) => void): () => void;
  * @param fn - Callback function to handle the filtered event (called only once)
  * @return Unsubscribe function to cancel the listener before it fires
  */
-declare function listenPauseOnce(filterFn: (event: PauseContract) => boolean, fn: (event: PauseContract) => void): () => void;
+declare function listenPauseOnce(filterFn: (event: PauseContract) => boolean | Promise<boolean>, fn: (event: PauseContract) => void): () => void;
 /**
  * Subscribes to filtered signal info events with one-time execution.
  * Listens for events matching the filter predicate, then executes callback once
@@ -12426,7 +12426,7 @@ declare function listenPauseOnce(filterFn: (event: PauseContract) => boolean, fn
  * @param fn - Callback function to handle the filtered event (called only once)
  * @return Unsubscribe function to cancel the listener before it fires
  */
-declare function listenSignalNotifyOnce(filterFn: (event: SignalInfoContract) => boolean, fn: (event: SignalInfoContract) => void): () => void;
+declare function listenSignalNotifyOnce(filterFn: (event: SignalInfoContract) => boolean | Promise<boolean>, fn: (event: SignalInfoContract) => void): () => void;
 /**
  * Subscribes to before start events with queued async processing.
  * Emits when the engine is about to start a new strategy execution for a symbol.
@@ -12444,7 +12444,7 @@ declare function listenBeforeStart(fn: (event: BeforeStartContract) => void): ()
  * @param fn - Callback function to handle the filtered event (called only once)
  * @return Unsubscribe function to cancel the listener before it fires
  */
-declare function listenBeforeStartOnce(filterFn: (event: BeforeStartContract) => boolean, fn: (event: BeforeStartContract) => void): () => void;
+declare function listenBeforeStartOnce(filterFn: (event: BeforeStartContract) => boolean | Promise<boolean>, fn: (event: BeforeStartContract) => void): () => void;
 /**
  * Subscribes to after end events with queued async processing.
  * Emits when the engine has completed processing a strategy execution for a symbol.
@@ -12462,7 +12462,7 @@ declare function listenAfterEnd(fn: (event: AfterEndContract) => void): () => vo
  * @param fn - Callback function to handle the filtered event (called only once)
  * @return Unsubscribe function to cancel the listener before it fires
  */
-declare function listenAfterEndOnce(filterFn: (event: AfterEndContract) => boolean, fn: (event: AfterEndContract) => void): () => void;
+declare function listenAfterEndOnce(filterFn: (event: AfterEndContract) => boolean | Promise<boolean>, fn: (event: AfterEndContract) => void): () => void;
 /**
  * ============================================================================
  * PER-SIGNAL LISTENERS
@@ -12475,7 +12475,7 @@ declare function listenAfterEndOnce(filterFn: (event: AfterEndContract) => boole
  * private observer chain, exactly like the `listenXOnce` forms do:
  *
  *   listenX(async (event) => {
- *     if (!filterFn(event)) return;   // 1. the condition
+ *     if (!(await filterFn(event))) return;   // 1. the condition
  *     if (alreadySeen(event)) return; // 2. collapse repeats
  *     await fn(event);                // 3. deliver
  *   })
@@ -12540,7 +12540,7 @@ declare function listenAfterEndOnce(filterFn: (event: AfterEndContract) => boole
  * unsubscribe();
  * ```
  */
-declare function listenSignalUnique(filterFn: (event: IStrategyTickResult) => boolean, fn: (event: IStrategyTickResult) => void): () => void;
+declare function listenSignalUnique(filterFn: (event: IStrategyTickResult) => boolean | Promise<boolean>, fn: (event: IStrategyTickResult) => void): () => void;
 /**
  * Subscribes to live signal events, delivering the callback once per new signal id.
  *
@@ -12551,7 +12551,7 @@ declare function listenSignalUnique(filterFn: (event: IStrategyTickResult) => bo
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-declare function listenSignalLiveUnique(filterFn: (event: IStrategyTickResult) => boolean, fn: (event: IStrategyTickResult) => void): () => void;
+declare function listenSignalLiveUnique(filterFn: (event: IStrategyTickResult) => boolean | Promise<boolean>, fn: (event: IStrategyTickResult) => void): () => void;
 /**
  * Subscribes to backtest signal events, delivering the callback once per new signal id.
  *
@@ -12562,7 +12562,7 @@ declare function listenSignalLiveUnique(filterFn: (event: IStrategyTickResult) =
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-declare function listenSignalBacktestUnique(filterFn: (event: IStrategyTickResult) => boolean, fn: (event: IStrategyTickResult) => void): () => void;
+declare function listenSignalBacktestUnique(filterFn: (event: IStrategyTickResult) => boolean | Promise<boolean>, fn: (event: IStrategyTickResult) => void): () => void;
 /**
  * Subscribes to pending lifecycle events, delivering the callback once per new signal id.
  *
@@ -12584,7 +12584,7 @@ declare function listenSignalBacktestUnique(filterFn: (event: IStrategyTickResul
  * );
  * ```
  */
-declare function listenSignalEventUnique(filterFn: (event: SignalEventContract) => boolean, fn: (event: SignalEventContract) => void): () => void;
+declare function listenSignalEventUnique(filterFn: (event: SignalEventContract) => boolean | Promise<boolean>, fn: (event: SignalEventContract) => void): () => void;
 /**
  * Subscribes to scheduled lifecycle events, delivering the callback once per new signal id.
  *
@@ -12595,7 +12595,7 @@ declare function listenSignalEventUnique(filterFn: (event: SignalEventContract) 
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-declare function listenOrderScheduleUnique(filterFn: (event: ScheduleEventContract) => boolean, fn: (event: ScheduleEventContract) => void): () => void;
+declare function listenOrderScheduleUnique(filterFn: (event: ScheduleEventContract) => boolean | Promise<boolean>, fn: (event: ScheduleEventContract) => void): () => void;
 /**
  * Subscribes to active ping events, delivering the callback once per new signal id.
  *
@@ -12618,7 +12618,7 @@ declare function listenOrderScheduleUnique(filterFn: (event: ScheduleEventContra
  * );
  * ```
  */
-declare function listenActivePingUnique(filterFn: (event: ActivePingContract) => boolean, fn: (event: ActivePingContract) => void): () => void;
+declare function listenActivePingUnique(filterFn: (event: ActivePingContract) => boolean | Promise<boolean>, fn: (event: ActivePingContract) => void): () => void;
 /**
  * Subscribes to schedule ping events, delivering the callback once per new signal id.
  *
@@ -12629,7 +12629,7 @@ declare function listenActivePingUnique(filterFn: (event: ActivePingContract) =>
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-declare function listenSchedulePingUnique(filterFn: (event: SchedulePingContract) => boolean, fn: (event: SchedulePingContract) => void): () => void;
+declare function listenSchedulePingUnique(filterFn: (event: SchedulePingContract) => boolean | Promise<boolean>, fn: (event: SchedulePingContract) => void): () => void;
 /**
  * Subscribes to partial profit level events, delivering the callback once per new signal id.
  *
@@ -12642,7 +12642,7 @@ declare function listenSchedulePingUnique(filterFn: (event: SchedulePingContract
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-declare function listenPartialProfitAvailableUnique(filterFn: (event: PartialProfitContract) => boolean, fn: (event: PartialProfitContract) => void): () => void;
+declare function listenPartialProfitAvailableUnique(filterFn: (event: PartialProfitContract) => boolean | Promise<boolean>, fn: (event: PartialProfitContract) => void): () => void;
 /**
  * Subscribes to partial loss level events, delivering the callback once per new signal id.
  *
@@ -12654,7 +12654,7 @@ declare function listenPartialProfitAvailableUnique(filterFn: (event: PartialPro
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-declare function listenPartialLossAvailableUnique(filterFn: (event: PartialLossContract) => boolean, fn: (event: PartialLossContract) => void): () => void;
+declare function listenPartialLossAvailableUnique(filterFn: (event: PartialLossContract) => boolean | Promise<boolean>, fn: (event: PartialLossContract) => void): () => void;
 /**
  * Subscribes to breakeven events, delivering the callback once per new signal id.
  *
@@ -12662,7 +12662,7 @@ declare function listenPartialLossAvailableUnique(filterFn: (event: PartialLossC
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-declare function listenBreakevenAvailableUnique(filterFn: (event: BreakevenContract) => boolean, fn: (event: BreakevenContract) => void): () => void;
+declare function listenBreakevenAvailableUnique(filterFn: (event: BreakevenContract) => boolean | Promise<boolean>, fn: (event: BreakevenContract) => void): () => void;
 /**
  * Subscribes to highest profit events, delivering the callback once per new signal id.
  *
@@ -12674,7 +12674,7 @@ declare function listenBreakevenAvailableUnique(filterFn: (event: BreakevenContr
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-declare function listenHighestProfitUnique(filterFn: (event: HighestProfitContract) => boolean, fn: (event: HighestProfitContract) => void): () => void;
+declare function listenHighestProfitUnique(filterFn: (event: HighestProfitContract) => boolean | Promise<boolean>, fn: (event: HighestProfitContract) => void): () => void;
 /**
  * Subscribes to max drawdown events, delivering the callback once per new signal id.
  *
@@ -12685,7 +12685,7 @@ declare function listenHighestProfitUnique(filterFn: (event: HighestProfitContra
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-declare function listenMaxDrawdownUnique(filterFn: (event: MaxDrawdownContract) => boolean, fn: (event: MaxDrawdownContract) => void): () => void;
+declare function listenMaxDrawdownUnique(filterFn: (event: MaxDrawdownContract) => boolean | Promise<boolean>, fn: (event: MaxDrawdownContract) => void): () => void;
 /**
  * Subscribes to signal info events, delivering the callback once per new signal id.
  *
@@ -12696,7 +12696,7 @@ declare function listenMaxDrawdownUnique(filterFn: (event: MaxDrawdownContract) 
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-declare function listenSignalNotifyUnique(filterFn: (event: SignalInfoContract) => boolean, fn: (event: SignalInfoContract) => void): () => void;
+declare function listenSignalNotifyUnique(filterFn: (event: SignalInfoContract) => boolean | Promise<boolean>, fn: (event: SignalInfoContract) => void): () => void;
 /**
  * Subscribes to strategy management events, delivering the callback once per new signal id.
  *
@@ -12718,7 +12718,7 @@ declare function listenSignalNotifyUnique(filterFn: (event: SignalInfoContract) 
  * );
  * ```
  */
-declare function listenStrategyCommitUnique(filterFn: (event: StrategyCommitContract) => boolean, fn: (event: StrategyCommitContract) => void): () => void;
+declare function listenStrategyCommitUnique(filterFn: (event: StrategyCommitContract) => boolean | Promise<boolean>, fn: (event: StrategyCommitContract) => void): () => void;
 /**
  * ============================================================================
  * FILTER LISTENERS
@@ -12761,7 +12761,7 @@ declare function listenStrategyCommitUnique(filterFn: (event: StrategyCommitCont
  * );
  * ```
  */
-declare function listenSignalFilter(filterFn: (event: IStrategyTickResult) => boolean, fn: (event: IStrategyTickResult) => void): () => void;
+declare function listenSignalFilter(filterFn: (event: IStrategyTickResult) => boolean | Promise<boolean>, fn: (event: IStrategyTickResult) => void): () => void;
 /**
  * Subscribes to live signal events matching the predicate, keeping the subscription.
  *
@@ -12772,7 +12772,7 @@ declare function listenSignalFilter(filterFn: (event: IStrategyTickResult) => bo
  * @param fn - Callback function to handle each matching event
  * @returns Unsubscribe function to stop listening
  */
-declare function listenSignalLiveFilter(filterFn: (event: IStrategyTickResult) => boolean, fn: (event: IStrategyTickResult) => void): () => void;
+declare function listenSignalLiveFilter(filterFn: (event: IStrategyTickResult) => boolean | Promise<boolean>, fn: (event: IStrategyTickResult) => void): () => void;
 /**
  * Subscribes to backtest signal events matching the predicate, keeping the subscription.
  *
@@ -12784,7 +12784,7 @@ declare function listenSignalLiveFilter(filterFn: (event: IStrategyTickResult) =
  * @param fn - Callback function to handle each matching event
  * @returns Unsubscribe function to stop listening
  */
-declare function listenSignalBacktestFilter(filterFn: (event: IStrategyTickResult) => boolean, fn: (event: IStrategyTickResult) => void): () => void;
+declare function listenSignalBacktestFilter(filterFn: (event: IStrategyTickResult) => boolean | Promise<boolean>, fn: (event: IStrategyTickResult) => void): () => void;
 /**
  * Subscribes to live completion events matching the predicate, keeping the subscription.
  *
@@ -12795,7 +12795,7 @@ declare function listenSignalBacktestFilter(filterFn: (event: IStrategyTickResul
  * @param fn - Callback function to handle each matching event
  * @returns Unsubscribe function to stop listening
  */
-declare function listenDoneLiveFilter(filterFn: (event: DoneContract) => boolean, fn: (event: DoneContract) => void): () => void;
+declare function listenDoneLiveFilter(filterFn: (event: DoneContract) => boolean | Promise<boolean>, fn: (event: DoneContract) => void): () => void;
 /**
  * Subscribes to backtest completion events matching the predicate, keeping the subscription.
  *
@@ -12807,7 +12807,7 @@ declare function listenDoneLiveFilter(filterFn: (event: DoneContract) => boolean
  * @param fn - Callback function to handle each matching event
  * @returns Unsubscribe function to stop listening
  */
-declare function listenDoneBacktestFilter(filterFn: (event: DoneContract) => boolean, fn: (event: DoneContract) => void): () => void;
+declare function listenDoneBacktestFilter(filterFn: (event: DoneContract) => boolean | Promise<boolean>, fn: (event: DoneContract) => void): () => void;
 /**
  * Subscribes to walker completion events matching the predicate, keeping the subscription.
  *
@@ -12818,7 +12818,7 @@ declare function listenDoneBacktestFilter(filterFn: (event: DoneContract) => boo
  * @param fn - Callback function to handle each matching event
  * @returns Unsubscribe function to stop listening
  */
-declare function listenDoneWalkerFilter(filterFn: (event: DoneContract) => boolean, fn: (event: DoneContract) => void): () => void;
+declare function listenDoneWalkerFilter(filterFn: (event: DoneContract) => boolean | Promise<boolean>, fn: (event: DoneContract) => void): () => void;
 /**
  * Subscribes to walker progress events matching the predicate, keeping the subscription.
  *
@@ -12829,7 +12829,7 @@ declare function listenDoneWalkerFilter(filterFn: (event: DoneContract) => boole
  * @param fn - Callback function to handle each matching event
  * @returns Unsubscribe function to stop listening
  */
-declare function listenWalkerFilter(filterFn: (event: WalkerContract) => boolean, fn: (event: WalkerContract) => void): () => void;
+declare function listenWalkerFilter(filterFn: (event: WalkerContract) => boolean | Promise<boolean>, fn: (event: WalkerContract) => void): () => void;
 /**
  * Subscribes to partial profit level events matching the predicate, keeping the subscription.
  *
@@ -12841,7 +12841,7 @@ declare function listenWalkerFilter(filterFn: (event: WalkerContract) => boolean
  * @param fn - Callback function to handle each matching event
  * @returns Unsubscribe function to stop listening
  */
-declare function listenPartialProfitAvailableFilter(filterFn: (event: PartialProfitContract) => boolean, fn: (event: PartialProfitContract) => void): () => void;
+declare function listenPartialProfitAvailableFilter(filterFn: (event: PartialProfitContract) => boolean | Promise<boolean>, fn: (event: PartialProfitContract) => void): () => void;
 /**
  * Subscribes to partial loss level events matching the predicate, keeping the subscription.
  *
@@ -12853,7 +12853,7 @@ declare function listenPartialProfitAvailableFilter(filterFn: (event: PartialPro
  * @param fn - Callback function to handle each matching event
  * @returns Unsubscribe function to stop listening
  */
-declare function listenPartialLossAvailableFilter(filterFn: (event: PartialLossContract) => boolean, fn: (event: PartialLossContract) => void): () => void;
+declare function listenPartialLossAvailableFilter(filterFn: (event: PartialLossContract) => boolean | Promise<boolean>, fn: (event: PartialLossContract) => void): () => void;
 /**
  * Subscribes to breakeven events matching the predicate, keeping the subscription.
  *
@@ -12865,7 +12865,7 @@ declare function listenPartialLossAvailableFilter(filterFn: (event: PartialLossC
  * @param fn - Callback function to handle each matching event
  * @returns Unsubscribe function to stop listening
  */
-declare function listenBreakevenAvailableFilter(filterFn: (event: BreakevenContract) => boolean, fn: (event: BreakevenContract) => void): () => void;
+declare function listenBreakevenAvailableFilter(filterFn: (event: BreakevenContract) => boolean | Promise<boolean>, fn: (event: BreakevenContract) => void): () => void;
 /**
  * Subscribes to risk rejection events matching the predicate, keeping the subscription.
  *
@@ -12876,7 +12876,7 @@ declare function listenBreakevenAvailableFilter(filterFn: (event: BreakevenContr
  * @param fn - Callback function to handle each matching event
  * @returns Unsubscribe function to stop listening
  */
-declare function listenRiskFilter(filterFn: (event: RiskContract) => boolean, fn: (event: RiskContract) => void): () => void;
+declare function listenRiskFilter(filterFn: (event: RiskContract) => boolean | Promise<boolean>, fn: (event: RiskContract) => void): () => void;
 /**
  * Subscribes to schedule ping events matching the predicate, keeping the subscription.
  *
@@ -12888,7 +12888,7 @@ declare function listenRiskFilter(filterFn: (event: RiskContract) => boolean, fn
  * @param fn - Callback function to handle each matching event
  * @returns Unsubscribe function to stop listening
  */
-declare function listenSchedulePingFilter(filterFn: (event: SchedulePingContract) => boolean, fn: (event: SchedulePingContract) => void): () => void;
+declare function listenSchedulePingFilter(filterFn: (event: SchedulePingContract) => boolean | Promise<boolean>, fn: (event: SchedulePingContract) => void): () => void;
 /**
  * Subscribes to pending lifecycle events matching the predicate, keeping the subscription.
  *
@@ -12899,7 +12899,7 @@ declare function listenSchedulePingFilter(filterFn: (event: SchedulePingContract
  * @param fn - Callback function to handle each matching event
  * @returns Unsubscribe function to stop listening
  */
-declare function listenSignalEventFilter(filterFn: (event: SignalEventContract) => boolean, fn: (event: SignalEventContract) => void): () => void;
+declare function listenSignalEventFilter(filterFn: (event: SignalEventContract) => boolean | Promise<boolean>, fn: (event: SignalEventContract) => void): () => void;
 /**
  * Subscribes to active ping events matching the predicate, keeping the subscription.
  *
@@ -12910,7 +12910,7 @@ declare function listenSignalEventFilter(filterFn: (event: SignalEventContract) 
  * @param fn - Callback function to handle each matching event
  * @returns Unsubscribe function to stop listening
  */
-declare function listenActivePingFilter(filterFn: (event: ActivePingContract) => boolean, fn: (event: ActivePingContract) => void): () => void;
+declare function listenActivePingFilter(filterFn: (event: ActivePingContract) => boolean | Promise<boolean>, fn: (event: ActivePingContract) => void): () => void;
 /**
  * Subscribes to idle ping events matching the predicate, keeping the subscription.
  *
@@ -12921,7 +12921,7 @@ declare function listenActivePingFilter(filterFn: (event: ActivePingContract) =>
  * @param fn - Callback function to handle each matching event
  * @returns Unsubscribe function to stop listening
  */
-declare function listenIdlePingFilter(filterFn: (event: IdlePingContract) => boolean, fn: (event: IdlePingContract) => void): () => void;
+declare function listenIdlePingFilter(filterFn: (event: IdlePingContract) => boolean | Promise<boolean>, fn: (event: IdlePingContract) => void): () => void;
 /**
  * Subscribes to strategy management events matching the predicate, keeping the subscription.
  *
@@ -12933,7 +12933,7 @@ declare function listenIdlePingFilter(filterFn: (event: IdlePingContract) => boo
  * @param fn - Callback function to handle each matching event
  * @returns Unsubscribe function to stop listening
  */
-declare function listenStrategyCommitFilter(filterFn: (event: StrategyCommitContract) => boolean, fn: (event: StrategyCommitContract) => void): () => void;
+declare function listenStrategyCommitFilter(filterFn: (event: StrategyCommitContract) => boolean | Promise<boolean>, fn: (event: StrategyCommitContract) => void): () => void;
 /**
  * Subscribes to highest profit events matching the predicate, keeping the subscription.
  *
@@ -12945,7 +12945,7 @@ declare function listenStrategyCommitFilter(filterFn: (event: StrategyCommitCont
  * @param fn - Callback function to handle each matching event
  * @returns Unsubscribe function to stop listening
  */
-declare function listenHighestProfitFilter(filterFn: (event: HighestProfitContract) => boolean, fn: (event: HighestProfitContract) => void): () => void;
+declare function listenHighestProfitFilter(filterFn: (event: HighestProfitContract) => boolean | Promise<boolean>, fn: (event: HighestProfitContract) => void): () => void;
 /**
  * Subscribes to max drawdown events matching the predicate, keeping the subscription.
  *
@@ -12957,7 +12957,7 @@ declare function listenHighestProfitFilter(filterFn: (event: HighestProfitContra
  * @param fn - Callback function to handle each matching event
  * @returns Unsubscribe function to stop listening
  */
-declare function listenMaxDrawdownFilter(filterFn: (event: MaxDrawdownContract) => boolean, fn: (event: MaxDrawdownContract) => void): () => void;
+declare function listenMaxDrawdownFilter(filterFn: (event: MaxDrawdownContract) => boolean | Promise<boolean>, fn: (event: MaxDrawdownContract) => void): () => void;
 /**
  * Subscribes to pause state change events matching the predicate, keeping the subscription.
  *
@@ -12968,7 +12968,7 @@ declare function listenMaxDrawdownFilter(filterFn: (event: MaxDrawdownContract) 
  * @param fn - Callback function to handle each matching event
  * @returns Unsubscribe function to stop listening
  */
-declare function listenPauseFilter(filterFn: (event: PauseContract) => boolean, fn: (event: PauseContract) => void): () => void;
+declare function listenPauseFilter(filterFn: (event: PauseContract) => boolean | Promise<boolean>, fn: (event: PauseContract) => void): () => void;
 /**
  * Subscribes to signal info events matching the predicate, keeping the subscription.
  *
@@ -12980,7 +12980,7 @@ declare function listenPauseFilter(filterFn: (event: PauseContract) => boolean, 
  * @param fn - Callback function to handle each matching event
  * @returns Unsubscribe function to stop listening
  */
-declare function listenSignalNotifyFilter(filterFn: (event: SignalInfoContract) => boolean, fn: (event: SignalInfoContract) => void): () => void;
+declare function listenSignalNotifyFilter(filterFn: (event: SignalInfoContract) => boolean | Promise<boolean>, fn: (event: SignalInfoContract) => void): () => void;
 /**
  * Subscribes to before start events matching the predicate, keeping the subscription.
  *
@@ -12991,7 +12991,7 @@ declare function listenSignalNotifyFilter(filterFn: (event: SignalInfoContract) 
  * @param fn - Callback function to handle each matching event
  * @returns Unsubscribe function to stop listening
  */
-declare function listenBeforeStartFilter(filterFn: (event: BeforeStartContract) => boolean, fn: (event: BeforeStartContract) => void): () => void;
+declare function listenBeforeStartFilter(filterFn: (event: BeforeStartContract) => boolean | Promise<boolean>, fn: (event: BeforeStartContract) => void): () => void;
 /**
  * Subscribes to after end events matching the predicate, keeping the subscription.
  *
@@ -13002,7 +13002,7 @@ declare function listenBeforeStartFilter(filterFn: (event: BeforeStartContract) 
  * @param fn - Callback function to handle each matching event
  * @returns Unsubscribe function to stop listening
  */
-declare function listenAfterEndFilter(filterFn: (event: AfterEndContract) => boolean, fn: (event: AfterEndContract) => void): () => void;
+declare function listenAfterEndFilter(filterFn: (event: AfterEndContract) => boolean | Promise<boolean>, fn: (event: AfterEndContract) => void): () => void;
 
 /**
  * Subscribes to idle tick results (live + backtest).
@@ -13397,7 +13397,7 @@ declare function listenSignalBacktestCancelled(fn: (event: IStrategyTickResultCa
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-declare function listenSignalScheduledUnique(filterFn: (event: IStrategyTickResultScheduled) => boolean, fn: (event: IStrategyTickResultScheduled) => void): () => void;
+declare function listenSignalScheduledUnique(filterFn: (event: IStrategyTickResultScheduled) => boolean | Promise<boolean>, fn: (event: IStrategyTickResultScheduled) => void): () => void;
 /**
  * Subscribes to waiting tick results, once per new signal id (live + backtest).
  *
@@ -13408,7 +13408,7 @@ declare function listenSignalScheduledUnique(filterFn: (event: IStrategyTickResu
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-declare function listenSignalWaitingUnique(filterFn: (event: IStrategyTickResultWaiting) => boolean, fn: (event: IStrategyTickResultWaiting) => void): () => void;
+declare function listenSignalWaitingUnique(filterFn: (event: IStrategyTickResultWaiting) => boolean | Promise<boolean>, fn: (event: IStrategyTickResultWaiting) => void): () => void;
 /**
  * Subscribes to opened tick results, once per new signal id (live + backtest).
  *
@@ -13416,7 +13416,7 @@ declare function listenSignalWaitingUnique(filterFn: (event: IStrategyTickResult
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-declare function listenSignalOpenedUnique(filterFn: (event: IStrategyTickResultOpened) => boolean, fn: (event: IStrategyTickResultOpened) => void): () => void;
+declare function listenSignalOpenedUnique(filterFn: (event: IStrategyTickResultOpened) => boolean | Promise<boolean>, fn: (event: IStrategyTickResultOpened) => void): () => void;
 /**
  * Subscribes to active tick results, once per new signal id (live + backtest).
  *
@@ -13438,7 +13438,7 @@ declare function listenSignalOpenedUnique(filterFn: (event: IStrategyTickResultO
  * );
  * ```
  */
-declare function listenSignalActiveUnique(filterFn: (event: IStrategyTickResultActive) => boolean, fn: (event: IStrategyTickResultActive) => void): () => void;
+declare function listenSignalActiveUnique(filterFn: (event: IStrategyTickResultActive) => boolean | Promise<boolean>, fn: (event: IStrategyTickResultActive) => void): () => void;
 /**
  * Subscribes to closed tick results, once per new signal id (live + backtest).
  *
@@ -13446,7 +13446,7 @@ declare function listenSignalActiveUnique(filterFn: (event: IStrategyTickResultA
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-declare function listenSignalClosedUnique(filterFn: (event: IStrategyTickResultClosed) => boolean, fn: (event: IStrategyTickResultClosed) => void): () => void;
+declare function listenSignalClosedUnique(filterFn: (event: IStrategyTickResultClosed) => boolean | Promise<boolean>, fn: (event: IStrategyTickResultClosed) => void): () => void;
 /**
  * Subscribes to cancelled tick results, once per new signal id (live + backtest).
  *
@@ -13454,7 +13454,7 @@ declare function listenSignalClosedUnique(filterFn: (event: IStrategyTickResultC
  * @param fn - Callback invoked once per new signal id
  * @returns Unsubscribe function to stop listening
  */
-declare function listenSignalCancelledUnique(filterFn: (event: IStrategyTickResultCancelled) => boolean, fn: (event: IStrategyTickResultCancelled) => void): () => void;
+declare function listenSignalCancelledUnique(filterFn: (event: IStrategyTickResultCancelled) => boolean | Promise<boolean>, fn: (event: IStrategyTickResultCancelled) => void): () => void;
 /**
  * Subscribes to scheduled tick results from live executions only,
  * delivering the callback at most once per signal.
@@ -13477,7 +13477,7 @@ declare function listenSignalCancelledUnique(filterFn: (event: IStrategyTickResu
  * @param fn - Callback invoked at most once per signal
  * @returns Unsubscribe function to stop listening
  */
-declare function listenSignalLiveScheduledUnique(filterFn: (event: IStrategyTickResultScheduled) => boolean, fn: (event: IStrategyTickResultScheduled) => void): () => void;
+declare function listenSignalLiveScheduledUnique(filterFn: (event: IStrategyTickResultScheduled) => boolean | Promise<boolean>, fn: (event: IStrategyTickResultScheduled) => void): () => void;
 /**
  * Subscribes to waiting tick results from live executions only,
  * delivering the callback at most once per signal.
@@ -13501,7 +13501,7 @@ declare function listenSignalLiveScheduledUnique(filterFn: (event: IStrategyTick
  * @param fn - Callback invoked at most once per signal
  * @returns Unsubscribe function to stop listening
  */
-declare function listenSignalLiveWaitingUnique(filterFn: (event: IStrategyTickResultWaiting) => boolean, fn: (event: IStrategyTickResultWaiting) => void): () => void;
+declare function listenSignalLiveWaitingUnique(filterFn: (event: IStrategyTickResultWaiting) => boolean | Promise<boolean>, fn: (event: IStrategyTickResultWaiting) => void): () => void;
 /**
  * Subscribes to opened tick results from live executions only,
  * delivering the callback at most once per signal.
@@ -13524,7 +13524,7 @@ declare function listenSignalLiveWaitingUnique(filterFn: (event: IStrategyTickRe
  * @param fn - Callback invoked at most once per signal
  * @returns Unsubscribe function to stop listening
  */
-declare function listenSignalLiveOpenedUnique(filterFn: (event: IStrategyTickResultOpened) => boolean, fn: (event: IStrategyTickResultOpened) => void): () => void;
+declare function listenSignalLiveOpenedUnique(filterFn: (event: IStrategyTickResultOpened) => boolean | Promise<boolean>, fn: (event: IStrategyTickResultOpened) => void): () => void;
 /**
  * Subscribes to active tick results from live executions only,
  * delivering the callback at most once per signal.
@@ -13548,7 +13548,7 @@ declare function listenSignalLiveOpenedUnique(filterFn: (event: IStrategyTickRes
  * @param fn - Callback invoked at most once per signal
  * @returns Unsubscribe function to stop listening
  */
-declare function listenSignalLiveActiveUnique(filterFn: (event: IStrategyTickResultActive) => boolean, fn: (event: IStrategyTickResultActive) => void): () => void;
+declare function listenSignalLiveActiveUnique(filterFn: (event: IStrategyTickResultActive) => boolean | Promise<boolean>, fn: (event: IStrategyTickResultActive) => void): () => void;
 /**
  * Subscribes to closed tick results from live executions only,
  * delivering the callback at most once per signal.
@@ -13571,7 +13571,7 @@ declare function listenSignalLiveActiveUnique(filterFn: (event: IStrategyTickRes
  * @param fn - Callback invoked at most once per signal
  * @returns Unsubscribe function to stop listening
  */
-declare function listenSignalLiveClosedUnique(filterFn: (event: IStrategyTickResultClosed) => boolean, fn: (event: IStrategyTickResultClosed) => void): () => void;
+declare function listenSignalLiveClosedUnique(filterFn: (event: IStrategyTickResultClosed) => boolean | Promise<boolean>, fn: (event: IStrategyTickResultClosed) => void): () => void;
 /**
  * Subscribes to cancelled tick results from live executions only,
  * delivering the callback at most once per signal.
@@ -13594,7 +13594,7 @@ declare function listenSignalLiveClosedUnique(filterFn: (event: IStrategyTickRes
  * @param fn - Callback invoked at most once per signal
  * @returns Unsubscribe function to stop listening
  */
-declare function listenSignalLiveCancelledUnique(filterFn: (event: IStrategyTickResultCancelled) => boolean, fn: (event: IStrategyTickResultCancelled) => void): () => void;
+declare function listenSignalLiveCancelledUnique(filterFn: (event: IStrategyTickResultCancelled) => boolean | Promise<boolean>, fn: (event: IStrategyTickResultCancelled) => void): () => void;
 /**
  * Subscribes to scheduled tick results from backtest executions only,
  * delivering the callback at most once per signal.
@@ -13617,7 +13617,7 @@ declare function listenSignalLiveCancelledUnique(filterFn: (event: IStrategyTick
  * @param fn - Callback invoked at most once per signal
  * @returns Unsubscribe function to stop listening
  */
-declare function listenSignalBacktestScheduledUnique(filterFn: (event: IStrategyTickResultScheduled) => boolean, fn: (event: IStrategyTickResultScheduled) => void): () => void;
+declare function listenSignalBacktestScheduledUnique(filterFn: (event: IStrategyTickResultScheduled) => boolean | Promise<boolean>, fn: (event: IStrategyTickResultScheduled) => void): () => void;
 /**
  * Subscribes to waiting tick results from backtest executions only,
  * delivering the callback at most once per signal.
@@ -13641,7 +13641,7 @@ declare function listenSignalBacktestScheduledUnique(filterFn: (event: IStrategy
  * @param fn - Callback invoked at most once per signal
  * @returns Unsubscribe function to stop listening
  */
-declare function listenSignalBacktestWaitingUnique(filterFn: (event: IStrategyTickResultWaiting) => boolean, fn: (event: IStrategyTickResultWaiting) => void): () => void;
+declare function listenSignalBacktestWaitingUnique(filterFn: (event: IStrategyTickResultWaiting) => boolean | Promise<boolean>, fn: (event: IStrategyTickResultWaiting) => void): () => void;
 /**
  * Subscribes to opened tick results from backtest executions only,
  * delivering the callback at most once per signal.
@@ -13664,7 +13664,7 @@ declare function listenSignalBacktestWaitingUnique(filterFn: (event: IStrategyTi
  * @param fn - Callback invoked at most once per signal
  * @returns Unsubscribe function to stop listening
  */
-declare function listenSignalBacktestOpenedUnique(filterFn: (event: IStrategyTickResultOpened) => boolean, fn: (event: IStrategyTickResultOpened) => void): () => void;
+declare function listenSignalBacktestOpenedUnique(filterFn: (event: IStrategyTickResultOpened) => boolean | Promise<boolean>, fn: (event: IStrategyTickResultOpened) => void): () => void;
 /**
  * Subscribes to active tick results from backtest executions only,
  * delivering the callback at most once per signal.
@@ -13688,7 +13688,7 @@ declare function listenSignalBacktestOpenedUnique(filterFn: (event: IStrategyTic
  * @param fn - Callback invoked at most once per signal
  * @returns Unsubscribe function to stop listening
  */
-declare function listenSignalBacktestActiveUnique(filterFn: (event: IStrategyTickResultActive) => boolean, fn: (event: IStrategyTickResultActive) => void): () => void;
+declare function listenSignalBacktestActiveUnique(filterFn: (event: IStrategyTickResultActive) => boolean | Promise<boolean>, fn: (event: IStrategyTickResultActive) => void): () => void;
 /**
  * Subscribes to closed tick results from backtest executions only, delivering the
  * callback at most once per signal.
@@ -13711,7 +13711,7 @@ declare function listenSignalBacktestActiveUnique(filterFn: (event: IStrategyTic
  * @param fn - Callback invoked at most once per signal
  * @returns Unsubscribe function to stop listening
  */
-declare function listenSignalBacktestClosedUnique(filterFn: (event: IStrategyTickResultClosed) => boolean, fn: (event: IStrategyTickResultClosed) => void): () => void;
+declare function listenSignalBacktestClosedUnique(filterFn: (event: IStrategyTickResultClosed) => boolean | Promise<boolean>, fn: (event: IStrategyTickResultClosed) => void): () => void;
 /**
  * Subscribes to cancelled tick results from backtest executions only,
  * delivering the callback at most once per signal.
@@ -13734,7 +13734,7 @@ declare function listenSignalBacktestClosedUnique(filterFn: (event: IStrategyTic
  * @param fn - Callback invoked at most once per signal
  * @returns Unsubscribe function to stop listening
  */
-declare function listenSignalBacktestCancelledUnique(filterFn: (event: IStrategyTickResultCancelled) => boolean, fn: (event: IStrategyTickResultCancelled) => void): () => void;
+declare function listenSignalBacktestCancelledUnique(filterFn: (event: IStrategyTickResultCancelled) => boolean | Promise<boolean>, fn: (event: IStrategyTickResultCancelled) => void): () => void;
 
 /**
  * Checks if trade context is active (execution and method contexts).

@@ -202,7 +202,7 @@ export function listenSignal(fn: (event: IStrategyTickResult) => void) {
  * ```
  */
 export function listenSignalOnce(
-  filterFn: (event: IStrategyTickResult) => boolean,
+  filterFn: (event: IStrategyTickResult) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResult) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_ONCE_METHOD_NAME);
@@ -210,7 +210,7 @@ export function listenSignalOnce(
   let disposeFn: Function;
 
   const wrappedFn = async (event: IStrategyTickResult) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
       disposeFn && disposeFn();
     }
@@ -266,7 +266,7 @@ export function listenSignalLive(fn: (event: IStrategyTickResult) => void) {
  * ```
  */
 export function listenSignalLiveOnce(
-  filterFn: (event: IStrategyTickResult) => boolean,
+  filterFn: (event: IStrategyTickResult) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResult) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_LIVE_ONCE_METHOD_NAME);
@@ -274,7 +274,7 @@ export function listenSignalLiveOnce(
   let disposeFn: Function;
 
   const wrappedFn = async (event: IStrategyTickResult) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
       disposeFn && disposeFn();
     }
@@ -330,7 +330,7 @@ export function listenSignalBacktest(fn: (event: IStrategyTickResult) => void) {
  * ```
  */
 export function listenSignalBacktestOnce(
-  filterFn: (event: IStrategyTickResult) => boolean,
+  filterFn: (event: IStrategyTickResult) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResult) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_BACKTEST_ONCE_METHOD_NAME);
@@ -338,7 +338,7 @@ export function listenSignalBacktestOnce(
   let disposeFn: Function;
 
   const wrappedFn = async (event: IStrategyTickResult) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
       disposeFn && disposeFn();
     }
@@ -464,7 +464,7 @@ export function listenDoneLive(fn: (event: DoneContract) => void) {
  * ```
  */
 export function listenDoneLiveOnce(
-  filterFn: (event: DoneContract) => boolean,
+  filterFn: (event: DoneContract) => boolean | Promise<boolean>,
   fn: (event: DoneContract) => void
 ) {
   backtest.loggerService.log(LISTEN_DONE_LIVE_ONCE_METHOD_NAME);
@@ -472,7 +472,7 @@ export function listenDoneLiveOnce(
   let disposeFn: Function;
 
   const wrappedFn = async (event: DoneContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
       disposeFn && disposeFn();
     }
@@ -542,7 +542,7 @@ export function listenDoneBacktest(fn: (event: DoneContract) => void) {
  * ```
  */
 export function listenDoneBacktestOnce(
-  filterFn: (event: DoneContract) => boolean,
+  filterFn: (event: DoneContract) => boolean | Promise<boolean>,
   fn: (event: DoneContract) => void
 ) {
   backtest.loggerService.log(LISTEN_DONE_BACKTEST_ONCE_METHOD_NAME);
@@ -550,7 +550,7 @@ export function listenDoneBacktestOnce(
   let disposeFn: Function;
 
   const wrappedFn = async (event: DoneContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
       disposeFn && disposeFn();
     }
@@ -616,7 +616,7 @@ export function listenDoneWalker(fn: (event: DoneContract) => void) {
  * ```
  */
 export function listenDoneWalkerOnce(
-  filterFn: (event: DoneContract) => boolean,
+  filterFn: (event: DoneContract) => boolean | Promise<boolean>,
   fn: (event: DoneContract) => void
 ) {
   backtest.loggerService.log(LISTEN_DONE_WALKER_ONCE_METHOD_NAME);
@@ -624,7 +624,7 @@ export function listenDoneWalkerOnce(
   let disposeFn: Function;
 
   const wrappedFn = async (event: DoneContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
       disposeFn && disposeFn();
     }
@@ -815,7 +815,7 @@ export function listenWalker(fn: (event: WalkerContract) => void) {
  * ```
  */
 export function listenWalkerOnce(
-  filterFn: (event: WalkerContract) => boolean,
+  filterFn: (event: WalkerContract) => boolean | Promise<boolean>,
   fn: (event: WalkerContract) => void
 ) {
   backtest.loggerService.log(LISTEN_WALKER_ONCE_METHOD_NAME);
@@ -823,7 +823,7 @@ export function listenWalkerOnce(
   let disposeFn: Function;
 
   const wrappedFn = async (event: WalkerContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
       disposeFn && disposeFn();
     }
@@ -974,7 +974,7 @@ export function listenPartialProfitAvailable(fn: (event: PartialProfitContract) 
  * ```
  */
 export function listenPartialProfitAvailableOnce(
-  filterFn: (event: PartialProfitContract) => boolean,
+  filterFn: (event: PartialProfitContract) => boolean | Promise<boolean>,
   fn: (event: PartialProfitContract) => void
 ) {
   backtest.loggerService.log(LISTEN_PARTIAL_PROFIT_ONCE_METHOD_NAME);
@@ -982,7 +982,7 @@ export function listenPartialProfitAvailableOnce(
   let disposeFn: Function;
 
   const wrappedFn = async (event: PartialProfitContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
       disposeFn && disposeFn();
     }
@@ -1068,7 +1068,7 @@ export function listenPartialLossAvailable(fn: (event: PartialLossContract) => v
  * ```
  */
 export function listenPartialLossAvailableOnce(
-  filterFn: (event: PartialLossContract) => boolean,
+  filterFn: (event: PartialLossContract) => boolean | Promise<boolean>,
   fn: (event: PartialLossContract) => void
 ) {
   backtest.loggerService.log(LISTEN_PARTIAL_LOSS_ONCE_METHOD_NAME);
@@ -1076,7 +1076,7 @@ export function listenPartialLossAvailableOnce(
   let disposeFn: Function;
 
   const wrappedFn = async (event: PartialLossContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
       disposeFn && disposeFn();
     }
@@ -1164,7 +1164,7 @@ export function listenBreakevenAvailable(fn: (event: BreakevenContract) => void)
  * ```
  */
 export function listenBreakevenAvailableOnce(
-  filterFn: (event: BreakevenContract) => boolean,
+  filterFn: (event: BreakevenContract) => boolean | Promise<boolean>,
   fn: (event: BreakevenContract) => void
 ) {
   backtest.loggerService.log(LISTEN_BREAKEVEN_ONCE_METHOD_NAME);
@@ -1172,7 +1172,7 @@ export function listenBreakevenAvailableOnce(
   let disposeFn: Function;
 
   const wrappedFn = async (event: BreakevenContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
       disposeFn && disposeFn();
     }
@@ -1248,7 +1248,7 @@ export function listenRisk(fn: (event: RiskContract) => void) {
  * ```
  */
 export function listenRiskOnce(
-  filterFn: (event: RiskContract) => boolean,
+  filterFn: (event: RiskContract) => boolean | Promise<boolean>,
   fn: (event: RiskContract) => void
 ) {
   backtest.loggerService.log(LISTEN_RISK_ONCE_METHOD_NAME);
@@ -1256,7 +1256,7 @@ export function listenRiskOnce(
   let disposeFn: Function;
 
   const wrappedFn = async (event: RiskContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
       disposeFn && disposeFn();
     }
@@ -1341,7 +1341,7 @@ export function listenSchedulePing(fn: (event: SchedulePingContract) => void) {
  * ```
  */
 export function listenSchedulePingOnce(
-  filterFn: (event: SchedulePingContract) => boolean,
+  filterFn: (event: SchedulePingContract) => boolean | Promise<boolean>,
   fn: (event: SchedulePingContract) => void
 ) {
   backtest.loggerService.log(LISTEN_SCHEDULE_PING_ONCE_METHOD_NAME);
@@ -1349,7 +1349,7 @@ export function listenSchedulePingOnce(
   let disposeFn: Function;
 
   const wrappedFn = async (event: SchedulePingContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
       disposeFn && disposeFn();
     }
@@ -1460,7 +1460,7 @@ export function listenSignalEvent(fn: (event: SignalEventContract) => void) {
  * ```
  */
 export function listenSignalEventOnce(
-  filterFn: (event: SignalEventContract) => boolean,
+  filterFn: (event: SignalEventContract) => boolean | Promise<boolean>,
   fn: (event: SignalEventContract) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_EVENT_ONCE_METHOD_NAME);
@@ -1468,7 +1468,7 @@ export function listenSignalEventOnce(
   let disposeFn: Function;
 
   const wrappedFn = async (event: SignalEventContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
       disposeFn && disposeFn();
     }
@@ -1557,7 +1557,7 @@ export function listenActivePing(fn: (event: ActivePingContract) => void) {
  * ```
  */
 export function listenActivePingOnce(
-  filterFn: (event: ActivePingContract) => boolean,
+  filterFn: (event: ActivePingContract) => boolean | Promise<boolean>,
   fn: (event: ActivePingContract) => void
 ) {
   backtest.loggerService.log(LISTEN_ACTIVE_PING_ONCE_METHOD_NAME);
@@ -1565,7 +1565,7 @@ export function listenActivePingOnce(
   let disposeFn: Function;
 
   const wrappedFn = async (event: ActivePingContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
       disposeFn && disposeFn();
     }
@@ -1614,7 +1614,7 @@ export function listenIdlePing(fn: (event: IdlePingContract) => void) {
  * @returns Unsubscribe function to cancel the listener before it fires
  */
 export function listenIdlePingOnce(
-  filterFn: (event: IdlePingContract) => boolean,
+  filterFn: (event: IdlePingContract) => boolean | Promise<boolean>,
   fn: (event: IdlePingContract) => void
 ) {
   backtest.loggerService.log(LISTEN_IDLE_PING_ONCE_METHOD_NAME);
@@ -1622,7 +1622,7 @@ export function listenIdlePingOnce(
   let disposeFn: Function;
 
   const wrappedFn = async (event: IdlePingContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
       disposeFn && disposeFn();
     }
@@ -1746,7 +1746,7 @@ export function listenStrategyCommit(fn: (event: StrategyCommitContract) => void
  * ```
  */
 export function listenStrategyCommitOnce(
-  filterFn: (event: StrategyCommitContract) => boolean,
+  filterFn: (event: StrategyCommitContract) => boolean | Promise<boolean>,
   fn: (event: StrategyCommitContract) => void
 ) {
   backtest.loggerService.log(LISTEN_STRATEGY_COMMIT_ONCE_METHOD_NAME);
@@ -1754,7 +1754,7 @@ export function listenStrategyCommitOnce(
   let disposeFn: Function;
 
   const wrappedFn = async (event: StrategyCommitContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
       disposeFn && disposeFn();
     }
@@ -1978,7 +1978,7 @@ export function listenHighestProfit(fn: (event: HighestProfitContract) => void) 
  * @returns Unsubscribe function to cancel the listener before it fires
  */
 export function listenHighestProfitOnce(
-  filterFn: (event: HighestProfitContract) => boolean,
+  filterFn: (event: HighestProfitContract) => boolean | Promise<boolean>,
   fn: (event: HighestProfitContract) => void
 ) {
   backtest.loggerService.log(LISTEN_HIGHEST_PROFIT_ONCE_METHOD_NAME);
@@ -1986,7 +1986,7 @@ export function listenHighestProfitOnce(
   let disposeFn: Function;
 
   const wrappedFn = async (event: HighestProfitContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
       disposeFn && disposeFn();
     }
@@ -2035,14 +2035,14 @@ export function listenMaxDrawdown(fn: (event: MaxDrawdownContract) => void) {
  * @return Unsubscribe function to cancel the listener before it fires
  */
 export function listenMaxDrawdownOnce(
-  filterFn: (event: MaxDrawdownContract) => boolean,
+  filterFn: (event: MaxDrawdownContract) => boolean | Promise<boolean>,
   fn: (event: MaxDrawdownContract) => void
 ) {
   backtest.loggerService.log(LISTEN_MAX_DRAWDOWN_ONCE_METHOD_NAME);
   let disposeFn: Function;
 
   const wrappedFn = async (event: MaxDrawdownContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
       disposeFn && disposeFn();
     }
@@ -2113,14 +2113,14 @@ export function listenPause(fn: (event: PauseContract) => void) {
  * @return Unsubscribe function to cancel the listener before it fires
  */
 export function listenPauseOnce(
-  filterFn: (event: PauseContract) => boolean,
+  filterFn: (event: PauseContract) => boolean | Promise<boolean>,
   fn: (event: PauseContract) => void
 ) {
   backtest.loggerService.log(LISTEN_PAUSE_ONCE_METHOD_NAME);
   let disposeFn: Function;
 
   const wrappedFn = async (event: PauseContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
       disposeFn && disposeFn();
     }
@@ -2138,14 +2138,14 @@ export function listenPauseOnce(
  * @return Unsubscribe function to cancel the listener before it fires
  */
 export function listenSignalNotifyOnce(
-  filterFn: (event: SignalInfoContract) => boolean,
+  filterFn: (event: SignalInfoContract) => boolean | Promise<boolean>,
   fn: (event: SignalInfoContract) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_NOTIFY_ONCE_METHOD_NAME);
   let disposeFn: Function;
 
   const wrappedFn = async (event: SignalInfoContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
       disposeFn && disposeFn();
     }
@@ -2176,14 +2176,14 @@ export function listenBeforeStart(fn: (event: BeforeStartContract) => void) {
  * @return Unsubscribe function to cancel the listener before it fires
  */
 export function listenBeforeStartOnce(
-  filterFn: (event: BeforeStartContract) => boolean,
+  filterFn: (event: BeforeStartContract) => boolean | Promise<boolean>,
   fn: (event: BeforeStartContract) => void
 ) {
   backtest.loggerService.log(LISTEN_BEFORE_START_ONCE_METHOD_NAME);
   let disposeFn: Function;
 
   const wrappedFn = async (event: BeforeStartContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
       disposeFn && disposeFn();
     }
@@ -2214,14 +2214,14 @@ export function listenAfterEnd(fn: (event: AfterEndContract) => void) {
  * @return Unsubscribe function to cancel the listener before it fires
  */
 export function listenAfterEndOnce(
-  filterFn: (event: AfterEndContract) => boolean,
+  filterFn: (event: AfterEndContract) => boolean | Promise<boolean>,
   fn: (event: AfterEndContract) => void
 ) {
   backtest.loggerService.log(LISTEN_AFTER_END_ONCE_METHOD_NAME);
   let disposeFn: Function;
 
   const wrappedFn = async (event: AfterEndContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
       disposeFn && disposeFn();
     }
@@ -2242,7 +2242,7 @@ export function listenAfterEndOnce(
  * private observer chain, exactly like the `listenXOnce` forms do:
  *
  *   listenX(async (event) => {
- *     if (!filterFn(event)) return;   // 1. the condition
+ *     if (!(await filterFn(event))) return;   // 1. the condition
  *     if (alreadySeen(event)) return; // 2. collapse repeats
  *     await fn(event);                // 3. deliver
  *   })
@@ -2309,7 +2309,7 @@ export function listenAfterEndOnce(
  * ```
  */
 export function listenSignalUnique(
-  filterFn: (event: IStrategyTickResult) => boolean,
+  filterFn: (event: IStrategyTickResult) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResult) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_UNIQUE_METHOD_NAME);
@@ -2328,7 +2328,7 @@ export function listenSignalUnique(
     if (!event.signal) {
       return;
     }
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -2358,7 +2358,7 @@ export function listenSignalUnique(
  * @returns Unsubscribe function to stop listening
  */
 export function listenSignalLiveUnique(
-  filterFn: (event: IStrategyTickResult) => boolean,
+  filterFn: (event: IStrategyTickResult) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResult) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_LIVE_UNIQUE_METHOD_NAME);
@@ -2377,7 +2377,7 @@ export function listenSignalLiveUnique(
     if (!event.signal) {
       return;
     }
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -2407,7 +2407,7 @@ export function listenSignalLiveUnique(
  * @returns Unsubscribe function to stop listening
  */
 export function listenSignalBacktestUnique(
-  filterFn: (event: IStrategyTickResult) => boolean,
+  filterFn: (event: IStrategyTickResult) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResult) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_BACKTEST_UNIQUE_METHOD_NAME);
@@ -2426,7 +2426,7 @@ export function listenSignalBacktestUnique(
     if (!event.signal) {
       return;
     }
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -2467,7 +2467,7 @@ export function listenSignalBacktestUnique(
  * ```
  */
 export function listenSignalEventUnique(
-  filterFn: (event: SignalEventContract) => boolean,
+  filterFn: (event: SignalEventContract) => boolean | Promise<boolean>,
   fn: (event: SignalEventContract) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_EVENT_UNIQUE_METHOD_NAME);
@@ -2483,7 +2483,7 @@ export function listenSignalEventUnique(
   // were still pending - advancing the remembered id before the subscriber had
   // actually been handed the event it stands for.
   const wrappedFn = async (event: SignalEventContract) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -2513,7 +2513,7 @@ export function listenSignalEventUnique(
  * @returns Unsubscribe function to stop listening
  */
 export function listenOrderScheduleUnique(
-  filterFn: (event: ScheduleEventContract) => boolean,
+  filterFn: (event: ScheduleEventContract) => boolean | Promise<boolean>,
   fn: (event: ScheduleEventContract) => void
 ) {
   backtest.loggerService.log(LISTEN_ORDER_SCHEDULE_UNIQUE_METHOD_NAME);
@@ -2529,7 +2529,7 @@ export function listenOrderScheduleUnique(
   // were still pending - advancing the remembered id before the subscriber had
   // actually been handed the event it stands for.
   const wrappedFn = async (event: ScheduleEventContract) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -2571,7 +2571,7 @@ export function listenOrderScheduleUnique(
  * ```
  */
 export function listenActivePingUnique(
-  filterFn: (event: ActivePingContract) => boolean,
+  filterFn: (event: ActivePingContract) => boolean | Promise<boolean>,
   fn: (event: ActivePingContract) => void
 ) {
   backtest.loggerService.log(LISTEN_ACTIVE_PING_UNIQUE_METHOD_NAME);
@@ -2587,7 +2587,7 @@ export function listenActivePingUnique(
   // were still pending - advancing the remembered id before the subscriber had
   // actually been handed the event it stands for.
   const wrappedFn = async (event: ActivePingContract) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.data.strategyName, event.data.exchangeName];
@@ -2617,7 +2617,7 @@ export function listenActivePingUnique(
  * @returns Unsubscribe function to stop listening
  */
 export function listenSchedulePingUnique(
-  filterFn: (event: SchedulePingContract) => boolean,
+  filterFn: (event: SchedulePingContract) => boolean | Promise<boolean>,
   fn: (event: SchedulePingContract) => void
 ) {
   backtest.loggerService.log(LISTEN_SCHEDULE_PING_UNIQUE_METHOD_NAME);
@@ -2633,7 +2633,7 @@ export function listenSchedulePingUnique(
   // were still pending - advancing the remembered id before the subscriber had
   // actually been handed the event it stands for.
   const wrappedFn = async (event: SchedulePingContract) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.data.strategyName, event.data.exchangeName];
@@ -2665,7 +2665,7 @@ export function listenSchedulePingUnique(
  * @returns Unsubscribe function to stop listening
  */
 export function listenPartialProfitAvailableUnique(
-  filterFn: (event: PartialProfitContract) => boolean,
+  filterFn: (event: PartialProfitContract) => boolean | Promise<boolean>,
   fn: (event: PartialProfitContract) => void
 ) {
   backtest.loggerService.log(LISTEN_PARTIAL_PROFIT_UNIQUE_METHOD_NAME);
@@ -2681,7 +2681,7 @@ export function listenPartialProfitAvailableUnique(
   // were still pending - advancing the remembered id before the subscriber had
   // actually been handed the event it stands for.
   const wrappedFn = async (event: PartialProfitContract) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -2712,7 +2712,7 @@ export function listenPartialProfitAvailableUnique(
  * @returns Unsubscribe function to stop listening
  */
 export function listenPartialLossAvailableUnique(
-  filterFn: (event: PartialLossContract) => boolean,
+  filterFn: (event: PartialLossContract) => boolean | Promise<boolean>,
   fn: (event: PartialLossContract) => void
 ) {
   backtest.loggerService.log(LISTEN_PARTIAL_LOSS_UNIQUE_METHOD_NAME);
@@ -2728,7 +2728,7 @@ export function listenPartialLossAvailableUnique(
   // were still pending - advancing the remembered id before the subscriber had
   // actually been handed the event it stands for.
   const wrappedFn = async (event: PartialLossContract) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -2755,7 +2755,7 @@ export function listenPartialLossAvailableUnique(
  * @returns Unsubscribe function to stop listening
  */
 export function listenBreakevenAvailableUnique(
-  filterFn: (event: BreakevenContract) => boolean,
+  filterFn: (event: BreakevenContract) => boolean | Promise<boolean>,
   fn: (event: BreakevenContract) => void
 ) {
   backtest.loggerService.log(LISTEN_BREAKEVEN_UNIQUE_METHOD_NAME);
@@ -2771,7 +2771,7 @@ export function listenBreakevenAvailableUnique(
   // were still pending - advancing the remembered id before the subscriber had
   // actually been handed the event it stands for.
   const wrappedFn = async (event: BreakevenContract) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -2802,7 +2802,7 @@ export function listenBreakevenAvailableUnique(
  * @returns Unsubscribe function to stop listening
  */
 export function listenHighestProfitUnique(
-  filterFn: (event: HighestProfitContract) => boolean,
+  filterFn: (event: HighestProfitContract) => boolean | Promise<boolean>,
   fn: (event: HighestProfitContract) => void
 ) {
   backtest.loggerService.log(LISTEN_HIGHEST_PROFIT_UNIQUE_METHOD_NAME);
@@ -2818,7 +2818,7 @@ export function listenHighestProfitUnique(
   // were still pending - advancing the remembered id before the subscriber had
   // actually been handed the event it stands for.
   const wrappedFn = async (event: HighestProfitContract) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -2848,7 +2848,7 @@ export function listenHighestProfitUnique(
  * @returns Unsubscribe function to stop listening
  */
 export function listenMaxDrawdownUnique(
-  filterFn: (event: MaxDrawdownContract) => boolean,
+  filterFn: (event: MaxDrawdownContract) => boolean | Promise<boolean>,
   fn: (event: MaxDrawdownContract) => void
 ) {
   backtest.loggerService.log(LISTEN_MAX_DRAWDOWN_UNIQUE_METHOD_NAME);
@@ -2864,7 +2864,7 @@ export function listenMaxDrawdownUnique(
   // were still pending - advancing the remembered id before the subscriber had
   // actually been handed the event it stands for.
   const wrappedFn = async (event: MaxDrawdownContract) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -2894,7 +2894,7 @@ export function listenMaxDrawdownUnique(
  * @returns Unsubscribe function to stop listening
  */
 export function listenSignalNotifyUnique(
-  filterFn: (event: SignalInfoContract) => boolean,
+  filterFn: (event: SignalInfoContract) => boolean | Promise<boolean>,
   fn: (event: SignalInfoContract) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_NOTIFY_UNIQUE_METHOD_NAME);
@@ -2910,7 +2910,7 @@ export function listenSignalNotifyUnique(
   // were still pending - advancing the remembered id before the subscriber had
   // actually been handed the event it stands for.
   const wrappedFn = async (event: SignalInfoContract) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -2951,7 +2951,7 @@ export function listenSignalNotifyUnique(
  * ```
  */
 export function listenStrategyCommitUnique(
-  filterFn: (event: StrategyCommitContract) => boolean,
+  filterFn: (event: StrategyCommitContract) => boolean | Promise<boolean>,
   fn: (event: StrategyCommitContract) => void
 ) {
   backtest.loggerService.log(LISTEN_STRATEGY_COMMIT_UNIQUE_METHOD_NAME);
@@ -2967,7 +2967,7 @@ export function listenStrategyCommitUnique(
   // were still pending - advancing the remembered id before the subscriber had
   // actually been handed the event it stands for.
   const wrappedFn = async (event: StrategyCommitContract) => {
-    if (!filterFn(event)) {
+    if (!(await filterFn(event))) {
       return;
     }
     const parts = [event.strategyName, event.exchangeName];
@@ -3030,13 +3030,13 @@ export function listenStrategyCommitUnique(
  * ```
  */
 export function listenSignalFilter(
-  filterFn: (event: IStrategyTickResult) => boolean,
+  filterFn: (event: IStrategyTickResult) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResult) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_FILTER_METHOD_NAME);
 
   const wrappedFn = async (event: IStrategyTickResult) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
     }
   };
@@ -3055,13 +3055,13 @@ export function listenSignalFilter(
  * @returns Unsubscribe function to stop listening
  */
 export function listenSignalLiveFilter(
-  filterFn: (event: IStrategyTickResult) => boolean,
+  filterFn: (event: IStrategyTickResult) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResult) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_LIVE_FILTER_METHOD_NAME);
 
   const wrappedFn = async (event: IStrategyTickResult) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
     }
   };
@@ -3081,13 +3081,13 @@ export function listenSignalLiveFilter(
  * @returns Unsubscribe function to stop listening
  */
 export function listenSignalBacktestFilter(
-  filterFn: (event: IStrategyTickResult) => boolean,
+  filterFn: (event: IStrategyTickResult) => boolean | Promise<boolean>,
   fn: (event: IStrategyTickResult) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_BACKTEST_FILTER_METHOD_NAME);
 
   const wrappedFn = async (event: IStrategyTickResult) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
     }
   };
@@ -3106,13 +3106,13 @@ export function listenSignalBacktestFilter(
  * @returns Unsubscribe function to stop listening
  */
 export function listenDoneLiveFilter(
-  filterFn: (event: DoneContract) => boolean,
+  filterFn: (event: DoneContract) => boolean | Promise<boolean>,
   fn: (event: DoneContract) => void
 ) {
   backtest.loggerService.log(LISTEN_DONE_LIVE_FILTER_METHOD_NAME);
 
   const wrappedFn = async (event: DoneContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
     }
   };
@@ -3132,13 +3132,13 @@ export function listenDoneLiveFilter(
  * @returns Unsubscribe function to stop listening
  */
 export function listenDoneBacktestFilter(
-  filterFn: (event: DoneContract) => boolean,
+  filterFn: (event: DoneContract) => boolean | Promise<boolean>,
   fn: (event: DoneContract) => void
 ) {
   backtest.loggerService.log(LISTEN_DONE_BACKTEST_FILTER_METHOD_NAME);
 
   const wrappedFn = async (event: DoneContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
     }
   };
@@ -3157,13 +3157,13 @@ export function listenDoneBacktestFilter(
  * @returns Unsubscribe function to stop listening
  */
 export function listenDoneWalkerFilter(
-  filterFn: (event: DoneContract) => boolean,
+  filterFn: (event: DoneContract) => boolean | Promise<boolean>,
   fn: (event: DoneContract) => void
 ) {
   backtest.loggerService.log(LISTEN_DONE_WALKER_FILTER_METHOD_NAME);
 
   const wrappedFn = async (event: DoneContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
     }
   };
@@ -3182,13 +3182,13 @@ export function listenDoneWalkerFilter(
  * @returns Unsubscribe function to stop listening
  */
 export function listenWalkerFilter(
-  filterFn: (event: WalkerContract) => boolean,
+  filterFn: (event: WalkerContract) => boolean | Promise<boolean>,
   fn: (event: WalkerContract) => void
 ) {
   backtest.loggerService.log(LISTEN_WALKER_FILTER_METHOD_NAME);
 
   const wrappedFn = async (event: WalkerContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
     }
   };
@@ -3208,13 +3208,13 @@ export function listenWalkerFilter(
  * @returns Unsubscribe function to stop listening
  */
 export function listenPartialProfitAvailableFilter(
-  filterFn: (event: PartialProfitContract) => boolean,
+  filterFn: (event: PartialProfitContract) => boolean | Promise<boolean>,
   fn: (event: PartialProfitContract) => void
 ) {
   backtest.loggerService.log(LISTEN_PARTIAL_PROFIT_FILTER_METHOD_NAME);
 
   const wrappedFn = async (event: PartialProfitContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
     }
   };
@@ -3234,13 +3234,13 @@ export function listenPartialProfitAvailableFilter(
  * @returns Unsubscribe function to stop listening
  */
 export function listenPartialLossAvailableFilter(
-  filterFn: (event: PartialLossContract) => boolean,
+  filterFn: (event: PartialLossContract) => boolean | Promise<boolean>,
   fn: (event: PartialLossContract) => void
 ) {
   backtest.loggerService.log(LISTEN_PARTIAL_LOSS_FILTER_METHOD_NAME);
 
   const wrappedFn = async (event: PartialLossContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
     }
   };
@@ -3260,13 +3260,13 @@ export function listenPartialLossAvailableFilter(
  * @returns Unsubscribe function to stop listening
  */
 export function listenBreakevenAvailableFilter(
-  filterFn: (event: BreakevenContract) => boolean,
+  filterFn: (event: BreakevenContract) => boolean | Promise<boolean>,
   fn: (event: BreakevenContract) => void
 ) {
   backtest.loggerService.log(LISTEN_BREAKEVEN_FILTER_METHOD_NAME);
 
   const wrappedFn = async (event: BreakevenContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
     }
   };
@@ -3285,13 +3285,13 @@ export function listenBreakevenAvailableFilter(
  * @returns Unsubscribe function to stop listening
  */
 export function listenRiskFilter(
-  filterFn: (event: RiskContract) => boolean,
+  filterFn: (event: RiskContract) => boolean | Promise<boolean>,
   fn: (event: RiskContract) => void
 ) {
   backtest.loggerService.log(LISTEN_RISK_FILTER_METHOD_NAME);
 
   const wrappedFn = async (event: RiskContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
     }
   };
@@ -3311,13 +3311,13 @@ export function listenRiskFilter(
  * @returns Unsubscribe function to stop listening
  */
 export function listenSchedulePingFilter(
-  filterFn: (event: SchedulePingContract) => boolean,
+  filterFn: (event: SchedulePingContract) => boolean | Promise<boolean>,
   fn: (event: SchedulePingContract) => void
 ) {
   backtest.loggerService.log(LISTEN_SCHEDULE_PING_FILTER_METHOD_NAME);
 
   const wrappedFn = async (event: SchedulePingContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
     }
   };
@@ -3336,13 +3336,13 @@ export function listenSchedulePingFilter(
  * @returns Unsubscribe function to stop listening
  */
 export function listenSignalEventFilter(
-  filterFn: (event: SignalEventContract) => boolean,
+  filterFn: (event: SignalEventContract) => boolean | Promise<boolean>,
   fn: (event: SignalEventContract) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_EVENT_FILTER_METHOD_NAME);
 
   const wrappedFn = async (event: SignalEventContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
     }
   };
@@ -3361,13 +3361,13 @@ export function listenSignalEventFilter(
  * @returns Unsubscribe function to stop listening
  */
 export function listenActivePingFilter(
-  filterFn: (event: ActivePingContract) => boolean,
+  filterFn: (event: ActivePingContract) => boolean | Promise<boolean>,
   fn: (event: ActivePingContract) => void
 ) {
   backtest.loggerService.log(LISTEN_ACTIVE_PING_FILTER_METHOD_NAME);
 
   const wrappedFn = async (event: ActivePingContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
     }
   };
@@ -3386,13 +3386,13 @@ export function listenActivePingFilter(
  * @returns Unsubscribe function to stop listening
  */
 export function listenIdlePingFilter(
-  filterFn: (event: IdlePingContract) => boolean,
+  filterFn: (event: IdlePingContract) => boolean | Promise<boolean>,
   fn: (event: IdlePingContract) => void
 ) {
   backtest.loggerService.log(LISTEN_IDLE_PING_FILTER_METHOD_NAME);
 
   const wrappedFn = async (event: IdlePingContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
     }
   };
@@ -3412,13 +3412,13 @@ export function listenIdlePingFilter(
  * @returns Unsubscribe function to stop listening
  */
 export function listenStrategyCommitFilter(
-  filterFn: (event: StrategyCommitContract) => boolean,
+  filterFn: (event: StrategyCommitContract) => boolean | Promise<boolean>,
   fn: (event: StrategyCommitContract) => void
 ) {
   backtest.loggerService.log(LISTEN_STRATEGY_COMMIT_FILTER_METHOD_NAME);
 
   const wrappedFn = async (event: StrategyCommitContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
     }
   };
@@ -3438,13 +3438,13 @@ export function listenStrategyCommitFilter(
  * @returns Unsubscribe function to stop listening
  */
 export function listenHighestProfitFilter(
-  filterFn: (event: HighestProfitContract) => boolean,
+  filterFn: (event: HighestProfitContract) => boolean | Promise<boolean>,
   fn: (event: HighestProfitContract) => void
 ) {
   backtest.loggerService.log(LISTEN_HIGHEST_PROFIT_FILTER_METHOD_NAME);
 
   const wrappedFn = async (event: HighestProfitContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
     }
   };
@@ -3464,13 +3464,13 @@ export function listenHighestProfitFilter(
  * @returns Unsubscribe function to stop listening
  */
 export function listenMaxDrawdownFilter(
-  filterFn: (event: MaxDrawdownContract) => boolean,
+  filterFn: (event: MaxDrawdownContract) => boolean | Promise<boolean>,
   fn: (event: MaxDrawdownContract) => void
 ) {
   backtest.loggerService.log(LISTEN_MAX_DRAWDOWN_FILTER_METHOD_NAME);
 
   const wrappedFn = async (event: MaxDrawdownContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
     }
   };
@@ -3489,13 +3489,13 @@ export function listenMaxDrawdownFilter(
  * @returns Unsubscribe function to stop listening
  */
 export function listenPauseFilter(
-  filterFn: (event: PauseContract) => boolean,
+  filterFn: (event: PauseContract) => boolean | Promise<boolean>,
   fn: (event: PauseContract) => void
 ) {
   backtest.loggerService.log(LISTEN_PAUSE_FILTER_METHOD_NAME);
 
   const wrappedFn = async (event: PauseContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
     }
   };
@@ -3515,13 +3515,13 @@ export function listenPauseFilter(
  * @returns Unsubscribe function to stop listening
  */
 export function listenSignalNotifyFilter(
-  filterFn: (event: SignalInfoContract) => boolean,
+  filterFn: (event: SignalInfoContract) => boolean | Promise<boolean>,
   fn: (event: SignalInfoContract) => void
 ) {
   backtest.loggerService.log(LISTEN_SIGNAL_NOTIFY_FILTER_METHOD_NAME);
 
   const wrappedFn = async (event: SignalInfoContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
     }
   };
@@ -3540,13 +3540,13 @@ export function listenSignalNotifyFilter(
  * @returns Unsubscribe function to stop listening
  */
 export function listenBeforeStartFilter(
-  filterFn: (event: BeforeStartContract) => boolean,
+  filterFn: (event: BeforeStartContract) => boolean | Promise<boolean>,
   fn: (event: BeforeStartContract) => void
 ) {
   backtest.loggerService.log(LISTEN_BEFORE_START_FILTER_METHOD_NAME);
 
   const wrappedFn = async (event: BeforeStartContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
     }
   };
@@ -3565,13 +3565,13 @@ export function listenBeforeStartFilter(
  * @returns Unsubscribe function to stop listening
  */
 export function listenAfterEndFilter(
-  filterFn: (event: AfterEndContract) => boolean,
+  filterFn: (event: AfterEndContract) => boolean | Promise<boolean>,
   fn: (event: AfterEndContract) => void
 ) {
   backtest.loggerService.log(LISTEN_AFTER_END_FILTER_METHOD_NAME);
 
   const wrappedFn = async (event: AfterEndContract) => {
-    if (filterFn(event)) {
+    if (await filterFn(event)) {
       await fn(event);
     }
   };
