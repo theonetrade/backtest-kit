@@ -661,7 +661,7 @@ export class StateLiveAdapter implements TStateAdapter {
  */
 export class State<Data extends object = object> {
 
-  constructor(readonly params: { name: BucketName; initialData: Data | InitialDataFn<Data> }) { }
+  constructor(private readonly params: { name: BucketName; initialData: Data | InitialDataFn<Data> }) { }
 
   /**
    * Enables state storage by subscribing to signal lifecycle events.

@@ -1287,7 +1287,7 @@ export class DictionaryLiveAdapter implements TDictionaryAdapter {
  */
 export class Dictionary<Value = unknown> {
 
-  constructor(readonly params: { name: DictionaryName }) { }
+  constructor(private readonly params: { name: DictionaryName }) { }
 
   /**
    * Enables dictionary storage by subscribing to signal lifecycle events.

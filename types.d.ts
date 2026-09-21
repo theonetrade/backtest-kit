@@ -31817,10 +31817,7 @@ declare class StateLiveAdapter implements TStateAdapter {
  * ```
  */
 declare class State<Data extends object = object> {
-    readonly params: {
-        name: BucketName;
-        initialData: Data | InitialDataFn<Data>;
-    };
+    private readonly params;
     constructor(params: {
         name: BucketName;
         initialData: Data | InitialDataFn<Data>;
@@ -32338,9 +32335,7 @@ declare class DictionaryLiveAdapter implements TDictionaryAdapter {
  * ```
  */
 declare class Dictionary<Value = unknown> {
-    readonly params: {
-        name: DictionaryName;
-    };
+    private readonly params;
     constructor(params: {
         name: DictionaryName;
     });
