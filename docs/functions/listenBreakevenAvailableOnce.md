@@ -6,7 +6,7 @@ group: docs
 # listenBreakevenAvailableOnce
 
 ```ts
-declare function listenBreakevenAvailableOnce(filterFn: (event: BreakevenContract) => boolean, fn: (event: BreakevenContract) => void): () => void;
+declare function listenBreakevenAvailableOnce(filterFn: (event: BreakevenContract) => boolean | Promise<boolean>, fn: (event: BreakevenContract) => void): () => void;
 ```
 
 Subscribes to filtered breakeven protection events with one-time execution.

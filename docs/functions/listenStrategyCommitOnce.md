@@ -6,7 +6,7 @@ group: docs
 # listenStrategyCommitOnce
 
 ```ts
-declare function listenStrategyCommitOnce(filterFn: (event: StrategyCommitContract) => boolean, fn: (event: StrategyCommitContract) => void): () => void;
+declare function listenStrategyCommitOnce(filterFn: (event: StrategyCommitContract) => boolean | Promise<boolean>, fn: (event: StrategyCommitContract) => void): () => void;
 ```
 
 Subscribes to filtered strategy management events with one-time execution.

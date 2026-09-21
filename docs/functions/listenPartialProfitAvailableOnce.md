@@ -6,7 +6,7 @@ group: docs
 # listenPartialProfitAvailableOnce
 
 ```ts
-declare function listenPartialProfitAvailableOnce(filterFn: (event: PartialProfitContract) => boolean, fn: (event: PartialProfitContract) => void): () => void;
+declare function listenPartialProfitAvailableOnce(filterFn: (event: PartialProfitContract) => boolean | Promise<boolean>, fn: (event: PartialProfitContract) => void): () => void;
 ```
 
 Subscribes to filtered partial profit level events with one-time execution.

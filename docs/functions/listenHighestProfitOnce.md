@@ -6,7 +6,7 @@ group: docs
 # listenHighestProfitOnce
 
 ```ts
-declare function listenHighestProfitOnce(filterFn: (event: HighestProfitContract) => boolean, fn: (event: HighestProfitContract) => void): () => void;
+declare function listenHighestProfitOnce(filterFn: (event: HighestProfitContract) => boolean | Promise<boolean>, fn: (event: HighestProfitContract) => void): () => void;
 ```
 
 Subscribes to filtered highest profit events with one-time execution.

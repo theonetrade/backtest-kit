@@ -84,6 +84,14 @@ bestStats: BacktestStatisticsModel
 
 bestStats - Best strategy statistics
 
+### backtest
+
+```ts
+backtest: boolean
+```
+
+Always true: walker completion events are backtest-only (kept for cross-channel filter uniformity)
+
 ### when
 
 ```ts

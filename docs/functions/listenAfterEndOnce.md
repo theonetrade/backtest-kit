@@ -6,7 +6,7 @@ group: docs
 # listenAfterEndOnce
 
 ```ts
-declare function listenAfterEndOnce(filterFn: (event: AfterEndContract) => boolean, fn: (event: AfterEndContract) => void): () => void;
+declare function listenAfterEndOnce(filterFn: (event: AfterEndContract) => boolean | Promise<boolean>, fn: (event: AfterEndContract) => void): () => void;
 ```
 
 Subscribes to filtered after end events with one-time execution.

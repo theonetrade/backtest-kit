@@ -12,7 +12,7 @@ declare function listenSignalWaiting(fn: (event: IStrategyTickResultWaiting) => 
 Subscribes to waiting tick results (live + backtest).
 
 Fires on every tick while a scheduled signal has not yet activated. High volume:
-one event per tick per waiting signal. Use the `listenSignalWaitingPerSignal`
+one event per tick per waiting signal. Use the `listenSignalWaitingUnique`
 form to collapse that down to one callback per signal.
 
 ## Parameters

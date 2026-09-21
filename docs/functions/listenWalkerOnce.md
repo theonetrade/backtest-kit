@@ -6,7 +6,7 @@ group: docs
 # listenWalkerOnce
 
 ```ts
-declare function listenWalkerOnce(filterFn: (event: WalkerContract) => boolean, fn: (event: WalkerContract) => void): () => void;
+declare function listenWalkerOnce(filterFn: (event: WalkerContract) => boolean | Promise<boolean>, fn: (event: WalkerContract) => void): () => void;
 ```
 
 Subscribes to filtered walker progress events with one-time execution.

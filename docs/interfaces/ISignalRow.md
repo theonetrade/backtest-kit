@@ -58,6 +58,14 @@ isolated: boolean
 
 Isolated-margin mode: force-close at -100% leveraged PNL with closeReason "liquidation" (required in row, defaults applied in ClientStrategy)
 
+### payload
+
+```ts
+payload: Record<string, unknown>
+```
+
+Custom user-defined dictionary attached to the signal (required in row, defaults to {} in ClientStrategy)
+
 ### exchangeName
 
 ```ts

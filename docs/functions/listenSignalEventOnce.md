@@ -6,7 +6,7 @@ group: docs
 # listenSignalEventOnce
 
 ```ts
-declare function listenSignalEventOnce(filterFn: (event: SignalEventContract) => boolean, fn: (event: SignalEventContract) => void): () => void;
+declare function listenSignalEventOnce(filterFn: (event: SignalEventContract) => boolean | Promise<boolean>, fn: (event: SignalEventContract) => void): () => void;
 ```
 
 Subscribes to filtered pending lifecycle events with one-time execution.

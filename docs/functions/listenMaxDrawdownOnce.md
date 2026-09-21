@@ -6,7 +6,7 @@ group: docs
 # listenMaxDrawdownOnce
 
 ```ts
-declare function listenMaxDrawdownOnce(filterFn: (event: MaxDrawdownContract) => boolean, fn: (event: MaxDrawdownContract) => void): () => void;
+declare function listenMaxDrawdownOnce(filterFn: (event: MaxDrawdownContract) => boolean | Promise<boolean>, fn: (event: MaxDrawdownContract) => void): () => void;
 ```
 
 Subscribes to filtered max drawdown events with one-time execution.

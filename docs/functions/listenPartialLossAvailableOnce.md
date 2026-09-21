@@ -6,7 +6,7 @@ group: docs
 # listenPartialLossAvailableOnce
 
 ```ts
-declare function listenPartialLossAvailableOnce(filterFn: (event: PartialLossContract) => boolean, fn: (event: PartialLossContract) => void): () => void;
+declare function listenPartialLossAvailableOnce(filterFn: (event: PartialLossContract) => boolean | Promise<boolean>, fn: (event: PartialLossContract) => void): () => void;
 ```
 
 Subscribes to filtered partial loss level events with one-time execution.

@@ -6,7 +6,7 @@ group: docs
 # listenBeforeStartOnce
 
 ```ts
-declare function listenBeforeStartOnce(filterFn: (event: BeforeStartContract) => boolean, fn: (event: BeforeStartContract) => void): () => void;
+declare function listenBeforeStartOnce(filterFn: (event: BeforeStartContract) => boolean | Promise<boolean>, fn: (event: BeforeStartContract) => void): () => void;
 ```
 
 Subscribes to filtered before start events with one-time execution.

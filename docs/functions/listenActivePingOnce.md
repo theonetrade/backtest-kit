@@ -6,7 +6,7 @@ group: docs
 # listenActivePingOnce
 
 ```ts
-declare function listenActivePingOnce(filterFn: (event: ActivePingContract) => boolean, fn: (event: ActivePingContract) => void): () => void;
+declare function listenActivePingOnce(filterFn: (event: ActivePingContract) => boolean | Promise<boolean>, fn: (event: ActivePingContract) => void): () => void;
 ```
 
 Subscribes to filtered active ping events with one-time execution.

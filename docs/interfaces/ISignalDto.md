@@ -42,6 +42,16 @@ note: string
 
 Human-readable description of signal reason
 
+### payload
+
+```ts
+payload: Record<string, unknown>
+```
+
+Custom user-defined dictionary attached to the signal.
+Free-form data for external logic, monitoring or reporting — not interpreted by the system.
+Defaults to {} if not provided (initialized in ClientStrategy).
+
 ### priceOpen
 
 ```ts

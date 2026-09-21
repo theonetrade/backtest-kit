@@ -6,7 +6,7 @@ group: docs
 # listenSignalBacktestOnce
 
 ```ts
-declare function listenSignalBacktestOnce(filterFn: (event: IStrategyTickResult) => boolean, fn: (event: IStrategyTickResult) => void): () => void;
+declare function listenSignalBacktestOnce(filterFn: (event: IStrategyTickResult) => boolean | Promise<boolean>, fn: (event: IStrategyTickResult) => void): () => void;
 ```
 
 Subscribes to filtered backtest signal events with one-time execution.

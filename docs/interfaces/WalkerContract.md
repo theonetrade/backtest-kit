@@ -106,6 +106,14 @@ totalStrategies: number
 
 Total number of strategies to test
 
+### backtest
+
+```ts
+backtest: boolean
+```
+
+Always true: walker events are backtest-only (kept for cross-channel filter uniformity)
+
 ### when
 
 ```ts

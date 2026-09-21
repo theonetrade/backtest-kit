@@ -6,7 +6,7 @@ group: docs
 # listenRiskOnce
 
 ```ts
-declare function listenRiskOnce(filterFn: (event: RiskContract) => boolean, fn: (event: RiskContract) => void): () => void;
+declare function listenRiskOnce(filterFn: (event: RiskContract) => boolean | Promise<boolean>, fn: (event: RiskContract) => void): () => void;
 ```
 
 Subscribes to filtered risk rejection events with one-time execution.

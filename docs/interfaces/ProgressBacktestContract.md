@@ -60,6 +60,14 @@ progress: number
 
 progress - Completion percentage from 0.0 to 1.0
 
+### backtest
+
+```ts
+backtest: boolean
+```
+
+Always true: backtest progress events are backtest-only (kept for cross-channel filter uniformity)
+
 ### when
 
 ```ts

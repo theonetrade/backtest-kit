@@ -13,7 +13,7 @@ Subscribes to active tick results (live + backtest).
 
 Fires on every tick while a position is open, carrying live `pnl`, `percentTp` and
 `percentSl`. High volume: one event per tick per open position. Use the
-`listenSignalActivePerSignal` form to collapse that down to one callback per
+`listenSignalActiveUnique` form to collapse that down to one callback per
 position.
 
 ## Parameters

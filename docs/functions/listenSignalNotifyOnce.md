@@ -6,7 +6,7 @@ group: docs
 # listenSignalNotifyOnce
 
 ```ts
-declare function listenSignalNotifyOnce(filterFn: (event: SignalInfoContract) => boolean, fn: (event: SignalInfoContract) => void): () => void;
+declare function listenSignalNotifyOnce(filterFn: (event: SignalInfoContract) => boolean | Promise<boolean>, fn: (event: SignalInfoContract) => void): () => void;
 ```
 
 Subscribes to filtered signal info events with one-time execution.

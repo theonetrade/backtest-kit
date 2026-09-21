@@ -6,7 +6,7 @@ group: docs
 # listenDoneWalkerOnce
 
 ```ts
-declare function listenDoneWalkerOnce(filterFn: (event: DoneContract) => boolean, fn: (event: DoneContract) => void): () => void;
+declare function listenDoneWalkerOnce(filterFn: (event: DoneContract) => boolean | Promise<boolean>, fn: (event: DoneContract) => void): () => void;
 ```
 
 Subscribes to filtered walker background execution completion events with one-time execution.

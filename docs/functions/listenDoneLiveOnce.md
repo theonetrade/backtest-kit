@@ -6,7 +6,7 @@ group: docs
 # listenDoneLiveOnce
 
 ```ts
-declare function listenDoneLiveOnce(filterFn: (event: DoneContract) => boolean, fn: (event: DoneContract) => void): () => void;
+declare function listenDoneLiveOnce(filterFn: (event: DoneContract) => boolean | Promise<boolean>, fn: (event: DoneContract) => void): () => void;
 ```
 
 Subscribes to filtered live background execution completion events with one-time execution.

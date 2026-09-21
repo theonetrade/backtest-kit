@@ -6,7 +6,7 @@ group: docs
 # listenPauseOnce
 
 ```ts
-declare function listenPauseOnce(filterFn: (event: PauseContract) => boolean, fn: (event: PauseContract) => void): () => void;
+declare function listenPauseOnce(filterFn: (event: PauseContract) => boolean | Promise<boolean>, fn: (event: PauseContract) => void): () => void;
 ```
 
 Subscribes to filtered pause state change events with one-time execution.

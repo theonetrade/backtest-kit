@@ -39,6 +39,14 @@ walkerName: string
 
 walkerName - Name of the walker to stop (for filtering)
 
+### backtest
+
+```ts
+backtest: boolean
+```
+
+Always true: walker stop events are backtest-only (kept for cross-channel filter uniformity)
+
 ### when
 
 ```ts

@@ -6,7 +6,7 @@ group: docs
 # listenIdlePingOnce
 
 ```ts
-declare function listenIdlePingOnce(filterFn: (event: IdlePingContract) => boolean, fn: (event: IdlePingContract) => void): () => void;
+declare function listenIdlePingOnce(filterFn: (event: IdlePingContract) => boolean | Promise<boolean>, fn: (event: IdlePingContract) => void): () => void;
 ```
 
 Subscribes to filtered idle ping events with one-time execution.

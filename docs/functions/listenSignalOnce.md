@@ -6,7 +6,7 @@ group: docs
 # listenSignalOnce
 
 ```ts
-declare function listenSignalOnce(filterFn: (event: IStrategyTickResult) => boolean, fn: (event: IStrategyTickResult) => void): () => void;
+declare function listenSignalOnce(filterFn: (event: IStrategyTickResult) => boolean | Promise<boolean>, fn: (event: IStrategyTickResult) => void): () => void;
 ```
 
 Subscribes to filtered signal events with one-time execution.

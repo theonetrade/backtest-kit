@@ -6,7 +6,7 @@ group: docs
 # listenDoneBacktestOnce
 
 ```ts
-declare function listenDoneBacktestOnce(filterFn: (event: DoneContract) => boolean, fn: (event: DoneContract) => void): () => void;
+declare function listenDoneBacktestOnce(filterFn: (event: DoneContract) => boolean | Promise<boolean>, fn: (event: DoneContract) => void): () => void;
 ```
 
 Subscribes to filtered backtest background execution completion events with one-time execution.
