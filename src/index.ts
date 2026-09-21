@@ -282,17 +282,12 @@ export {
 } from "./function/meta";
 export {
   getLatestSignal,
-  getSignalState,
-  setSignalState,
   getMinutesSinceLatestSignalCreated,
 } from "./function/signal";
 export {
   getSessionData,
   setSessionData,
 } from "./function/session";
-export {
-  createSignalState,
-} from "./function/state";
 export {
   listMemory,
   readMemory,

@@ -1,7 +1,11 @@
 import { compose, memoize, queued, singleshot } from "functools-kit";
 import { signalEmitter } from "../config/emitters";
 import { PersistStateAdapter } from "./Persist";
-import swarm from "../lib";
+import {
+  IPublicSignalRow,
+  IScheduledSignalRow,
+} from "../interfaces/Strategy.interface";
+import swarm, { ExecutionContextService, MethodContextService } from "../lib";
 
 const CREATE_KEY_FN = (signalId: string, bucketName: string) =>
   `${signalId}_${bucketName}`;
@@ -43,10 +47,12 @@ const STATE_LIVE_ADAPTER_METHOD_NAME_USE_DUMMY = "StateLiveAdapter.useDummy";
 const STATE_LIVE_ADAPTER_METHOD_NAME_USE_STATE_ADAPTER = "StateLiveAdapter.useStateAdapter";
 const STATE_LIVE_ADAPTER_METHOD_NAME_CLEAR = "StateLiveAdapter.clear";
 
-const STATE_ADAPTER_METHOD_NAME_ENABLE = "StateAdapter.enable";
-const STATE_ADAPTER_METHOD_NAME_DISABLE = "StateAdapter.disable";
-const STATE_ADAPTER_METHOD_NAME_GET = "StateAdapter.getState";
-const STATE_ADAPTER_METHOD_NAME_SET = "StateAdapter.setState";
+const STATE_METHOD_NAME_ENABLE = "State.enable";
+const STATE_METHOD_NAME_DISABLE = "State.disable";
+const STATE_METHOD_NAME_STATIC_GET = "State._getState";
+const STATE_METHOD_NAME_STATIC_SET = "State._setState";
+const STATE_METHOD_NAME_GET = "State.getState";
+const STATE_METHOD_NAME_SET = "State.setState";
 
 /**
  * Interface for state instance implementations.
@@ -603,15 +609,48 @@ export class StateLiveAdapter implements TStateAdapter {
 }
 
 /**
- * Main state adapter that manages both backtest and live state storage.
+ * Per-signal mutable state scoped by state name.
  *
- * Features:
- * - Subscribes to signal lifecycle events (cancelled/closed) to dispose stale instances
- * - Routes all operations to StateBacktest or StateLive based on dto.backtest
- * - Singleshot enable pattern prevents duplicate subscriptions
- * - Cleanup function for proper unsubscription
+ * Works like a value bound to the CURRENT pending or scheduled signal:
+ * `new State({ name: "trade", initialData: { peakPercent: 0 } }).setState(...)`
+ * inside any strategy lifecycle callback. No context is passed through
+ * arguments — every instance method resolves the signal, mode and timestamp
+ * itself from `backtest.methodContextService` / `backtest.executionContextService`,
+ * so the class is unavailable outside async_hooks lifecycle callbacks by design.
+ *
+ * `initialData` provides the default value when no state exists yet — either a
+ * plain object or a factory returning one (the factory yields a fresh object
+ * per access, so the default is never shared by reference).
+ *
+ * Look-ahead bias protection: a read at a `when` earlier than the stored `when`
+ * yields `initialData`, and a write with a smaller `when` overwrites (a
+ * restarted backtest resets live-written state).
+ *
+ * Requires an explicit `State.enable()` call before use — the subscription it
+ * creates disposes per-signal instances when the signal is cancelled or
+ * closed, preventing stale instances from accumulating.
+ *
+ * @example
+ * ```typescript
+ * State.enable();
+ *
+ * const state = new State({
+ *   name: "trade",
+ *   initialData: () => ({ peakPercent: 0, minutesOpen: 0 }),
+ * });
+ *
+ * // inside a strategy callback:
+ * await state.setState((prev) => ({
+ *   peakPercent: Math.max(prev.peakPercent, currentPercent),
+ *   minutesOpen: prev.minutesOpen + 1,
+ * }));
+ * const { peakPercent } = await state.getState();
+ * ```
  */
-export class StateAdapter {
+export class State<Data extends object = object> {
+
+  constructor(readonly params: { name: BucketName; initialData: Data | (() => Data) }) { }
+
   /**
    * Enables state storage by subscribing to signal lifecycle events.
    * Clears memoized instances in StateBacktest and StateLive when a signal
@@ -620,8 +659,8 @@ export class StateAdapter {
    *
    * @returns Cleanup function that unsubscribes from all emitters
    */
-  public enable = singleshot(() => {
-    swarm.loggerService.info(STATE_ADAPTER_METHOD_NAME_ENABLE);
+  public static enable = singleshot(() => {
+    swarm.loggerService.info(STATE_METHOD_NAME_ENABLE);
 
     const unCancel = signalEmitter
       .filter(({ action }) => action === "cancelled")
@@ -640,7 +679,7 @@ export class StateAdapter {
     return compose(
       () => unCancel(),
       () => unClose(),
-      () => this.enable.clear(),
+      () => State.enable.clear(),
     );
   });
 
@@ -648,30 +687,30 @@ export class StateAdapter {
    * Disables state storage by unsubscribing from signal lifecycle events.
    * Safe to call multiple times.
    */
-  public disable = () => {
-    swarm.loggerService.info(STATE_ADAPTER_METHOD_NAME_DISABLE);
-    if (this.enable.hasValue()) {
-      const lastSubscription = this.enable();
+  public static disable = () => {
+    swarm.loggerService.info(STATE_METHOD_NAME_DISABLE);
+    if (State.enable.hasValue()) {
+      const lastSubscription = State.enable();
       lastSubscription();
     }
   };
 
   /**
-   * Read the current state value for a signal.
+   * Context-free read of the current state value for a signal.
    * Routes to StateBacktest or StateLive based on dto.backtest.
    * @param dto.signalId - Signal identifier
-   * @param dto.bucketName - Bucket name
+   * @param dto.bucketName - State name
    * @param dto.initialValue - Default value when no persisted state exists
    * @param dto.backtest - Flag indicating if the context is backtest or live
    * @param dto.when - Logical timestamp at which the read is happening (look-ahead guard)
    * @returns Current state value
-   * @throws Error if adapter is not enabled
+   * @throws Error if State is not enabled
    */
-  public getState = async <Value extends object = object>(dto: { signalId: string, bucketName: BucketName, initialValue: object, backtest: boolean, when: Date }): Promise<Value> => {
-    if (!this.enable.hasValue()) {
-      throw new Error("StateAdapter is not enabled. Call enable() first.");
+  public static _getState = async <Value extends object = object>(dto: { signalId: string, bucketName: BucketName, initialValue: object, backtest: boolean, when: Date }): Promise<Value> => {
+    if (!State.enable.hasValue()) {
+      throw new Error("State is not enabled. Call State.enable() first.");
     }
-    swarm.loggerService.debug(STATE_ADAPTER_METHOD_NAME_GET, {
+    swarm.loggerService.debug(STATE_METHOD_NAME_STATIC_GET, {
       signalId: dto.signalId,
       bucketName: dto.bucketName,
       backtest: dto.backtest,
@@ -683,22 +722,22 @@ export class StateAdapter {
   };
 
   /**
-   * Update the state value for a signal.
+   * Context-free update of the state value for a signal.
    * Routes to StateBacktest or StateLive based on dto.backtest.
    * @param dispatch - New value or updater function receiving current value
    * @param dto.signalId - Signal identifier
-   * @param dto.bucketName - Bucket name
+   * @param dto.bucketName - State name
    * @param dto.initialValue - Default value when no persisted state exists
    * @param dto.backtest - Flag indicating if the context is backtest or live
    * @param dto.when - Logical timestamp this value belongs to
    * @returns Updated state value
-   * @throws Error if adapter is not enabled
+   * @throws Error if State is not enabled
    */
-  public setState = async <Value extends object = object>(dispatch: Value | Dispatch<Value>, dto: { signalId: string, bucketName: BucketName, initialValue: object, backtest: boolean, when: Date }): Promise<Value> => {
-    if (!this.enable.hasValue()) {
-      throw new Error("StateAdapter is not enabled. Call enable() first.");
+  public static _setState = async <Value extends object = object>(dispatch: Value | Dispatch<Value>, dto: { signalId: string, bucketName: BucketName, initialValue: object, backtest: boolean, when: Date }): Promise<Value> => {
+    if (!State.enable.hasValue()) {
+      throw new Error("State is not enabled. Call State.enable() first.");
     }
-    swarm.loggerService.debug(STATE_ADAPTER_METHOD_NAME_SET, {
+    swarm.loggerService.debug(STATE_METHOD_NAME_STATIC_SET, {
       signalId: dto.signalId,
       bucketName: dto.bucketName,
       backtest: dto.backtest,
@@ -708,13 +747,130 @@ export class StateAdapter {
     }
     return await StateLive.setState<Value>(dispatch, dto);
   };
-}
 
-/**
- * Global singleton instance of StateAdapter.
- * Provides unified state management for backtest and live trading.
- */
-export const State = new StateAdapter();
+  /**
+   * Read the current state value for the active pending or scheduled signal.
+   * Resolves the signal, mode and timestamp from execution context — no context arguments required.
+   * @returns Current state value (initialData when nothing was written yet)
+   * @throws Error if no execution/method context or no pending/scheduled signal exists
+   */
+  public getState = async (): Promise<Data> => {
+    swarm.loggerService.info(STATE_METHOD_NAME_GET, { name: this.params.name });
+    if (!ExecutionContextService.hasContext()) {
+      throw new Error("State.getState requires an execution context");
+    }
+    if (!MethodContextService.hasContext()) {
+      throw new Error("State.getState requires a method context");
+    }
+    const { backtest: isBacktest, when, symbol } =
+      swarm.executionContextService.context;
+    const { exchangeName, frameName, strategyName } =
+      swarm.methodContextService.context;
+    const initialValue = typeof this.params.initialData === "function"
+      ? (<() => Data>this.params.initialData)()
+      : this.params.initialData;
+    const currentPrice =
+      await swarm.exchangeConnectionService.getAveragePrice(symbol);
+    let signal: IPublicSignalRow | IScheduledSignalRow;
+    if (
+      signal = await swarm.strategyCoreService.getPendingSignal(
+        isBacktest,
+        symbol,
+        currentPrice,
+        { exchangeName, frameName, strategyName },
+      )
+    ) {
+      return await State._getState<Data>({
+        signalId: signal.id,
+        bucketName: this.params.name,
+        initialValue,
+        backtest: isBacktest,
+        when,
+      });
+    }
+    if (
+      signal = await swarm.strategyCoreService.getScheduledSignal(
+        isBacktest,
+        symbol,
+        currentPrice,
+        { exchangeName, frameName, strategyName },
+      )
+    ) {
+      return await State._getState<Data>({
+        signalId: signal.id,
+        bucketName: this.params.name,
+        initialValue,
+        backtest: isBacktest,
+        when,
+      });
+    }
+    throw new Error(
+      `State.getState requires a pending or scheduled signal for symbol=${symbol} name=${this.params.name}`,
+    );
+  };
+
+  /**
+   * Update the state value for the active pending or scheduled signal.
+   * Resolves the signal, mode and timestamp from execution context — no context arguments required.
+   * @param dispatch - New value or updater function receiving current value
+   * @returns Updated state value
+   * @throws Error if no execution/method context or no pending/scheduled signal exists
+   */
+  public setState = async (dispatch: Data | Dispatch<Data>): Promise<Data> => {
+    swarm.loggerService.info(STATE_METHOD_NAME_SET, { name: this.params.name });
+    if (!ExecutionContextService.hasContext()) {
+      throw new Error("State.setState requires an execution context");
+    }
+    if (!MethodContextService.hasContext()) {
+      throw new Error("State.setState requires a method context");
+    }
+    const { backtest: isBacktest, when, symbol } =
+      swarm.executionContextService.context;
+    const { exchangeName, frameName, strategyName } =
+      swarm.methodContextService.context;
+    const initialValue = typeof this.params.initialData === "function"
+      ? (<() => Data>this.params.initialData)()
+      : this.params.initialData;
+    const currentPrice =
+      await swarm.exchangeConnectionService.getAveragePrice(symbol);
+    let signal: IPublicSignalRow | IScheduledSignalRow;
+    if (
+      signal = await swarm.strategyCoreService.getPendingSignal(
+        isBacktest,
+        symbol,
+        currentPrice,
+        { exchangeName, frameName, strategyName },
+      )
+    ) {
+      return await State._setState<Data>(dispatch, {
+        signalId: signal.id,
+        bucketName: this.params.name,
+        initialValue,
+        backtest: isBacktest,
+        when,
+      });
+    }
+    if (
+      signal = await swarm.strategyCoreService.getScheduledSignal(
+        isBacktest,
+        symbol,
+        currentPrice,
+        { exchangeName, frameName, strategyName },
+      )
+    ) {
+      return await State._setState<Data>(dispatch, {
+        signalId: signal.id,
+        bucketName: this.params.name,
+        initialValue,
+        backtest: isBacktest,
+        when,
+      });
+    }
+    throw new Error(
+      `State.setState requires a pending or scheduled signal for symbol=${symbol} name=${this.params.name}`,
+    );
+  };
+}
 
 /**
  * Global singleton instance of StateLiveAdapter.

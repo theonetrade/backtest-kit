@@ -1690,7 +1690,7 @@ test("PERSIST OMNIBUS: one live lifecycle touches all 16 persist buckets", async
     description: "omnibus touch",
     when: new Date(t0),
   });
-  await State.setState({ counter: 1 }, {
+  await State._setState({ counter: 1 }, {
     signalId: "persist-omnibus",
     bucketName: "persist-omnibus",
     initialValue: {},

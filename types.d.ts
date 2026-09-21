@@ -14065,7 +14065,6 @@ declare function getContext(): Promise<IMethodContext>;
  */
 declare function getRuntimeInfo<Data extends RuntimeData = RuntimeData>(): Promise<IRuntimeInfo<Data>>;
 
-type Dispatch$1<Value extends object = object> = (value: Value) => Value | Promise<Value>;
 /**
  * Returns the latest signal (pending or closed) for the current strategy context.
  *
@@ -14119,86 +14118,6 @@ declare function getLatestSignal(symbol: string): Promise<IPublicSignalRow | nul
  * ```
  */
 declare function getMinutesSinceLatestSignalCreated(symbol: string): Promise<number>;
-/**
- * Reads the state value scoped to the current active signal.
- *
- * Resolves the active pending or scheduled signal automatically from execution context.
- * Throws if neither a pending nor a scheduled signal exists.
- *
- * Automatically detects backtest/live mode from execution context.
- *
- * Intended for LLM-driven capitulation strategies that accumulate per-trade
- * metrics (e.g. peakPercent, minutesOpen) across onActivePing ticks.
- * Profitable trades endure -0.5–2.5% drawdown and reach peak 2–3%+.
- * SL trades show peak < 0.15% (Feb08, Feb13) or never go positive (Feb25).
- * Rule: if minutesOpen >= N and peakPercent < threshold (e.g. 0.3%) — exit.
- *
- * @param symbol - Trading pair symbol
- * @param dto.bucketName - State bucket name
- * @param dto.initialValue - Default value when no persisted state exists
- * @returns Promise resolving to current state value, or initialValue if no signal
- *
- * @deprecated Better use `createSignalState().getState` with codestyle native syntax
- *
- * @example
- * ```typescript
- * import { getSignalState } from "backtest-kit";
- *
- * const { peakPercent, minutesOpen } = await getSignalState({
- *   bucketName: "trade",
- *   initialValue: { peakPercent: 0, minutesOpen: 0 },
- * });
- * if (minutesOpen >= 15 && peakPercent < 0.3) {
- *   await commitMarketClose(symbol); // capitulate — LLM thesis not confirmed
- * }
- * ```
- */
-declare function getSignalState<Value extends object = object>(symbol: string, dto: {
-    bucketName: string;
-    initialValue: Value;
-}): Promise<Value>;
-/**
- * Updates the state value scoped to the current active signal.
- *
- * Resolves the active pending or scheduled signal automatically from execution context.
- * Throws if neither a pending nor a scheduled signal exists.
- *
- * Automatically detects backtest/live mode from execution context.
- *
- * Intended for LLM-driven capitulation strategies that accumulate per-trade
- * metrics (e.g. peakPercent, minutesOpen) across onActivePing ticks.
- * Profitable trades endure -0.5–2.5% drawdown and reach peak 2–3%+.
- * SL trades show peak < 0.15% (Feb08, Feb13) or never go positive (Feb25).
- * Rule: if minutesOpen >= N and peakPercent < threshold (e.g. 0.3%) — exit.
- *
- * @param symbol - Trading pair symbol
- * @param dto.bucketName - State bucket name
- * @param dto.initialValue - Default value when no persisted state exists
- * @param dto.dispatch - New value or updater function receiving current value
- * @returns Promise resolving to updated state value, or initialValue if no signal
- *
- * @deprecated Better use `createSignalState().setState` with codestyle native syntax
- *
- * @example
- * ```typescript
- * import { setSignalState } from "backtest-kit";
- *
- * await setSignalState(
- *   dispatch: (s) => ({
- *     peakPercent: Math.max(s.peakPercent, currentUnrealisedPercent),
- *     minutesOpen: s.minutesOpen + 1,
- *   }),
- *   {
- *     bucketName: "trade",
- *     initialValue: { peakPercent: 0, minutesOpen: 0 },
- *   }
- * );
- * ```
- */
-declare function setSignalState<Value extends object = object>(symbol: string, dispatch: Value | Dispatch$1<Value>, dto: {
-    bucketName: string;
-    initialValue: Value;
-}): Promise<Value>;
 
 /**
  * Reads the session value scoped to the current (symbol, strategy, exchange, frame) context.
@@ -14246,384 +14165,6 @@ declare function getSessionData<Value extends object = object>(symbol: string): 
  * ```
  */
 declare function setSessionData<Value extends object = object>(symbol: string, value: Value | null): Promise<void>;
-
-/**
- * Updater function for setState — receives current value and returns the next value.
- * Used for functional updates to state, e.g. `setState(prev => ({ ...prev, peakPercent: newPeak }))`
- */
-type Dispatch<Value extends object = object> = (value: Value) => Value | Promise<Value>;
-/**
- * Logical namespace for grouping state buckets within a signal, e.g. "trade" or "metrics".
- * Used to scope state values for different purposes within the same signal — e.g. "trade" bucket for tracking peakPercent and minutesOpen, "metrics" bucket for tracking other LLM confirmation metrics.
- */
-type BucketName = string;
-/**
- * Interface for state instance implementations.
- * Defines the contract for local, persist, and dummy backends.
- *
- * Intended use: per-signal mutable state for LLM-driven strategies that track
- * trade confirmation metrics across the position lifetime — e.g. peak unrealised PnL,
- * minutes since entry, and capitulation thresholds.
- *
- * Example shape:
- * ```ts
- * { peakPercent: number; minutesOpen: number }
- * ```
- * Profitable trades endure -0.5–2.5% drawdown yet still reach peak 2–3%+.
- * SL trades either never go positive (Feb25) or show peak < 0.15% (Feb08, Feb13).
- * Capitulation rule: if position open N minutes and peak < threshold (e.g. 0.3%) —
- * LLM thesis was not confirmed by market, exit immediately.
- */
-interface IStateInstance {
-    /**
-     * Initialize the state instance.
-     * @param initial - Whether this is the first initialization
-     */
-    waitForInit(initial: boolean): Promise<void>;
-    /**
-     * Read the current state value.
-     * Returns `initialValue` when the stored `when` is greater than the requested `when`
-     * (look-ahead bias protection).
-     * @param when - Logical timestamp at which the read is happening
-     * @returns Current state value
-     */
-    getState<Value extends object = object>(when: Date): Promise<Value>;
-    /**
-     * Update the state value.
-     * A write with a smaller `when` overwrites an existing record —
-     * that lets a restarted backtest reset live-written state without breaking live.
-     * The dispatch updater receives the look-ahead-guarded current value
-     * (or `initialValue` when the stored `when` is in the future).
-     * @param dispatch - New value or updater function receiving current value
-     * @param when - Logical timestamp this value belongs to
-     * @returns Updated state value
-     */
-    setState<Value extends object = object>(dispatch: Value | Dispatch<Value>, when: Date): Promise<Value>;
-    /**
-     * Releases any resources held by this instance.
-     */
-    dispose(): Promise<void>;
-}
-/**
- * Constructor type for state instance implementations.
- * Used for swapping backends via StateBacktestAdapter / StateLiveAdapter.
- */
-type TStateInstanceCtor = new (initialValue: object, signalId: string, bucketName: string) => IStateInstance;
-/**
- * Public surface of StateBacktestAdapter / StateLiveAdapter — IStateInstance minus waitForInit and dispose.
- * waitForInit and dispose are managed internally by the adapter.
- */
-type TStateAdapter = {
-    [key in Exclude<keyof IStateInstance, "waitForInit" | "dispose">]: any;
-};
-/**
- * Backtest state adapter with pluggable storage backend.
- *
- * Features:
- * - Adapter pattern for swappable state instance implementations
- * - Default backend: StateLocalInstance (in-memory, no disk persistence)
- * - Alternative backends: StatePersistInstance, StateDummyInstance
- * - Convenience methods: useLocal(), usePersist(), useDummy(), useStateAdapter()
- * - Memoized instances per (signalId, bucketName) pair; cleared via disposeSignal() from StateAdapter
- *
- * Primary use case — LLM-driven capitulation rule:
- * Profitable trades endure -0.5–2.5% drawdown and still reach peak 2–3%+.
- * SL trades never go positive (Feb25) or show peak < 0.15% (Feb08, Feb13).
- * Rule: if position open >= N minutes and peakPercent < threshold (e.g. 0.3%),
- * the LLM thesis was not confirmed by market — exit immediately.
- * State tracks `{ peakPercent, minutesOpen }` per signal across onActivePing ticks.
- */
-declare class StateBacktestAdapter implements TStateAdapter {
-    private StateFactory;
-    private getInstance;
-    /**
-     * Disposes all memoized instances for the given signalId.
-     * Called by StateAdapter when a signal is cancelled or closed.
-     * @param signalId - Signal identifier to dispose
-     */
-    disposeSignal: (signalId: string) => void;
-    /**
-     * Read the current state value for a signal.
-     * @param dto.signalId - Signal identifier
-     * @param dto.bucketName - Bucket name
-     * @param dto.initialValue - Default value when no persisted state exists
-     * @param dto.when - Logical timestamp at which the read is happening (look-ahead guard)
-     * @returns Current state value
-     */
-    getState: <Value extends object = object>(dto: {
-        signalId: string;
-        bucketName: BucketName;
-        initialValue: object;
-        when: Date;
-    }) => Promise<Value>;
-    /**
-     * Update the state value for a signal.
-     * @param dispatch - New value or updater function receiving current value
-     * @param dto.signalId - Signal identifier
-     * @param dto.bucketName - Bucket name
-     * @param dto.initialValue - Default value when no persisted state exists
-     * @param dto.when - Logical timestamp this value belongs to
-     * @returns Updated state value
-     */
-    setState: <Value extends object = object>(dispatch: Value | Dispatch<Value>, dto: {
-        signalId: string;
-        bucketName: BucketName;
-        initialValue: object;
-        when: Date;
-    }) => Promise<Value>;
-    /**
-     * Switches to in-memory adapter (default).
-     * All data lives in process memory only.
-     */
-    useLocal: () => void;
-    /**
-     * Switches to file-system backed adapter.
-     * Data is persisted to disk via PersistStateAdapter.
-     */
-    usePersist: () => void;
-    /**
-     * Switches to dummy adapter that discards all writes.
-     */
-    useDummy: () => void;
-    /**
-     * Switches to a custom state adapter implementation.
-     * @param Ctor - Constructor for the custom state instance
-     */
-    useStateAdapter: (Ctor: TStateInstanceCtor) => void;
-    /**
-     * Clears the memoized instance cache.
-     * Call this when process.cwd() changes between strategy iterations
-     * so new instances are created with the updated base path.
-     */
-    clear: () => void;
-}
-/**
- * Live trading state adapter with pluggable storage backend.
- *
- * Features:
- * - Adapter pattern for swappable state instance implementations
- * - Default backend: StatePersistInstance (file-system backed, survives restarts)
- * - Alternative backends: StateLocalInstance, StateDummyInstance
- * - Convenience methods: useLocal(), usePersist(), useDummy(), useStateAdapter()
- * - Memoized instances per (signalId, bucketName) pair; cleared via disposeSignal() from StateAdapter
- *
- * Primary use case — LLM-driven capitulation rule:
- * Profitable trades endure -0.5–2.5% drawdown and still reach peak 2–3%+.
- * SL trades never go positive (Feb25) or show peak < 0.15% (Feb08, Feb13).
- * Rule: if position open >= N minutes and peakPercent < threshold (e.g. 0.3%),
- * the LLM thesis was not confirmed by market — exit immediately.
- * State persists `{ peakPercent, minutesOpen }` per signal across process restarts.
- */
-declare class StateLiveAdapter implements TStateAdapter {
-    private StateFactory;
-    private getInstance;
-    /**
-     * Disposes all memoized instances for the given signalId.
-     * Called by StateAdapter when a signal is cancelled or closed.
-     * @param signalId - Signal identifier to dispose
-     */
-    disposeSignal: (signalId: string) => void;
-    /**
-     * Read the current state value for a signal.
-     * @param dto.signalId - Signal identifier
-     * @param dto.bucketName - Bucket name
-     * @param dto.initialValue - Default value when no persisted state exists
-     * @param dto.when - Logical timestamp at which the read is happening (look-ahead guard)
-     * @returns Current state value
-     */
-    getState: <Value extends object = object>(dto: {
-        signalId: string;
-        bucketName: BucketName;
-        initialValue: object;
-        when: Date;
-    }) => Promise<Value>;
-    /**
-     * Update the state value for a signal.
-     * @param dispatch - New value or updater function receiving current value
-     * @param dto.signalId - Signal identifier
-     * @param dto.bucketName - Bucket name
-     * @param dto.initialValue - Default value when no persisted state exists
-     * @param dto.when - Logical timestamp this value belongs to
-     * @returns Updated state value
-     */
-    setState: <Value extends object = object>(dispatch: Value | Dispatch<Value>, dto: {
-        signalId: string;
-        bucketName: BucketName;
-        initialValue: object;
-        when: Date;
-    }) => Promise<Value>;
-    /**
-     * Switches to in-memory adapter.
-     * All data lives in process memory only.
-     */
-    useLocal: () => void;
-    /**
-     * Switches to file-system backed adapter (default).
-     * Data is persisted to disk via PersistStateAdapter.
-     */
-    usePersist: () => void;
-    /**
-     * Switches to dummy adapter that discards all writes.
-     */
-    useDummy: () => void;
-    /**
-     * Switches to a custom state adapter implementation.
-     * @param Ctor - Constructor for the custom state instance
-     */
-    useStateAdapter: (Ctor: TStateInstanceCtor) => void;
-    /**
-     * Clears the memoized instance cache.
-     * Call this when process.cwd() changes between strategy iterations
-     * so new instances are created with the updated base path.
-     */
-    clear: () => void;
-}
-/**
- * Main state adapter that manages both backtest and live state storage.
- *
- * Features:
- * - Subscribes to signal lifecycle events (cancelled/closed) to dispose stale instances
- * - Routes all operations to StateBacktest or StateLive based on dto.backtest
- * - Singleshot enable pattern prevents duplicate subscriptions
- * - Cleanup function for proper unsubscription
- */
-declare class StateAdapter {
-    /**
-     * Enables state storage by subscribing to signal lifecycle events.
-     * Clears memoized instances in StateBacktest and StateLive when a signal
-     * is cancelled or closed, preventing stale instances from accumulating.
-     * Uses singleshot to ensure one-time subscription.
-     *
-     * @returns Cleanup function that unsubscribes from all emitters
-     */
-    enable: (() => (...args: any[]) => any) & functools_kit.ISingleshotClearable<() => (...args: any[]) => any>;
-    /**
-     * Disables state storage by unsubscribing from signal lifecycle events.
-     * Safe to call multiple times.
-     */
-    disable: () => void;
-    /**
-     * Read the current state value for a signal.
-     * Routes to StateBacktest or StateLive based on dto.backtest.
-     * @param dto.signalId - Signal identifier
-     * @param dto.bucketName - Bucket name
-     * @param dto.initialValue - Default value when no persisted state exists
-     * @param dto.backtest - Flag indicating if the context is backtest or live
-     * @param dto.when - Logical timestamp at which the read is happening (look-ahead guard)
-     * @returns Current state value
-     * @throws Error if adapter is not enabled
-     */
-    getState: <Value extends object = object>(dto: {
-        signalId: string;
-        bucketName: BucketName;
-        initialValue: object;
-        backtest: boolean;
-        when: Date;
-    }) => Promise<Value>;
-    /**
-     * Update the state value for a signal.
-     * Routes to StateBacktest or StateLive based on dto.backtest.
-     * @param dispatch - New value or updater function receiving current value
-     * @param dto.signalId - Signal identifier
-     * @param dto.bucketName - Bucket name
-     * @param dto.initialValue - Default value when no persisted state exists
-     * @param dto.backtest - Flag indicating if the context is backtest or live
-     * @param dto.when - Logical timestamp this value belongs to
-     * @returns Updated state value
-     * @throws Error if adapter is not enabled
-     */
-    setState: <Value extends object = object>(dispatch: Value | Dispatch<Value>, dto: {
-        signalId: string;
-        bucketName: BucketName;
-        initialValue: object;
-        backtest: boolean;
-        when: Date;
-    }) => Promise<Value>;
-}
-/**
- * Global singleton instance of StateAdapter.
- * Provides unified state management for backtest and live trading.
- */
-declare const State: StateAdapter;
-/**
- * Global singleton instance of StateLiveAdapter.
- * Provides live trading state storage with pluggable backends.
- */
-declare const StateLive: StateLiveAdapter;
-/**
- * Global singleton instance of StateBacktestAdapter.
- * Provides backtest state storage with pluggable backends.
- */
-declare const StateBacktest: StateBacktestAdapter;
-
-/**
- * Parameters for createSignalState — bucket name and default value shape.
- */
-interface IStateParams<Value extends object = object> {
-    /** Logical namespace for grouping state buckets within a signal, e.g. "trade" or "metrics". */
-    bucketName: BucketName;
-    /** Default value used when no persisted state exists for the signal. */
-    initialValue: Value;
-}
-/**
- * Reads the current state value for the active pending or scheduled signal.
- * Resolved from execution context — no signalId argument required.
- * @param symbol - Trading pair symbol
- * @returns Current state value
- * @throws Error if no pending or scheduled signal exists
- */
-type GetStateFn<Value extends object = object> = (symbol: string) => Promise<Value>;
-/**
- * Updates the state value for the active pending or scheduled signal.
- * Resolved from execution context — no signalId argument required.
- * @param symbol - Trading pair symbol
- * @param dispatch - New value or updater function receiving current value
- * @returns Updated state value
- * @throws Error if no pending or scheduled signal exists
- */
-type SetStateFn<Value extends object = object> = (symbol: string, dispatch: Value | Dispatch<Value>) => Promise<Value>;
-/**
- * Tuple returned by createSignalState — [getState, setState] bound to the bucket.
- * Both functions resolve the active signal and backtest flag from execution context automatically.
- */
-type SignalStateTuple<Value extends object = object> = [GetStateFn<Value>, SetStateFn<Value>];
-/**
- * Creates a bound [getState, setState] tuple scoped to a bucket and initial value.
- *
- * Both returned functions resolve the active pending or scheduled signal and the
- * backtest/live flag automatically from execution context — no signalId argument required.
- *
- * Automatically detects backtest/live mode from execution context.
- *
- * Intended for LLM-driven capitulation strategies that accumulate per-trade
- * metrics (e.g. peakPercent, minutesOpen) across onActivePing ticks.
- * Profitable trades endure -0.5–2.5% drawdown and reach peak 2–3%+.
- * SL trades show peak < 0.15% (Feb08, Feb13) or never go positive (Feb25).
- * Rule: if minutesOpen >= N and peakPercent < threshold (e.g. 0.3%) — exit.
- *
- * @param params.bucketName - Logical namespace for grouping state buckets within a signal
- * @param params.initialValue - Default value when no persisted state exists
- * @returns Tuple [getState, setState] bound to the bucket and initial value
- *
- * @example
- * ```typescript
- * import { createSignalState } from "backtest-kit";
- *
- * const [getTradeState, setTradeState] = createSignalState({
- *   bucketName: "trade",
- *   initialValue: { peakPercent: 0, minutesOpen: 0 },
- * });
- *
- * // in onActivePing:
- * await setTradeState((s) => ({
- *   peakPercent: Math.max(s.peakPercent, currentUnrealisedPercent),
- *   minutesOpen: s.minutesOpen + 1,
- * }));
- * const { peakPercent, minutesOpen } = await getTradeState();
- * if (minutesOpen >= 15 && peakPercent < 0.3) await commitMarketClose(symbol);
- * ```
- */
-declare function createSignalState<Value extends object = object>(params: IStateParams<Value>): SignalStateTuple<Value>;
 
 /**
  * Writes a value to memory scoped to the current signal.
@@ -31887,6 +31428,363 @@ declare const MemoryLive: MemoryLiveAdapter;
 declare const MemoryBacktest: MemoryBacktestAdapter;
 
 /**
+ * Updater function for setState — receives current value and returns the next value.
+ * Used for functional updates to state, e.g. `setState(prev => ({ ...prev, peakPercent: newPeak }))`
+ */
+type Dispatch<Value extends object = object> = (value: Value) => Value | Promise<Value>;
+/**
+ * Logical namespace for grouping state buckets within a signal, e.g. "trade" or "metrics".
+ * Used to scope state values for different purposes within the same signal — e.g. "trade" bucket for tracking peakPercent and minutesOpen, "metrics" bucket for tracking other LLM confirmation metrics.
+ */
+type BucketName = string;
+/**
+ * Interface for state instance implementations.
+ * Defines the contract for local, persist, and dummy backends.
+ *
+ * Intended use: per-signal mutable state for LLM-driven strategies that track
+ * trade confirmation metrics across the position lifetime — e.g. peak unrealised PnL,
+ * minutes since entry, and capitulation thresholds.
+ *
+ * Example shape:
+ * ```ts
+ * { peakPercent: number; minutesOpen: number }
+ * ```
+ * Profitable trades endure -0.5–2.5% drawdown yet still reach peak 2–3%+.
+ * SL trades either never go positive (Feb25) or show peak < 0.15% (Feb08, Feb13).
+ * Capitulation rule: if position open N minutes and peak < threshold (e.g. 0.3%) —
+ * LLM thesis was not confirmed by market, exit immediately.
+ */
+interface IStateInstance {
+    /**
+     * Initialize the state instance.
+     * @param initial - Whether this is the first initialization
+     */
+    waitForInit(initial: boolean): Promise<void>;
+    /**
+     * Read the current state value.
+     * Returns `initialValue` when the stored `when` is greater than the requested `when`
+     * (look-ahead bias protection).
+     * @param when - Logical timestamp at which the read is happening
+     * @returns Current state value
+     */
+    getState<Value extends object = object>(when: Date): Promise<Value>;
+    /**
+     * Update the state value.
+     * A write with a smaller `when` overwrites an existing record —
+     * that lets a restarted backtest reset live-written state without breaking live.
+     * The dispatch updater receives the look-ahead-guarded current value
+     * (or `initialValue` when the stored `when` is in the future).
+     * @param dispatch - New value or updater function receiving current value
+     * @param when - Logical timestamp this value belongs to
+     * @returns Updated state value
+     */
+    setState<Value extends object = object>(dispatch: Value | Dispatch<Value>, when: Date): Promise<Value>;
+    /**
+     * Releases any resources held by this instance.
+     */
+    dispose(): Promise<void>;
+}
+/**
+ * Constructor type for state instance implementations.
+ * Used for swapping backends via StateBacktestAdapter / StateLiveAdapter.
+ */
+type TStateInstanceCtor = new (initialValue: object, signalId: string, bucketName: string) => IStateInstance;
+/**
+ * Public surface of StateBacktestAdapter / StateLiveAdapter — IStateInstance minus waitForInit and dispose.
+ * waitForInit and dispose are managed internally by the adapter.
+ */
+type TStateAdapter = {
+    [key in Exclude<keyof IStateInstance, "waitForInit" | "dispose">]: any;
+};
+/**
+ * Backtest state adapter with pluggable storage backend.
+ *
+ * Features:
+ * - Adapter pattern for swappable state instance implementations
+ * - Default backend: StateLocalInstance (in-memory, no disk persistence)
+ * - Alternative backends: StatePersistInstance, StateDummyInstance
+ * - Convenience methods: useLocal(), usePersist(), useDummy(), useStateAdapter()
+ * - Memoized instances per (signalId, bucketName) pair; cleared via disposeSignal() from StateAdapter
+ *
+ * Primary use case — LLM-driven capitulation rule:
+ * Profitable trades endure -0.5–2.5% drawdown and still reach peak 2–3%+.
+ * SL trades never go positive (Feb25) or show peak < 0.15% (Feb08, Feb13).
+ * Rule: if position open >= N minutes and peakPercent < threshold (e.g. 0.3%),
+ * the LLM thesis was not confirmed by market — exit immediately.
+ * State tracks `{ peakPercent, minutesOpen }` per signal across onActivePing ticks.
+ */
+declare class StateBacktestAdapter implements TStateAdapter {
+    private StateFactory;
+    private getInstance;
+    /**
+     * Disposes all memoized instances for the given signalId.
+     * Called by StateAdapter when a signal is cancelled or closed.
+     * @param signalId - Signal identifier to dispose
+     */
+    disposeSignal: (signalId: string) => void;
+    /**
+     * Read the current state value for a signal.
+     * @param dto.signalId - Signal identifier
+     * @param dto.bucketName - Bucket name
+     * @param dto.initialValue - Default value when no persisted state exists
+     * @param dto.when - Logical timestamp at which the read is happening (look-ahead guard)
+     * @returns Current state value
+     */
+    getState: <Value extends object = object>(dto: {
+        signalId: string;
+        bucketName: BucketName;
+        initialValue: object;
+        when: Date;
+    }) => Promise<Value>;
+    /**
+     * Update the state value for a signal.
+     * @param dispatch - New value or updater function receiving current value
+     * @param dto.signalId - Signal identifier
+     * @param dto.bucketName - Bucket name
+     * @param dto.initialValue - Default value when no persisted state exists
+     * @param dto.when - Logical timestamp this value belongs to
+     * @returns Updated state value
+     */
+    setState: <Value extends object = object>(dispatch: Value | Dispatch<Value>, dto: {
+        signalId: string;
+        bucketName: BucketName;
+        initialValue: object;
+        when: Date;
+    }) => Promise<Value>;
+    /**
+     * Switches to in-memory adapter (default).
+     * All data lives in process memory only.
+     */
+    useLocal: () => void;
+    /**
+     * Switches to file-system backed adapter.
+     * Data is persisted to disk via PersistStateAdapter.
+     */
+    usePersist: () => void;
+    /**
+     * Switches to dummy adapter that discards all writes.
+     */
+    useDummy: () => void;
+    /**
+     * Switches to a custom state adapter implementation.
+     * @param Ctor - Constructor for the custom state instance
+     */
+    useStateAdapter: (Ctor: TStateInstanceCtor) => void;
+    /**
+     * Clears the memoized instance cache.
+     * Call this when process.cwd() changes between strategy iterations
+     * so new instances are created with the updated base path.
+     */
+    clear: () => void;
+}
+/**
+ * Live trading state adapter with pluggable storage backend.
+ *
+ * Features:
+ * - Adapter pattern for swappable state instance implementations
+ * - Default backend: StatePersistInstance (file-system backed, survives restarts)
+ * - Alternative backends: StateLocalInstance, StateDummyInstance
+ * - Convenience methods: useLocal(), usePersist(), useDummy(), useStateAdapter()
+ * - Memoized instances per (signalId, bucketName) pair; cleared via disposeSignal() from StateAdapter
+ *
+ * Primary use case — LLM-driven capitulation rule:
+ * Profitable trades endure -0.5–2.5% drawdown and still reach peak 2–3%+.
+ * SL trades never go positive (Feb25) or show peak < 0.15% (Feb08, Feb13).
+ * Rule: if position open >= N minutes and peakPercent < threshold (e.g. 0.3%),
+ * the LLM thesis was not confirmed by market — exit immediately.
+ * State persists `{ peakPercent, minutesOpen }` per signal across process restarts.
+ */
+declare class StateLiveAdapter implements TStateAdapter {
+    private StateFactory;
+    private getInstance;
+    /**
+     * Disposes all memoized instances for the given signalId.
+     * Called by StateAdapter when a signal is cancelled or closed.
+     * @param signalId - Signal identifier to dispose
+     */
+    disposeSignal: (signalId: string) => void;
+    /**
+     * Read the current state value for a signal.
+     * @param dto.signalId - Signal identifier
+     * @param dto.bucketName - Bucket name
+     * @param dto.initialValue - Default value when no persisted state exists
+     * @param dto.when - Logical timestamp at which the read is happening (look-ahead guard)
+     * @returns Current state value
+     */
+    getState: <Value extends object = object>(dto: {
+        signalId: string;
+        bucketName: BucketName;
+        initialValue: object;
+        when: Date;
+    }) => Promise<Value>;
+    /**
+     * Update the state value for a signal.
+     * @param dispatch - New value or updater function receiving current value
+     * @param dto.signalId - Signal identifier
+     * @param dto.bucketName - Bucket name
+     * @param dto.initialValue - Default value when no persisted state exists
+     * @param dto.when - Logical timestamp this value belongs to
+     * @returns Updated state value
+     */
+    setState: <Value extends object = object>(dispatch: Value | Dispatch<Value>, dto: {
+        signalId: string;
+        bucketName: BucketName;
+        initialValue: object;
+        when: Date;
+    }) => Promise<Value>;
+    /**
+     * Switches to in-memory adapter.
+     * All data lives in process memory only.
+     */
+    useLocal: () => void;
+    /**
+     * Switches to file-system backed adapter (default).
+     * Data is persisted to disk via PersistStateAdapter.
+     */
+    usePersist: () => void;
+    /**
+     * Switches to dummy adapter that discards all writes.
+     */
+    useDummy: () => void;
+    /**
+     * Switches to a custom state adapter implementation.
+     * @param Ctor - Constructor for the custom state instance
+     */
+    useStateAdapter: (Ctor: TStateInstanceCtor) => void;
+    /**
+     * Clears the memoized instance cache.
+     * Call this when process.cwd() changes between strategy iterations
+     * so new instances are created with the updated base path.
+     */
+    clear: () => void;
+}
+/**
+ * Per-signal mutable state scoped by state name.
+ *
+ * Works like a value bound to the CURRENT pending or scheduled signal:
+ * `new State({ name: "trade", initialData: { peakPercent: 0 } }).setState(...)`
+ * inside any strategy lifecycle callback. No context is passed through
+ * arguments — every instance method resolves the signal, mode and timestamp
+ * itself from `backtest.methodContextService` / `backtest.executionContextService`,
+ * so the class is unavailable outside async_hooks lifecycle callbacks by design.
+ *
+ * `initialData` provides the default value when no state exists yet — either a
+ * plain object or a factory returning one (the factory yields a fresh object
+ * per access, so the default is never shared by reference).
+ *
+ * Look-ahead bias protection: a read at a `when` earlier than the stored `when`
+ * yields `initialData`, and a write with a smaller `when` overwrites (a
+ * restarted backtest resets live-written state).
+ *
+ * Requires an explicit `State.enable()` call before use — the subscription it
+ * creates disposes per-signal instances when the signal is cancelled or
+ * closed, preventing stale instances from accumulating.
+ *
+ * @example
+ * ```typescript
+ * State.enable();
+ *
+ * const state = new State({
+ *   name: "trade",
+ *   initialData: () => ({ peakPercent: 0, minutesOpen: 0 }),
+ * });
+ *
+ * // inside a strategy callback:
+ * await state.setState((prev) => ({
+ *   peakPercent: Math.max(prev.peakPercent, currentPercent),
+ *   minutesOpen: prev.minutesOpen + 1,
+ * }));
+ * const { peakPercent } = await state.getState();
+ * ```
+ */
+declare class State<Data extends object = object> {
+    readonly params: {
+        name: BucketName;
+        initialData: Data | (() => Data);
+    };
+    constructor(params: {
+        name: BucketName;
+        initialData: Data | (() => Data);
+    });
+    /**
+     * Enables state storage by subscribing to signal lifecycle events.
+     * Clears memoized instances in StateBacktest and StateLive when a signal
+     * is cancelled or closed, preventing stale instances from accumulating.
+     * Uses singleshot to ensure one-time subscription.
+     *
+     * @returns Cleanup function that unsubscribes from all emitters
+     */
+    static enable: (() => (...args: any[]) => any) & functools_kit.ISingleshotClearable<() => (...args: any[]) => any>;
+    /**
+     * Disables state storage by unsubscribing from signal lifecycle events.
+     * Safe to call multiple times.
+     */
+    static disable: () => void;
+    /**
+     * Context-free read of the current state value for a signal.
+     * Routes to StateBacktest or StateLive based on dto.backtest.
+     * @param dto.signalId - Signal identifier
+     * @param dto.bucketName - State name
+     * @param dto.initialValue - Default value when no persisted state exists
+     * @param dto.backtest - Flag indicating if the context is backtest or live
+     * @param dto.when - Logical timestamp at which the read is happening (look-ahead guard)
+     * @returns Current state value
+     * @throws Error if State is not enabled
+     */
+    static _getState: <Value extends object = object>(dto: {
+        signalId: string;
+        bucketName: BucketName;
+        initialValue: object;
+        backtest: boolean;
+        when: Date;
+    }) => Promise<Value>;
+    /**
+     * Context-free update of the state value for a signal.
+     * Routes to StateBacktest or StateLive based on dto.backtest.
+     * @param dispatch - New value or updater function receiving current value
+     * @param dto.signalId - Signal identifier
+     * @param dto.bucketName - State name
+     * @param dto.initialValue - Default value when no persisted state exists
+     * @param dto.backtest - Flag indicating if the context is backtest or live
+     * @param dto.when - Logical timestamp this value belongs to
+     * @returns Updated state value
+     * @throws Error if State is not enabled
+     */
+    static _setState: <Value extends object = object>(dispatch: Value | Dispatch<Value>, dto: {
+        signalId: string;
+        bucketName: BucketName;
+        initialValue: object;
+        backtest: boolean;
+        when: Date;
+    }) => Promise<Value>;
+    /**
+     * Read the current state value for the active pending or scheduled signal.
+     * Resolves the signal, mode and timestamp from execution context — no context arguments required.
+     * @returns Current state value (initialData when nothing was written yet)
+     * @throws Error if no execution/method context or no pending/scheduled signal exists
+     */
+    getState: () => Promise<Data>;
+    /**
+     * Update the state value for the active pending or scheduled signal.
+     * Resolves the signal, mode and timestamp from execution context — no context arguments required.
+     * @param dispatch - New value or updater function receiving current value
+     * @returns Updated state value
+     * @throws Error if no execution/method context or no pending/scheduled signal exists
+     */
+    setState: (dispatch: Data | Dispatch<Data>) => Promise<Data>;
+}
+/**
+ * Global singleton instance of StateLiveAdapter.
+ * Provides live trading state storage with pluggable backends.
+ */
+declare const StateLive: StateLiveAdapter;
+/**
+ * Global singleton instance of StateBacktestAdapter.
+ * Provides backtest state storage with pluggable backends.
+ */
+declare const StateBacktest: StateBacktestAdapter;
+
+/**
  * Logical name of a dictionary, e.g. "llm" or "levels".
  * Used to scope dictionary entries for different purposes within the same signal —
  * the name becomes the persisted file name (like `name` in Cache.file).
@@ -47168,4 +47066,4 @@ declare class GeneralUnexpectedError extends Error {
     static fromError(error: object): GeneralUnexpectedError;
 }
 
-export { ActionBase, type ActivateScheduledCommit, type ActivateScheduledCommitNotification, type ActivePingContract, type AfterEndContract, type AverageBuyCommit, type AverageBuyCommitNotification, BROKER_ORDER_VERDICT, Backtest, type BacktestStatisticsModel, type BeforeStartContract, Breakeven, type BreakevenAvailableNotification, type BreakevenCommit, type BreakevenCommitNotification, type BreakevenContract, type BreakevenData, type BreakevenEvent, type BreakevenStatisticsModel, Broker, type BrokerActivePingPayload, type BrokerAverageBuyPayload, BrokerBase, type BrokerBreakevenPayload, type BrokerIdlePingPayload, type BrokerOrderCheckPayload, type BrokerOrderClosePayload, type BrokerOrderOpenPayload, type BrokerPartialLossPayload, type BrokerPartialProfitPayload, type BrokerPendingClosePayload, type BrokerPendingOpenPayload, type BrokerScheduleCancelledPayload, type BrokerScheduleOpenPayload, type BrokerSchedulePingPayload, type BrokerTrailingStopPayload, type BrokerTrailingTakePayload, Cache, type CancelScheduledCommit, type CancelScheduledCommitNotification, type CandleData, type CandleInterval, type ClosePendingCommit, type ClosePendingCommitNotification, type ColumnConfig, type ColumnModel, type CommitPayload, Constant, type CriticalErrorNotification, Cron, type CronCallback, type CronEntry, type CronHandle, Dictionary, DictionaryBacktest, DictionaryBacktestAdapter, type DictionaryData, DictionaryLive, DictionaryLiveAdapter, type DoneContract, Dump, type EntityId, Exchange, ExecutionContextService, type FrameInterval, GeneralExpectedError, GeneralUnexpectedError, type GlobalConfig, Heat, type HeatmapStatisticsModel, HighestProfit, type HighestProfitContract, type HighestProfitEvent, type HighestProfitStatisticsModel, type IActionSchema, type IActivateScheduledCommitRow, type IAgentLogger, type IAggregatedTradeData, type IBidData, type IBreakevenCommitRow, type IBroker, type IBrokerOrderVerdict, type ICandleData, type ICommitRow, type IDictionaryInstance, type IDumpContext, type IDumpInstance, type IExchangeSchema, type IFrameSchema, type IHeatmapRow, type ILog, type ILogEntry, type ILogger, type IMCPAverageBuyCommand, type IMCPContext, type IMCPImageMessage, type IMCPMessage, type IMCPPositionCloseCommand, type IMCPPositionOpenCommand, type IMCPSchema, type IMCPSignalNotifyCommand, type IMCPTextMessage, type IMarkdownDumpOptions, type IMemoryInstance, type INotificationUtils, type IOrderBookData, type IPartialLossCommitRow, type IPartialProfitCommitRow, type IPersistBase, type IPersistBreakevenInstance, type IPersistCandleInstance, type IPersistDictionaryInstance, type IPersistIntervalInstance, type IPersistLogInstance, type IPersistMeasureInstance, type IPersistMemoryInstance, type IPersistNotificationInstance, type IPersistPartialInstance, type IPersistRecentInstance, type IPersistRiskInstance, type IPersistScheduleInstance, type IPersistSessionInstance, type IPersistSignalInstance, type IPersistStateInstance, type IPersistStorageInstance, type IPersistStrategyInstance, type IPositionSizeATRParams, type IPositionSizeFixedPercentageParams, type IPositionSizeKellyParams, type IPublicAction, type IPublicCandleData, type IPublicSignalRow, type IRecentUtils, type IReportDumpOptions, type IRiskActivePosition, type IRiskCheckArgs, type IRiskSchema, type IRiskSignalRow, type IRiskValidation, type IRiskValidationFn, type IRiskValidationPayload, type IRuntimeInfo, type IRuntimeRange, type IScheduledSignalCancelRow, type IScheduledSignalRow, type ISessionInstance, type ISignalDto, type ISignalIntervalDto, type ISignalRow, type ISizingCalculateParams, type ISizingCalculateParamsATR, type ISizingCalculateParamsFixedPercentage, type ISizingCalculateParamsKelly, type ISizingParams, type ISizingParamsATR, type ISizingParamsFixedPercentage, type ISizingParamsKelly, type ISizingSchema, type ISizingSchemaATR, type ISizingSchemaFixedPercentage, type ISizingSchemaKelly, type IStateInstance, type IStorageSignalRow, type IStorageUtils, type IStrategyPnL, type IStrategyResult, type IStrategySchema, type IStrategyTickResult, type IStrategyTickResultActive, type IStrategyTickResultCancelled, type IStrategyTickResultClosed, type IStrategyTickResultIdle, type IStrategyTickResultOpened, type IStrategyTickResultScheduled, type IStrategyTickResultWaiting, type ISweepBest, type ISweepGridAxes, type ISweepGridPoint, type ISweepIdea, type ISweepMetricReport, type ISweepPointReport, type ISweepResult, type ISweepSchema, type ISweepTrack, type ISweepTrade, type ITrailingStopCommitRow, type ITrailingTakeCommitRow, type IWalkerResults, type IWalkerSchema, type IWalkerStrategyResult, type IdlePingContract, type InfoErrorNotification, Interval, type IntervalData, Live, type LiveStatisticsModel, Log, type LogData, Lookup, MCP, type MCPMessageId, Markdown, MarkdownFileBase, MarkdownFolderBase, type MarkdownName, MarkdownWriter, MaxDrawdown, type MaxDrawdownContract, type MaxDrawdownEvent, type MaxDrawdownStatisticsModel, type MeasureData, Memory, MemoryBacktest, MemoryBacktestAdapter, type MemoryData, MemoryLive, MemoryLiveAdapter, type MessageModel, type MessageRole, type MessageToolCall, MethodContextService, type MetricStats, Notification, NotificationBacktest, type NotificationData, NotificationLive, type NotificationModel, type OrderCheckContract, type OrderCloseContract, type OrderContinueContract, OrderDeletedError, type OrderFillCloseContract, type OrderFillContract, type OrderFillOpenContract, type OrderOpenContract, type OrderRejectCloseContract, type OrderRejectContract, type OrderRejectOpenContract, OrderRejectedError, type OrderStopContract, type OrderSyncCheckNotification, type OrderSyncCloseNotification, type OrderSyncContract, type OrderSyncOpenNotification, OrderTransientError, Partial$1 as Partial, type PartialData, type PartialEvent, type PartialLossAvailableNotification, type PartialLossCommit, type PartialLossCommitNotification, type PartialLossContract, type PartialProfitAvailableNotification, type PartialProfitCommit, type PartialProfitCommitNotification, type PartialProfitContract, type PartialStatisticsModel, type PauseContract, Performance, type PerformanceContract, type PerformanceMetricType, type PerformanceStatisticsModel, PersistBase, PersistBreakevenAdapter, PersistBreakevenInstance, PersistCandleAdapter, PersistCandleInstance, PersistDictionaryAdapter, PersistDictionaryInstance, PersistIntervalAdapter, PersistIntervalInstance, PersistLogAdapter, PersistLogInstance, PersistMeasureAdapter, PersistMeasureInstance, PersistMemoryAdapter, PersistMemoryInstance, PersistNotificationAdapter, PersistNotificationInstance, PersistPartialAdapter, PersistPartialInstance, PersistRecentAdapter, PersistRecentInstance, PersistRiskAdapter, PersistRiskInstance, PersistScheduleAdapter, PersistScheduleInstance, PersistSessionAdapter, PersistSessionInstance, PersistSignalAdapter, PersistSignalInstance, PersistStateAdapter, PersistStateInstance, PersistStorageAdapter, PersistStorageInstance, PersistStrategyAdapter, PersistStrategyInstance, Position, PositionSize, type ProgressBacktestContract, type ProgressWalkerContract, Recent, RecentBacktest, type RecentData, RecentLive, Reflect, Report, ReportBase, type ReportName, ReportWriter, Risk, type RiskContract, type RiskData, type RiskEvent, type RiskRejectionNotification, type RiskStatisticsModel, type RuntimeData, Schedule, type ScheduleData, type ScheduleEventContract, type SchedulePingContract, type ScheduleStatisticsModel, type ScheduledEvent, Session, SessionBacktest, type SessionData, SessionLive, type SignalCancelledNotification, type SignalClosedNotification, type SignalData, type SignalEventContract, type SignalInfoContract, type SignalInfoNotification, type SignalInterval, type SignalOpenedNotification, type SignalScheduledNotification, State, StateBacktest, StateBacktestAdapter, type StateData, StateLive, StateLiveAdapter, Storage, StorageBacktest, type StorageData, StorageLive, Strategy, type StrategyActionType, type StrategyCancelReason, type StrategyCloseReason, type StrategyCommitContract, type StrategyData, type StrategyEvent, type StrategyPauseNotification, type StrategyStatisticsModel, type StrategyStatus, Sweep, Sync, type SyncEvent, type SyncStatisticsModel, System, type TBrokerCtor, type TDictionaryInstanceCtor, type TDumpInstanceCtor, type TLogCtor, type TMarkdownBase, type TMemoryInstanceCtor, type TNotificationUtilsCtor, type TPersistBase, type TPersistBaseCtor, type TPersistBreakevenInstanceCtor, type TPersistCandleInstanceCtor, type TPersistDictionaryInstanceCtor, type TPersistIntervalInstanceCtor, type TPersistLogInstanceCtor, type TPersistMeasureInstanceCtor, type TPersistMemoryInstanceCtor, type TPersistNotificationInstanceCtor, type TPersistPartialInstanceCtor, type TPersistRecentInstanceCtor, type TPersistRiskInstanceCtor, type TPersistScheduleInstanceCtor, type TPersistSessionInstanceCtor, type TPersistSignalInstanceCtor, type TPersistStateInstanceCtor, type TPersistStorageInstanceCtor, type TPersistStrategyInstanceCtor, type TRecentUtilsCtor, type TReportBase, type TSessionInstanceCtor, type TStateInstanceCtor, type TStorageUtilsCtor, type TickEvent, type TrailingStopCommit, type TrailingStopCommitNotification, type TrailingTakeCommit, type TrailingTakeCommitNotification, type ValidationErrorNotification, Walker, type WalkerCompleteContract, type WalkerContract, type WalkerMetric, type SignalData$1 as WalkerSignalData, type WalkerStatisticsModel, addActionSchema, addExchangeSchema, addFrameSchema, addMCPSchema, addRiskSchema, addSizingSchema, addStrategySchema, addSweepSchema, addWalkerSchema, alignToInterval, beginContext, beginTime, cacheCandles, checkCandles, commitActivateScheduled, commitAverageBuy, commitBreakeven, commitCancelScheduled, commitClosePending, commitCreateSignal, commitCreateStopLoss, commitCreateTakeProfit, commitPartialLoss, commitPartialLossCost, commitPartialProfit, commitPartialProfitCost, commitSignalNotify, commitTrailingStop, commitTrailingStopCost, commitTrailingTake, commitTrailingTakeCost, createSignalState, dumpAgentAnswer, dumpError, dumpJson, dumpMCPStatus, dumpRecord, dumpTable, dumpText, emitters, formatPrice, formatQuantity, get, getActionSchema, getAggregatedTrades, getAveragePrice, getBacktestTimeframe, getBreakeven, getCandles, getClosePrice, getColumns, getConfig, getContext, getDate, getDefaultColumns, getDefaultConfig, getEffectivePriceOpen, getExchangeSchema, getFrameSchema, getLatestSignal, getLiquidationPrice, getMCPSchema, getMaxDrawdownDistancePnlCost, getMaxDrawdownDistancePnlPercentage, getMinutesSinceLatestSignalCreated, getMode, getNextCandles, getOrderBook, getPendingSignal, getPositionActiveMinutes, getPositionCountdownMinutes, getPositionDrawdownMinutes, getPositionEffectivePrice, getPositionEntries, getPositionEntryOverlap, getPositionEstimateMinutes, getPositionHighestMaxDrawdownPnlCost, getPositionHighestMaxDrawdownPnlPercentage, getPositionHighestPnlCost, getPositionHighestPnlPercentage, getPositionHighestProfitBreakeven, getPositionHighestProfitDistancePnlCost, getPositionHighestProfitDistancePnlPercentage, getPositionHighestProfitMinutes, getPositionHighestProfitPrice, getPositionHighestProfitTimestamp, getPositionInvestedCost, getPositionInvestedCount, getPositionLevels, getPositionMaxDrawdownMinutes, getPositionMaxDrawdownPnlCost, getPositionMaxDrawdownPnlPercentage, getPositionMaxDrawdownPrice, getPositionMaxDrawdownTimestamp, getPositionPartialOverlap, getPositionPartials, getPositionPnlCost, getPositionPnlPercent, getPositionWaitingMinutes, getPriceScale, getRawCandles, getRemainingCostBasis, getRiskSchema, getRuntimeInfo, getScheduledSignal, getSessionData, getSignalState, getSizingSchema, getStrategyPaused, getStrategySchema, getStrategyStatus, getSweepSchema, getSymbol, getTimestamp, getTotalClosed, getTotalPercentHeld, getWalkerSchema, hasNoPendingSignal, hasNoScheduledSignal, hasTradeContext, intervalStart, intervalStepMs, investedCostToPercent, backtest as lib, listExchangeSchema, listFrameSchema, listMCPSchema, listMemory, listRiskSchema, listSizingSchema, listStrategySchema, listSweepSchema, listWalkerSchema, listenActivePing, listenActivePingFilter, listenActivePingOnce, listenActivePingUnique, listenAfterEnd, listenAfterEndFilter, listenAfterEndOnce, listenBacktestProgress, listenBeforeStart, listenBeforeStartFilter, listenBeforeStartOnce, listenBreakevenAvailable, listenBreakevenAvailableFilter, listenBreakevenAvailableOnce, listenBreakevenAvailableUnique, listenCheck, listenDoneBacktest, listenDoneBacktestFilter, listenDoneBacktestOnce, listenDoneLive, listenDoneLiveFilter, listenDoneLiveOnce, listenDoneWalker, listenDoneWalkerFilter, listenDoneWalkerOnce, listenError, listenExit, listenHighestProfit, listenHighestProfitFilter, listenHighestProfitOnce, listenHighestProfitUnique, listenIdlePing, listenIdlePingFilter, listenIdlePingOnce, listenMaxDrawdown, listenMaxDrawdownFilter, listenMaxDrawdownOnce, listenMaxDrawdownUnique, listenOrderContinue, listenOrderFill, listenOrderReject, listenOrderSchedule, listenOrderScheduleUnique, listenOrderStop, listenPartialLossAvailable, listenPartialLossAvailableFilter, listenPartialLossAvailableOnce, listenPartialLossAvailableUnique, listenPartialProfitAvailable, listenPartialProfitAvailableFilter, listenPartialProfitAvailableOnce, listenPartialProfitAvailableUnique, listenPause, listenPauseFilter, listenPauseOnce, listenPerformance, listenRisk, listenRiskFilter, listenRiskOnce, listenSchedulePing, listenSchedulePingFilter, listenSchedulePingOnce, listenSchedulePingUnique, listenSignal, listenSignalActive, listenSignalActiveUnique, listenSignalBacktest, listenSignalBacktestActive, listenSignalBacktestActiveUnique, listenSignalBacktestCancelled, listenSignalBacktestCancelledUnique, listenSignalBacktestClosed, listenSignalBacktestClosedUnique, listenSignalBacktestFilter, listenSignalBacktestIdle, listenSignalBacktestOnce, listenSignalBacktestOpened, listenSignalBacktestOpenedUnique, listenSignalBacktestScheduled, listenSignalBacktestScheduledUnique, listenSignalBacktestUnique, listenSignalBacktestWaiting, listenSignalBacktestWaitingUnique, listenSignalCancelled, listenSignalCancelledUnique, listenSignalClosed, listenSignalClosedUnique, listenSignalEvent, listenSignalEventFilter, listenSignalEventOnce, listenSignalEventUnique, listenSignalFilter, listenSignalIdle, listenSignalLive, listenSignalLiveActive, listenSignalLiveActiveUnique, listenSignalLiveCancelled, listenSignalLiveCancelledUnique, listenSignalLiveClosed, listenSignalLiveClosedUnique, listenSignalLiveFilter, listenSignalLiveIdle, listenSignalLiveOnce, listenSignalLiveOpened, listenSignalLiveOpenedUnique, listenSignalLiveScheduled, listenSignalLiveScheduledUnique, listenSignalLiveUnique, listenSignalLiveWaiting, listenSignalLiveWaitingUnique, listenSignalNotify, listenSignalNotifyFilter, listenSignalNotifyOnce, listenSignalNotifyUnique, listenSignalOnce, listenSignalOpened, listenSignalOpenedUnique, listenSignalScheduled, listenSignalScheduledUnique, listenSignalUnique, listenSignalWaiting, listenSignalWaitingUnique, listenStrategyCommit, listenStrategyCommitFilter, listenStrategyCommitOnce, listenStrategyCommitUnique, listenSync, listenValidation, listenWalker, listenWalkerComplete, listenWalkerFilter, listenWalkerOnce, listenWalkerProgress, overrideActionSchema, overrideExchangeSchema, overrideFrameSchema, overrideMCPSchema, overrideRiskSchema, overrideSizingSchema, overrideStrategySchema, overrideSweepSchema, overrideWalkerSchema, parseArgs, percentDiff, percentToCloseCost, percentValue, readMemory, removeMemory, roundTicks, runInMockContext, searchMemory, set, setColumns, setConfig, setLogger, setSessionData, setSignalState, setStrategyPaused, shutdown, slPercentShiftToPrice, slPriceToPercentShift, stopStrategy, toPlainString, toProfitLossDto, tpPercentShiftToPrice, tpPriceToPercentShift, validate, validateCandles, validateCommonSignal, validatePendingSignal, validateScheduledSignal, validateSignal, waitForCandle, waitForReady, warmCandles, writeMemory };
+export { ActionBase, type ActivateScheduledCommit, type ActivateScheduledCommitNotification, type ActivePingContract, type AfterEndContract, type AverageBuyCommit, type AverageBuyCommitNotification, BROKER_ORDER_VERDICT, Backtest, type BacktestStatisticsModel, type BeforeStartContract, Breakeven, type BreakevenAvailableNotification, type BreakevenCommit, type BreakevenCommitNotification, type BreakevenContract, type BreakevenData, type BreakevenEvent, type BreakevenStatisticsModel, Broker, type BrokerActivePingPayload, type BrokerAverageBuyPayload, BrokerBase, type BrokerBreakevenPayload, type BrokerIdlePingPayload, type BrokerOrderCheckPayload, type BrokerOrderClosePayload, type BrokerOrderOpenPayload, type BrokerPartialLossPayload, type BrokerPartialProfitPayload, type BrokerPendingClosePayload, type BrokerPendingOpenPayload, type BrokerScheduleCancelledPayload, type BrokerScheduleOpenPayload, type BrokerSchedulePingPayload, type BrokerTrailingStopPayload, type BrokerTrailingTakePayload, Cache, type CancelScheduledCommit, type CancelScheduledCommitNotification, type CandleData, type CandleInterval, type ClosePendingCommit, type ClosePendingCommitNotification, type ColumnConfig, type ColumnModel, type CommitPayload, Constant, type CriticalErrorNotification, Cron, type CronCallback, type CronEntry, type CronHandle, Dictionary, DictionaryBacktest, DictionaryBacktestAdapter, type DictionaryData, DictionaryLive, DictionaryLiveAdapter, type DoneContract, Dump, type EntityId, Exchange, ExecutionContextService, type FrameInterval, GeneralExpectedError, GeneralUnexpectedError, type GlobalConfig, Heat, type HeatmapStatisticsModel, HighestProfit, type HighestProfitContract, type HighestProfitEvent, type HighestProfitStatisticsModel, type IActionSchema, type IActivateScheduledCommitRow, type IAgentLogger, type IAggregatedTradeData, type IBidData, type IBreakevenCommitRow, type IBroker, type IBrokerOrderVerdict, type ICandleData, type ICommitRow, type IDictionaryInstance, type IDumpContext, type IDumpInstance, type IExchangeSchema, type IFrameSchema, type IHeatmapRow, type ILog, type ILogEntry, type ILogger, type IMCPAverageBuyCommand, type IMCPContext, type IMCPImageMessage, type IMCPMessage, type IMCPPositionCloseCommand, type IMCPPositionOpenCommand, type IMCPSchema, type IMCPSignalNotifyCommand, type IMCPTextMessage, type IMarkdownDumpOptions, type IMemoryInstance, type INotificationUtils, type IOrderBookData, type IPartialLossCommitRow, type IPartialProfitCommitRow, type IPersistBase, type IPersistBreakevenInstance, type IPersistCandleInstance, type IPersistDictionaryInstance, type IPersistIntervalInstance, type IPersistLogInstance, type IPersistMeasureInstance, type IPersistMemoryInstance, type IPersistNotificationInstance, type IPersistPartialInstance, type IPersistRecentInstance, type IPersistRiskInstance, type IPersistScheduleInstance, type IPersistSessionInstance, type IPersistSignalInstance, type IPersistStateInstance, type IPersistStorageInstance, type IPersistStrategyInstance, type IPositionSizeATRParams, type IPositionSizeFixedPercentageParams, type IPositionSizeKellyParams, type IPublicAction, type IPublicCandleData, type IPublicSignalRow, type IRecentUtils, type IReportDumpOptions, type IRiskActivePosition, type IRiskCheckArgs, type IRiskSchema, type IRiskSignalRow, type IRiskValidation, type IRiskValidationFn, type IRiskValidationPayload, type IRuntimeInfo, type IRuntimeRange, type IScheduledSignalCancelRow, type IScheduledSignalRow, type ISessionInstance, type ISignalDto, type ISignalIntervalDto, type ISignalRow, type ISizingCalculateParams, type ISizingCalculateParamsATR, type ISizingCalculateParamsFixedPercentage, type ISizingCalculateParamsKelly, type ISizingParams, type ISizingParamsATR, type ISizingParamsFixedPercentage, type ISizingParamsKelly, type ISizingSchema, type ISizingSchemaATR, type ISizingSchemaFixedPercentage, type ISizingSchemaKelly, type IStateInstance, type IStorageSignalRow, type IStorageUtils, type IStrategyPnL, type IStrategyResult, type IStrategySchema, type IStrategyTickResult, type IStrategyTickResultActive, type IStrategyTickResultCancelled, type IStrategyTickResultClosed, type IStrategyTickResultIdle, type IStrategyTickResultOpened, type IStrategyTickResultScheduled, type IStrategyTickResultWaiting, type ISweepBest, type ISweepGridAxes, type ISweepGridPoint, type ISweepIdea, type ISweepMetricReport, type ISweepPointReport, type ISweepResult, type ISweepSchema, type ISweepTrack, type ISweepTrade, type ITrailingStopCommitRow, type ITrailingTakeCommitRow, type IWalkerResults, type IWalkerSchema, type IWalkerStrategyResult, type IdlePingContract, type InfoErrorNotification, Interval, type IntervalData, Live, type LiveStatisticsModel, Log, type LogData, Lookup, MCP, type MCPMessageId, Markdown, MarkdownFileBase, MarkdownFolderBase, type MarkdownName, MarkdownWriter, MaxDrawdown, type MaxDrawdownContract, type MaxDrawdownEvent, type MaxDrawdownStatisticsModel, type MeasureData, Memory, MemoryBacktest, MemoryBacktestAdapter, type MemoryData, MemoryLive, MemoryLiveAdapter, type MessageModel, type MessageRole, type MessageToolCall, MethodContextService, type MetricStats, Notification, NotificationBacktest, type NotificationData, NotificationLive, type NotificationModel, type OrderCheckContract, type OrderCloseContract, type OrderContinueContract, OrderDeletedError, type OrderFillCloseContract, type OrderFillContract, type OrderFillOpenContract, type OrderOpenContract, type OrderRejectCloseContract, type OrderRejectContract, type OrderRejectOpenContract, OrderRejectedError, type OrderStopContract, type OrderSyncCheckNotification, type OrderSyncCloseNotification, type OrderSyncContract, type OrderSyncOpenNotification, OrderTransientError, Partial$1 as Partial, type PartialData, type PartialEvent, type PartialLossAvailableNotification, type PartialLossCommit, type PartialLossCommitNotification, type PartialLossContract, type PartialProfitAvailableNotification, type PartialProfitCommit, type PartialProfitCommitNotification, type PartialProfitContract, type PartialStatisticsModel, type PauseContract, Performance, type PerformanceContract, type PerformanceMetricType, type PerformanceStatisticsModel, PersistBase, PersistBreakevenAdapter, PersistBreakevenInstance, PersistCandleAdapter, PersistCandleInstance, PersistDictionaryAdapter, PersistDictionaryInstance, PersistIntervalAdapter, PersistIntervalInstance, PersistLogAdapter, PersistLogInstance, PersistMeasureAdapter, PersistMeasureInstance, PersistMemoryAdapter, PersistMemoryInstance, PersistNotificationAdapter, PersistNotificationInstance, PersistPartialAdapter, PersistPartialInstance, PersistRecentAdapter, PersistRecentInstance, PersistRiskAdapter, PersistRiskInstance, PersistScheduleAdapter, PersistScheduleInstance, PersistSessionAdapter, PersistSessionInstance, PersistSignalAdapter, PersistSignalInstance, PersistStateAdapter, PersistStateInstance, PersistStorageAdapter, PersistStorageInstance, PersistStrategyAdapter, PersistStrategyInstance, Position, PositionSize, type ProgressBacktestContract, type ProgressWalkerContract, Recent, RecentBacktest, type RecentData, RecentLive, Reflect, Report, ReportBase, type ReportName, ReportWriter, Risk, type RiskContract, type RiskData, type RiskEvent, type RiskRejectionNotification, type RiskStatisticsModel, type RuntimeData, Schedule, type ScheduleData, type ScheduleEventContract, type SchedulePingContract, type ScheduleStatisticsModel, type ScheduledEvent, Session, SessionBacktest, type SessionData, SessionLive, type SignalCancelledNotification, type SignalClosedNotification, type SignalData, type SignalEventContract, type SignalInfoContract, type SignalInfoNotification, type SignalInterval, type SignalOpenedNotification, type SignalScheduledNotification, State, StateBacktest, StateBacktestAdapter, type StateData, StateLive, StateLiveAdapter, Storage, StorageBacktest, type StorageData, StorageLive, Strategy, type StrategyActionType, type StrategyCancelReason, type StrategyCloseReason, type StrategyCommitContract, type StrategyData, type StrategyEvent, type StrategyPauseNotification, type StrategyStatisticsModel, type StrategyStatus, Sweep, Sync, type SyncEvent, type SyncStatisticsModel, System, type TBrokerCtor, type TDictionaryInstanceCtor, type TDumpInstanceCtor, type TLogCtor, type TMarkdownBase, type TMemoryInstanceCtor, type TNotificationUtilsCtor, type TPersistBase, type TPersistBaseCtor, type TPersistBreakevenInstanceCtor, type TPersistCandleInstanceCtor, type TPersistDictionaryInstanceCtor, type TPersistIntervalInstanceCtor, type TPersistLogInstanceCtor, type TPersistMeasureInstanceCtor, type TPersistMemoryInstanceCtor, type TPersistNotificationInstanceCtor, type TPersistPartialInstanceCtor, type TPersistRecentInstanceCtor, type TPersistRiskInstanceCtor, type TPersistScheduleInstanceCtor, type TPersistSessionInstanceCtor, type TPersistSignalInstanceCtor, type TPersistStateInstanceCtor, type TPersistStorageInstanceCtor, type TPersistStrategyInstanceCtor, type TRecentUtilsCtor, type TReportBase, type TSessionInstanceCtor, type TStateInstanceCtor, type TStorageUtilsCtor, type TickEvent, type TrailingStopCommit, type TrailingStopCommitNotification, type TrailingTakeCommit, type TrailingTakeCommitNotification, type ValidationErrorNotification, Walker, type WalkerCompleteContract, type WalkerContract, type WalkerMetric, type SignalData$1 as WalkerSignalData, type WalkerStatisticsModel, addActionSchema, addExchangeSchema, addFrameSchema, addMCPSchema, addRiskSchema, addSizingSchema, addStrategySchema, addSweepSchema, addWalkerSchema, alignToInterval, beginContext, beginTime, cacheCandles, checkCandles, commitActivateScheduled, commitAverageBuy, commitBreakeven, commitCancelScheduled, commitClosePending, commitCreateSignal, commitCreateStopLoss, commitCreateTakeProfit, commitPartialLoss, commitPartialLossCost, commitPartialProfit, commitPartialProfitCost, commitSignalNotify, commitTrailingStop, commitTrailingStopCost, commitTrailingTake, commitTrailingTakeCost, dumpAgentAnswer, dumpError, dumpJson, dumpMCPStatus, dumpRecord, dumpTable, dumpText, emitters, formatPrice, formatQuantity, get, getActionSchema, getAggregatedTrades, getAveragePrice, getBacktestTimeframe, getBreakeven, getCandles, getClosePrice, getColumns, getConfig, getContext, getDate, getDefaultColumns, getDefaultConfig, getEffectivePriceOpen, getExchangeSchema, getFrameSchema, getLatestSignal, getLiquidationPrice, getMCPSchema, getMaxDrawdownDistancePnlCost, getMaxDrawdownDistancePnlPercentage, getMinutesSinceLatestSignalCreated, getMode, getNextCandles, getOrderBook, getPendingSignal, getPositionActiveMinutes, getPositionCountdownMinutes, getPositionDrawdownMinutes, getPositionEffectivePrice, getPositionEntries, getPositionEntryOverlap, getPositionEstimateMinutes, getPositionHighestMaxDrawdownPnlCost, getPositionHighestMaxDrawdownPnlPercentage, getPositionHighestPnlCost, getPositionHighestPnlPercentage, getPositionHighestProfitBreakeven, getPositionHighestProfitDistancePnlCost, getPositionHighestProfitDistancePnlPercentage, getPositionHighestProfitMinutes, getPositionHighestProfitPrice, getPositionHighestProfitTimestamp, getPositionInvestedCost, getPositionInvestedCount, getPositionLevels, getPositionMaxDrawdownMinutes, getPositionMaxDrawdownPnlCost, getPositionMaxDrawdownPnlPercentage, getPositionMaxDrawdownPrice, getPositionMaxDrawdownTimestamp, getPositionPartialOverlap, getPositionPartials, getPositionPnlCost, getPositionPnlPercent, getPositionWaitingMinutes, getPriceScale, getRawCandles, getRemainingCostBasis, getRiskSchema, getRuntimeInfo, getScheduledSignal, getSessionData, getSizingSchema, getStrategyPaused, getStrategySchema, getStrategyStatus, getSweepSchema, getSymbol, getTimestamp, getTotalClosed, getTotalPercentHeld, getWalkerSchema, hasNoPendingSignal, hasNoScheduledSignal, hasTradeContext, intervalStart, intervalStepMs, investedCostToPercent, backtest as lib, listExchangeSchema, listFrameSchema, listMCPSchema, listMemory, listRiskSchema, listSizingSchema, listStrategySchema, listSweepSchema, listWalkerSchema, listenActivePing, listenActivePingFilter, listenActivePingOnce, listenActivePingUnique, listenAfterEnd, listenAfterEndFilter, listenAfterEndOnce, listenBacktestProgress, listenBeforeStart, listenBeforeStartFilter, listenBeforeStartOnce, listenBreakevenAvailable, listenBreakevenAvailableFilter, listenBreakevenAvailableOnce, listenBreakevenAvailableUnique, listenCheck, listenDoneBacktest, listenDoneBacktestFilter, listenDoneBacktestOnce, listenDoneLive, listenDoneLiveFilter, listenDoneLiveOnce, listenDoneWalker, listenDoneWalkerFilter, listenDoneWalkerOnce, listenError, listenExit, listenHighestProfit, listenHighestProfitFilter, listenHighestProfitOnce, listenHighestProfitUnique, listenIdlePing, listenIdlePingFilter, listenIdlePingOnce, listenMaxDrawdown, listenMaxDrawdownFilter, listenMaxDrawdownOnce, listenMaxDrawdownUnique, listenOrderContinue, listenOrderFill, listenOrderReject, listenOrderSchedule, listenOrderScheduleUnique, listenOrderStop, listenPartialLossAvailable, listenPartialLossAvailableFilter, listenPartialLossAvailableOnce, listenPartialLossAvailableUnique, listenPartialProfitAvailable, listenPartialProfitAvailableFilter, listenPartialProfitAvailableOnce, listenPartialProfitAvailableUnique, listenPause, listenPauseFilter, listenPauseOnce, listenPerformance, listenRisk, listenRiskFilter, listenRiskOnce, listenSchedulePing, listenSchedulePingFilter, listenSchedulePingOnce, listenSchedulePingUnique, listenSignal, listenSignalActive, listenSignalActiveUnique, listenSignalBacktest, listenSignalBacktestActive, listenSignalBacktestActiveUnique, listenSignalBacktestCancelled, listenSignalBacktestCancelledUnique, listenSignalBacktestClosed, listenSignalBacktestClosedUnique, listenSignalBacktestFilter, listenSignalBacktestIdle, listenSignalBacktestOnce, listenSignalBacktestOpened, listenSignalBacktestOpenedUnique, listenSignalBacktestScheduled, listenSignalBacktestScheduledUnique, listenSignalBacktestUnique, listenSignalBacktestWaiting, listenSignalBacktestWaitingUnique, listenSignalCancelled, listenSignalCancelledUnique, listenSignalClosed, listenSignalClosedUnique, listenSignalEvent, listenSignalEventFilter, listenSignalEventOnce, listenSignalEventUnique, listenSignalFilter, listenSignalIdle, listenSignalLive, listenSignalLiveActive, listenSignalLiveActiveUnique, listenSignalLiveCancelled, listenSignalLiveCancelledUnique, listenSignalLiveClosed, listenSignalLiveClosedUnique, listenSignalLiveFilter, listenSignalLiveIdle, listenSignalLiveOnce, listenSignalLiveOpened, listenSignalLiveOpenedUnique, listenSignalLiveScheduled, listenSignalLiveScheduledUnique, listenSignalLiveUnique, listenSignalLiveWaiting, listenSignalLiveWaitingUnique, listenSignalNotify, listenSignalNotifyFilter, listenSignalNotifyOnce, listenSignalNotifyUnique, listenSignalOnce, listenSignalOpened, listenSignalOpenedUnique, listenSignalScheduled, listenSignalScheduledUnique, listenSignalUnique, listenSignalWaiting, listenSignalWaitingUnique, listenStrategyCommit, listenStrategyCommitFilter, listenStrategyCommitOnce, listenStrategyCommitUnique, listenSync, listenValidation, listenWalker, listenWalkerComplete, listenWalkerFilter, listenWalkerOnce, listenWalkerProgress, overrideActionSchema, overrideExchangeSchema, overrideFrameSchema, overrideMCPSchema, overrideRiskSchema, overrideSizingSchema, overrideStrategySchema, overrideSweepSchema, overrideWalkerSchema, parseArgs, percentDiff, percentToCloseCost, percentValue, readMemory, removeMemory, roundTicks, runInMockContext, searchMemory, set, setColumns, setConfig, setLogger, setSessionData, setStrategyPaused, shutdown, slPercentShiftToPrice, slPriceToPercentShift, stopStrategy, toPlainString, toProfitLossDto, tpPercentShiftToPrice, tpPriceToPercentShift, validate, validateCandles, validateCommonSignal, validatePendingSignal, validateScheduledSignal, validateSignal, waitForCandle, waitForReady, warmCandles, writeMemory };
