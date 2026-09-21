@@ -618,9 +618,9 @@ export class StateLiveAdapter implements TStateAdapter {
  * itself from `backtest.methodContextService` / `backtest.executionContextService`,
  * so the class is unavailable outside async_hooks lifecycle callbacks by design.
  *
- * `initialData` provides the default value when no state exists yet — either a
- * plain object or a factory returning one (the factory yields a fresh object
- * per access, so the default is never shared by reference).
+ * `initialData` provides the default value when no state exists yet — a plain
+ * object or a sync/async factory returning one (the factory yields a fresh
+ * object per access, so the default is never shared by reference).
  *
  * Look-ahead bias protection: a read at a `when` earlier than the stored `when`
  * yields `initialData`, and a write with a smaller `when` overwrites (a
@@ -649,7 +649,7 @@ export class StateLiveAdapter implements TStateAdapter {
  */
 export class State<Data extends object = object> {
 
-  constructor(readonly params: { name: BucketName; initialData: Data | (() => Data) }) { }
+  constructor(readonly params: { name: BucketName; initialData: Data | (() => Data | Promise<Data>) }) { }
 
   /**
    * Enables state storage by subscribing to signal lifecycle events.
@@ -767,7 +767,7 @@ export class State<Data extends object = object> {
     const { exchangeName, frameName, strategyName } =
       swarm.methodContextService.context;
     const initialValue = typeof this.params.initialData === "function"
-      ? (<() => Data>this.params.initialData)()
+      ? await (<() => Data | Promise<Data>>this.params.initialData)()
       : this.params.initialData;
     const currentPrice =
       await swarm.exchangeConnectionService.getAveragePrice(symbol);
@@ -829,7 +829,7 @@ export class State<Data extends object = object> {
     const { exchangeName, frameName, strategyName } =
       swarm.methodContextService.context;
     const initialValue = typeof this.params.initialData === "function"
-      ? (<() => Data>this.params.initialData)()
+      ? await (<() => Data | Promise<Data>>this.params.initialData)()
       : this.params.initialData;
     const currentPrice =
       await swarm.exchangeConnectionService.getAveragePrice(symbol);
