@@ -45,7 +45,7 @@ Human-readable description of signal reason
 ### payload
 
 ```ts
-payload: Record<string, unknown>
+payload: Record<string, any>
 ```
 
 Custom user-defined dictionary attached to the signal.

@@ -61,7 +61,7 @@ Isolated-margin mode: force-close at -100% leveraged PNL with closeReason "liqui
 ### payload
 
 ```ts
-payload: Record<string, unknown>
+payload: Record<string, any>
 ```
 
 Custom user-defined dictionary attached to the signal (required in row, defaults to {} in ClientStrategy)

@@ -60,20 +60,20 @@ _baseDir: string
 
 Base directory for all JSONL markdown files
 
-### __@WAIT_FOR_INIT_SYMBOL@5760
+### __@WAIT_FOR_INIT_SYMBOL@5772
 
 ```ts
-__@WAIT_FOR_INIT_SYMBOL@5760: (() => Promise<void>) & ISingleshotClearable<() => Promise<void>>
+__@WAIT_FOR_INIT_SYMBOL@5772: (() => Promise<void>) & ISingleshotClearable<() => Promise<void>>
 ```
 
 Singleshot initialization function that creates directory and stream.
 Protected by singleshot to ensure one-time execution.
 Sets up error handler that emits to exitEmitter.
 
-### __@WRITE_SAFE_SYMBOL@5761
+### __@WRITE_SAFE_SYMBOL@5773
 
 ```ts
-__@WRITE_SAFE_SYMBOL@5761: (line: string) => Promise<void | unique symbol>
+__@WRITE_SAFE_SYMBOL@5773: (line: string) => Promise<void | unique symbol>
 ```
 
 Timeout-protected write function with backpressure handling.

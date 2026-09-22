@@ -6,7 +6,7 @@ group: docs
 # RuntimeData
 
 ```ts
-type RuntimeData = Record<string, unknown>;
+type RuntimeData = Record<string, any>;
 ```
 
 Generic key-value type for strategy runtime data.

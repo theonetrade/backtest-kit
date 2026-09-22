@@ -34,7 +34,7 @@ constructor(params: { name: string; });
 ### params
 
 ```ts
-params: { name: string; }
+params: any
 ```
 
 ### enable

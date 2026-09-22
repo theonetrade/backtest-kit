@@ -15,8 +15,11 @@ itself from `backtest.methodContextService` / `backtest.executionContextService`
 so the class is unavailable outside async_hooks lifecycle callbacks by design.
 
 `initialData` provides the default value when no state exists yet — a plain
-object or a sync/async factory returning one (the factory yields a fresh
-object per access, so the default is never shared by reference).
+object or a sync/async factory returning one. The factory receives an
+{@link InitialDispatchContract} payload with the resolved signal context
+(signal row, active/schedule type, currentPrice, mode, logical time), so the
+initial state can be derived from the actual entry; it yields a fresh object
+per access, so the default is never shared by reference.
 
 Look-ahead bias protection: a read at a `when` earlier than the stored `when`
 yields `initialData`, and a write with a smaller `when` overwrites (a
@@ -29,7 +32,7 @@ closed, preventing stale instances from accumulating.
 ## Constructor
 
 ```ts
-constructor(params: { name: string; initialData: Data | (() => Data | Promise<Data>); });
+constructor(params: { name: string; initialData: Data | InitialDataFn<Data>; });
 ```
 
 ## Properties
@@ -37,7 +40,7 @@ constructor(params: { name: string; initialData: Data | (() => Data | Promise<Da
 ### params
 
 ```ts
-params: { name: string; initialData: Data | (() => Data | Promise<Data>); }
+params: any
 ```
 
 ### enable
