@@ -28,7 +28,7 @@ const WILDCARD_TARGET: IReportTarget = {
   heat: true,
   live: true,
   partial: true,
-  performance: true,
+  performance: false,
   risk: true,
   schedule: true,
   walker: true,

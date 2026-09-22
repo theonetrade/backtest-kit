@@ -5,6 +5,7 @@ import TYPES from "../../../lib/core/types";
 import { singleshot } from "functools-kit";
 import { performanceEmitter } from "../../../config/emitters";
 import { ReportWriter } from "../../../classes/Writer";
+import { GLOBAL_CONFIG } from "../../../config/params";
 
 const PERFORMANCE_REPORT_METHOD_NAME_SUBSCRIBE = "PerformanceReportService.subscribe";
 const PERFORMANCE_REPORT_METHOD_NAME_UNSUBSCRIBE = "PerformanceReportService.unsubscribe";
@@ -51,6 +52,14 @@ export class PerformanceReportService {
    */
   private track = async (event: PerformanceContract) => {
     this.loggerService.log(PERFORMANCE_REPORT_METHOD_NAME_TRACK, { event });
+
+    // Экономия диска: performance-эвенты летят на КАЖДЫЙ юнит работы (включая
+    // backtest_timeframe — по одному на тик). Репорт нужен для поиска
+    // бутылочных горлышек — быстрые операции ниже порога не пишем.
+    // 0 = писать всё (legacy), Infinity = не писать ничего.
+    if (event.duration < GLOBAL_CONFIG.CC_REPORT_PERFORMANCE_MIN_DURATION_MS) {
+      return;
+    }
 
     await ReportWriter.writeData("performance", {
       timestamp: event.timestamp,

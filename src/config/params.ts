@@ -134,6 +134,23 @@ export const GLOBAL_CONFIG = {
    */
   CC_REPORT_SKIP_IDLE_EVENTS: true,
   /**
+   * Minimum duration (in milliseconds) a performance metric event must have to
+   * be written to the performance report .jsonl on disk (PerformanceReportService).
+   *
+   * The performance emitter fires on EVERY unit of work — including
+   * "backtest_timeframe" (one event per processed timeframe/tick), so an idle
+   * backtest floods the report with sub-millisecond rows that carry no
+   * diagnostic value. The report exists for bottleneck analysis: a fast
+   * operation is not a bottleneck. Rows at or above the threshold (genuinely
+   * slow ticks, signal processing, run totals) are always written.
+   *
+   * Set to 0 to write every event (legacy behavior).
+   * Set to Infinity to disable performance report writes entirely.
+   *
+   * Default: 300 ms (drops the per-tick noise, keeps everything slow enough to matter)
+   */
+  CC_REPORT_PERFORMANCE_MIN_DURATION_MS: 300,
+  /**
    * Breakeven threshold percentage - minimum profit distance from entry to enable breakeven.
    * When price moves this percentage in profit direction, stop-loss can be moved to entry (breakeven).
    *
