@@ -6,6 +6,7 @@ import { singleshot } from "functools-kit";
 import { signalBacktestEmitter } from "../../../config/emitters";
 import { ReportWriter } from "../../../classes/Writer";
 import { getContextTimestamp } from "../../../helpers/getContextTimestamp";
+import { GLOBAL_CONFIG } from "../../../config/params";
 
 const BACKTEST_REPORT_METHOD_NAME_SUBSCRIBE = "BacktestReportService.subscribe";
 const BACKTEST_REPORT_METHOD_NAME_UNSUBSCRIBE = "BacktestReportService.unsubscribe";
@@ -75,6 +76,11 @@ export class BacktestReportService {
     };
 
     if (data.action === "idle") {
+      // Экономия диска на молчащих символах: idle-строки можно отключить —
+      // события реального жизненного цикла позиции пишутся безусловно.
+      if (GLOBAL_CONFIG.CC_REPORT_SKIP_IDLE_EVENTS) {
+        return;
+      }
       await ReportWriter.writeData("backtest", baseEvent, searchOptions);
     } else if (data.action === "scheduled") {
       await ReportWriter.writeData("backtest", {
@@ -82,6 +88,7 @@ export class BacktestReportService {
         signalId: data.signal?.id,
         position: data.signal?.position,
         note: data.signal?.note,
+        payload: data.signal?.payload,
         priceOpen: data.signal?.priceOpen,
         priceTakeProfit: data.signal?.priceTakeProfit,
         priceStopLoss: data.signal?.priceStopLoss,
@@ -143,6 +150,7 @@ export class BacktestReportService {
         signalId: data.signal?.id,
         position: data.signal?.position,
         note: data.signal?.note,
+        payload: data.signal?.payload,
         priceOpen: data.signal?.priceOpen,
         priceTakeProfit: data.signal?.priceTakeProfit,
         priceStopLoss: data.signal?.priceStopLoss,

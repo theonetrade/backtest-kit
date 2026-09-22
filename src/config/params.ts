@@ -120,6 +120,20 @@ export const GLOBAL_CONFIG = {
    */
   CC_REPORT_SHOW_SIGNAL_NOTE: false,
   /**
+   * Skips writing "idle" tick events to the report .jsonl files on disk
+   * (LiveReportService / BacktestReportService).
+   *
+   * An idle tick means "no pending and no scheduled signal" — on a quiet
+   * symbol the live loop produces one such row per tick, forever, so silent
+   * symbols dominate report disk usage while carrying no information beyond
+   * "still alive". Enabling this flag drops ONLY the idle rows; every event
+   * of an actual position lifecycle (scheduled, waiting, opened, active,
+   * closed, cancelled) is still written unconditionally.
+   *
+   * Default: false (idle rows are written — legacy behavior)
+   */
+  CC_REPORT_SKIP_IDLE_EVENTS: true,
+  /**
    * Breakeven threshold percentage - minimum profit distance from entry to enable breakeven.
    * When price moves this percentage in profit direction, stop-loss can be moved to entry (breakeven).
    *
