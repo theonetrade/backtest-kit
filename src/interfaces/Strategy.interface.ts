@@ -749,6 +749,15 @@ export interface IStrategyParams extends IStrategySchema {
    * the backtest candle loop, carrying the "opened" tick result. Notification-only.
    */
   onBacktestScheduleOpen: (event: IStrategyTickResultOpened) => Promise<void>;
+  /**
+   * System callback emulating live tick emission inside the backtest candle loops.
+   * Fired once per processed candle with the intermediate "waiting" (scheduled phase)
+   * or "active" (pending phase) tick result, so backtest reports carry the same
+   * per-tick event stream as live tick(). StrategyConnectionService routes it through
+   * the same canonical emission path as tick results (signalBacktestEmitter /
+   * signalEmitter + registered actions). Notification-only.
+   */
+  onBacktestTick: (event: IStrategyTickResultWaiting | IStrategyTickResultActive) => Promise<void>;
   /** System callback for highest profit updates (emits to highestProfitSubject) */
   onHighestProfit: (signal: IPublicSignalRow, currentPrice: number, timestamp: number) => Promise<void> | void;
   /** System callback for max drawdown updates (emits to maxDrawdownSubject) */

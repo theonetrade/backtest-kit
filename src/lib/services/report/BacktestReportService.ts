@@ -76,7 +76,29 @@ export class BacktestReportService {
 
     if (data.action === "idle") {
       await ReportWriter.writeData("backtest", baseEvent, searchOptions);
-    } else if (data.action === "opened") {
+    } else if (data.action === "scheduled") {
+      await ReportWriter.writeData("backtest", {
+        ...baseEvent,
+        signalId: data.signal?.id,
+        position: data.signal?.position,
+        note: data.signal?.note,
+        priceOpen: data.signal?.priceOpen,
+        priceTakeProfit: data.signal?.priceTakeProfit,
+        priceStopLoss: data.signal?.priceStopLoss,
+        originalPriceTakeProfit: data.signal?.originalPriceTakeProfit,
+        originalPriceStopLoss: data.signal?.originalPriceStopLoss,
+        originalPriceOpen: data.signal?.originalPriceOpen,
+        totalEntries: data.signal?.totalEntries,
+        partialExecuted: data.signal?.partialExecuted,
+        totalPartials: data.signal?.totalPartials,
+        cost: data.signal?.cost,
+        pendingAt: data.signal?.pendingAt,
+        scheduledAt: data.signal?.scheduledAt,
+        minuteEstimatedTime: data.signal?.minuteEstimatedTime,
+        multiplier: data.signal?.multiplier,
+        isolated: data.signal?.isolated,
+      }, { ...searchOptions, signalId: data.signal?.id });
+    } else if (data.action === "waiting") {
       await ReportWriter.writeData("backtest", {
         ...baseEvent,
         signalId: data.signal?.id,
@@ -90,6 +112,44 @@ export class BacktestReportService {
         originalPriceOpen: data.signal?.originalPriceOpen,
         totalEntries: data.signal?.totalEntries,
         _partial: data.signal?._partial,
+        partialExecuted: data.signal?.partialExecuted,
+        scheduledAt: data.signal?.scheduledAt,
+        minuteEstimatedTime: data.signal?.minuteEstimatedTime,
+        multiplier: data.signal?.multiplier,
+        isolated: data.signal?.isolated,
+        percentTp: data.percentTp,
+        percentSl: data.percentSl,
+        pnl: data.pnl.pnlPercentage,
+        pnlCost: data.pnl.pnlCost,
+        pnlEntries: data.pnl.pnlEntries,
+        pnlPriceOpen: data.pnl.priceOpen,
+        pnlPriceClose: data.pnl.priceClose,
+        totalPartials: data.signal?.totalPartials,
+        cost: data.signal?.cost,
+        peakProfitPriceOpen: data.signal?.peakProfit?.priceOpen,
+        peakProfitPriceClose: data.signal?.peakProfit?.priceClose,
+        peakProfitPercentage: data.signal?.peakProfit?.pnlPercentage,
+        peakProfitCost: data.signal?.peakProfit?.pnlCost,
+        peakProfitEntries: data.signal?.peakProfit?.pnlEntries,
+        maxDrawdownPriceOpen: data.signal?.maxDrawdown?.priceOpen,
+        maxDrawdownPriceClose: data.signal?.maxDrawdown?.priceClose,
+        maxDrawdownPercentage: data.signal?.maxDrawdown?.pnlPercentage,
+        maxDrawdownCost: data.signal?.maxDrawdown?.pnlCost,
+        maxDrawdownEntries: data.signal?.maxDrawdown?.pnlEntries,
+      }, { ...searchOptions, signalId: data.signal?.id });
+    } else if (data.action === "opened") {
+      await ReportWriter.writeData("backtest", {
+        ...baseEvent,
+        signalId: data.signal?.id,
+        position: data.signal?.position,
+        note: data.signal?.note,
+        priceOpen: data.signal?.priceOpen,
+        priceTakeProfit: data.signal?.priceTakeProfit,
+        priceStopLoss: data.signal?.priceStopLoss,
+        originalPriceTakeProfit: data.signal?.originalPriceTakeProfit,
+        originalPriceStopLoss: data.signal?.originalPriceStopLoss,
+        originalPriceOpen: data.signal?.originalPriceOpen,
+        totalEntries: data.signal?.totalEntries,
         partialExecuted: data.signal?.partialExecuted,
         totalPartials: data.signal?.totalPartials,
         cost: data.signal?.cost,
@@ -182,6 +242,29 @@ export class BacktestReportService {
         maxDrawdownPercentage: data.signal?.maxDrawdown?.pnlPercentage,
         maxDrawdownCost: data.signal?.maxDrawdown?.pnlCost,
         maxDrawdownEntries: data.signal?.maxDrawdown?.pnlEntries,
+      }, { ...searchOptions, signalId: data.signal?.id });
+    } else if (data.action === "cancelled") {
+      await ReportWriter.writeData("backtest", {
+        ...baseEvent,
+        signalId: data.signal?.id,
+        position: data.signal?.position,
+        note: data.signal?.note,
+        priceOpen: data.signal?.priceOpen,
+        priceTakeProfit: data.signal?.priceTakeProfit,
+        priceStopLoss: data.signal?.priceStopLoss,
+        originalPriceTakeProfit: data.signal?.originalPriceTakeProfit,
+        originalPriceStopLoss: data.signal?.originalPriceStopLoss,
+        originalPriceOpen: data.signal?.originalPriceOpen,
+        totalEntries: data.signal?.totalEntries,
+        partialExecuted: data.signal?.partialExecuted,
+        totalPartials: data.signal?.totalPartials,
+        cost: data.signal?.cost,
+        scheduledAt: data.signal?.scheduledAt,
+        minuteEstimatedTime: data.signal?.minuteEstimatedTime,
+        multiplier: data.signal?.multiplier,
+        isolated: data.signal?.isolated,
+        cancelReason: data.reason,
+        closeTime: data.closeTimestamp,
       }, { ...searchOptions, signalId: data.signal?.id });
     }
   };

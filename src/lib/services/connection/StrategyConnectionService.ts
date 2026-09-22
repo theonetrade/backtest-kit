@@ -22,6 +22,7 @@ import {
   StrategyCancelReason,
   StrategyCloseReason,
   IStrategyTickResultOpened,
+  IStrategyTickResultWaiting,
 } from "../../../interfaces/Strategy.interface";
 import StrategySchemaService from "../schema/StrategySchemaService";
 import ExchangeConnectionService from "./ExchangeConnectionService";
@@ -1028,6 +1029,34 @@ const CREATE_BACKTEST_SCHEDULE_OPEN_FN = (self: StrategyConnectionService) => tr
 );
 
 /**
+ * Creates a callback function forwarding intermediate backtest tick results
+ * ("waiting" / "active", one per processed candle) into the CANONICAL emission
+ * path CALL_SIGNAL_EMIT_FN — the same route live tick results take
+ * (signalBacktestEmitter + signalEmitter + registered actions, inside the
+ * execution context of the result's createdAt). Called by ClientStrategy from
+ * the backtest candle loops to emulate live per-tick emission, so backtest
+ * reports carry the same event stream as live. Notification-only:
+ * CALL_SIGNAL_EMIT_FN swallows listener exceptions via its own trycatch.
+ *
+ * @param self - Reference to StrategyConnectionService instance
+ * @returns Callback function for intermediate backtest tick results
+ */
+const CREATE_BACKTEST_TICK_FN = (self: StrategyConnectionService) =>
+  async (event: IStrategyTickResultWaiting | IStrategyTickResultActive): Promise<void> => {
+    await CALL_SIGNAL_EMIT_FN(
+      self,
+      event,
+      {
+        strategyName: event.strategyName,
+        exchangeName: event.exchangeName,
+        frameName: event.frameName,
+      },
+      true,
+      event.symbol
+    );
+  };
+
+/**
  * Creates a callback function for emitting dispose events.
  *
  * Called by ClientStrategy when it is being disposed.
@@ -1180,6 +1209,7 @@ export class StrategyConnectionService implements TStrategy {
         onOrderContinue: CREATE_ORDER_CONTINUE_FN(this),
         onOrderStop: CREATE_ORDER_STOP_FN(this),
         onBacktestScheduleOpen: CREATE_BACKTEST_SCHEDULE_OPEN_FN(this),
+        onBacktestTick: CREATE_BACKTEST_TICK_FN(this),
         onHighestProfit: CREATE_HIGHEST_PROFIT_FN(this, strategyName, exchangeName, frameName, backtest),
         onMaxDrawdown: CREATE_MAX_DRAWDOWN_FN(this, strategyName, exchangeName, frameName, backtest),
         onPause: CREATE_PAUSE_FN(this, strategyName, exchangeName, frameName, backtest),
@@ -1723,7 +1753,14 @@ export class StrategyConnectionService implements TStrategy {
     await strategy.waitForInit();
     const tick = await strategy.backtest(symbol, context.strategyName, candles, frameEndTime);
     {
-      await CALL_SIGNAL_EMIT_FN(this, tick, context, backtest, symbol);
+      // Промежуточные "active" эмитятся ПО-КАНДЛОВО из свечного цикла через
+      // onBacktestTick (CREATE_BACKTEST_TICK_FN) — chunk-финальный "active"
+      // (Infinity-хвост) здесь продублировал бы последнюю свечу тем же
+      // createdAt. Оркестратор чанк-цикла читает возвращаемое значение,
+      // а не эмиттер, так что пропуск эмиссии его не затрагивает.
+      if (tick.action !== "active") {
+        await CALL_SIGNAL_EMIT_FN(this, tick, context, backtest, symbol);
+      }
     }
     return tick;
   };

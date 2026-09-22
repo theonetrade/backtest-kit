@@ -4028,6 +4028,44 @@ const CALL_BACKTEST_SCHEDULE_OPEN_FN = trycatch(
   }
 );
 
+/**
+ * Emits an intermediate backtest tick result ("waiting" / "active") via
+ * params.onBacktestTick — the live-tick emulation channel for the backtest
+ * candle loops. Live tick() emits a waiting/active result on EVERY tick, while
+ * the backtest candle loops used to swallow them; this forwards one result per
+ * processed candle so backtest reports carry the same per-tick event stream.
+ * Notification-only: the trycatch fallback swallows a throwing listener.
+ */
+const CALL_BACKTEST_TICK_FN = trycatch(
+  beginTime(async (
+    self: ClientStrategy,
+    symbol: string,
+    result: IStrategyTickResultWaiting | IStrategyTickResultActive,
+    timestamp: number,
+    backtest: boolean
+  ): Promise<void> => {
+    await ExecutionContextService.runInContext(async () => {
+      await self.params.onBacktestTick(result);
+    }, {
+      when: new Date(timestamp),
+      symbol: symbol,
+      backtest: backtest,
+    });
+  }),
+  {
+    fallback: (error, self) => {
+      const message = "ClientStrategy CALL_BACKTEST_TICK_FN thrown";
+      const payload = {
+        error: errorData(error),
+        message: getErrorMessage(error),
+      };
+      self.params.logger.warn(message, payload);
+      console.warn(message, payload);
+      errorEmitter.next(error);
+    },
+  }
+);
+
 const RETURN_SCHEDULED_SIGNAL_ACTIVE_FN = async (
   self: ClientStrategy,
   scheduled: IScheduledSignalRow,
@@ -6178,6 +6216,42 @@ const PROCESS_SCHEDULED_SIGNAL_CANDLES_FN = async (
 
     // Process queued commit events with candle timestamp
     await PROCESS_COMMIT_QUEUE_FN(self, averagePrice, candle.timestamp);
+
+    // Эмуляция live-тика (report-паритет): live эмитит "waiting" на каждый тик
+    // ожидания активации (RETURN_SCHEDULED_SIGNAL_ACTIVE_FN) — backtest эмитит
+    // его на каждую свечу через onBacktestTick (connection-слой прогоняет через
+    // канонический CALL_SIGNAL_EMIT_FN). onTick-коллбэк зовётся тем же зеркалом.
+    {
+      const publicSignal = TO_PUBLIC_SIGNAL("scheduled", scheduled, averagePrice);
+      const waitingResult: IStrategyTickResultWaiting = {
+        action: "waiting",
+        signal: publicSignal,
+        currentPrice: averagePrice,
+        strategyName: self.params.method.context.strategyName,
+        exchangeName: self.params.method.context.exchangeName,
+        frameName: self.params.method.context.frameName,
+        symbol: self.params.execution.context.symbol,
+        percentTp: 0,
+        percentSl: 0,
+        pnl: publicSignal.pnl,
+        backtest: self.params.execution.context.backtest,
+        createdAt: candle.timestamp,
+      };
+      await CALL_TICK_CALLBACKS_FN(
+        self,
+        self.params.execution.context.symbol,
+        waitingResult,
+        candle.timestamp,
+        self.params.execution.context.backtest
+      );
+      await CALL_BACKTEST_TICK_FN(
+        self,
+        self.params.execution.context.symbol,
+        waitingResult,
+        candle.timestamp,
+        self.params.execution.context.backtest
+      );
+    }
   }
 
   // Deferred-команды дренятся в НАЧАЛЕ следующей свечи — отмена, поданная из
@@ -6378,6 +6452,10 @@ const PROCESS_PENDING_SIGNAL_CANDLES_FN = async (
 
     // Call onPartialProfit/onPartialLoss callbacks during backtest candle processing
     // Calculate percentage of path to TP/SL
+    // percentTp/percentSl подхватываются ниже per-candle "active"-эмиссией
+    // (зеркало полей IStrategyTickResultActive в RETURN_PENDING_SIGNAL_ACTIVE_FN)
+    let percentTp = 0;
+    let percentSl = 0;
     {
       const effectivePriceOpen = GET_EFFECTIVE_PRICE_OPEN(signal);
       if (signal.position === "long") {
@@ -6389,6 +6467,7 @@ const PROCESS_PENDING_SIGNAL_CANDLES_FN = async (
           const effectiveTakeProfit = signal._trailingPriceTakeProfit ?? signal.priceTakeProfit;
           const tpDistance = effectiveTakeProfit - effectivePriceOpen;
           const progressPercent = GET_PROGRESS_PERCENT_FN(currentDistance, tpDistance);
+          percentTp = progressPercent;
 
           if (averagePrice > signal._peak.price) {
             const { pnl } = TO_PUBLIC_SIGNAL("pending", signal, averagePrice);
@@ -6438,6 +6517,7 @@ const PROCESS_PENDING_SIGNAL_CANDLES_FN = async (
           const effectiveStopLoss = signal._trailingPriceStopLoss ?? signal.priceStopLoss;
           const slDistance = effectivePriceOpen - effectiveStopLoss;
           const progressPercent = GET_PROGRESS_PERCENT_FN(Math.abs(currentDistance), slDistance);
+          percentSl = progressPercent;
           if (averagePrice < signal._fall.price) {
             const { pnl } = TO_PUBLIC_SIGNAL("pending", signal, averagePrice);
             signal._fall = { price: averagePrice, timestamp: currentCandleTimestamp, pnlCost: pnl.pnlCost, pnlPercentage: pnl.pnlPercentage, pnlEntries: pnl.pnlEntries, priceOpen: pnl.priceOpen, priceClose: pnl.priceClose };
@@ -6478,6 +6558,7 @@ const PROCESS_PENDING_SIGNAL_CANDLES_FN = async (
           const effectiveTakeProfit = signal._trailingPriceTakeProfit ?? signal.priceTakeProfit;
           const tpDistance = effectivePriceOpen - effectiveTakeProfit;
           const progressPercent = GET_PROGRESS_PERCENT_FN(currentDistance, tpDistance);
+          percentTp = progressPercent;
 
           if (averagePrice < signal._peak.price) {
             const { pnl } = TO_PUBLIC_SIGNAL("pending", signal, averagePrice);
@@ -6527,6 +6608,7 @@ const PROCESS_PENDING_SIGNAL_CANDLES_FN = async (
           const effectiveStopLoss = signal._trailingPriceStopLoss ?? signal.priceStopLoss;
           const slDistance = effectiveStopLoss - effectivePriceOpen;
           const progressPercent = GET_PROGRESS_PERCENT_FN(Math.abs(currentDistance), slDistance);
+          percentSl = progressPercent;
           if (averagePrice > signal._fall.price) {
             const { pnl } = TO_PUBLIC_SIGNAL("pending", signal, averagePrice);
             signal._fall = { price: averagePrice, timestamp: currentCandleTimestamp, pnlCost: pnl.pnlCost, pnlPercentage: pnl.pnlPercentage, pnlEntries: pnl.pnlEntries, priceOpen: pnl.priceOpen, priceClose: pnl.priceClose };
@@ -6563,6 +6645,44 @@ const PROCESS_PENDING_SIGNAL_CANDLES_FN = async (
 
     // Process queued commit events with candle timestamp
     await PROCESS_COMMIT_QUEUE_FN(self, averagePrice, currentCandleTimestamp);
+
+    // Эмуляция live-тика (report-паритет): live эмитит "active" на каждый тик
+    // мониторинга (RETURN_PENDING_SIGNAL_ACTIVE_FN) — backtest эмитит его на
+    // каждую свечу, дожившую до конца итерации (закрытия/отмены возвращаются
+    // выше своим результатом, как и в live). onTick-коллбэк зовётся тем же
+    // зеркалом; percentTp/percentSl взяты из мониторингового блока выше.
+    {
+      const publicSignal = TO_PUBLIC_SIGNAL("pending", signal, averagePrice);
+      const activeResult: IStrategyTickResultActive = {
+        action: "active",
+        signal: publicSignal,
+        currentPrice: averagePrice,
+        strategyName: self.params.method.context.strategyName,
+        exchangeName: self.params.method.context.exchangeName,
+        frameName: self.params.method.context.frameName,
+        symbol: self.params.execution.context.symbol,
+        percentTp,
+        percentSl,
+        pnl: publicSignal.pnl,
+        backtest: self.params.execution.context.backtest,
+        createdAt: currentCandleTimestamp,
+        _backtestLastTimestamp: currentCandleTimestamp,
+      };
+      await CALL_TICK_CALLBACKS_FN(
+        self,
+        self.params.execution.context.symbol,
+        activeResult,
+        currentCandleTimestamp,
+        self.params.execution.context.backtest
+      );
+      await CALL_BACKTEST_TICK_FN(
+        self,
+        self.params.execution.context.symbol,
+        activeResult,
+        currentCandleTimestamp,
+        self.params.execution.context.backtest
+      );
+    }
   }
 
   // Loop exhausted without closing — check if we have enough data
