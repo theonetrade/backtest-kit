@@ -251,8 +251,11 @@ test("SHORT: trailingStop from listenActivePing tightens the above-entry SL down
  * effective = 200/(100/50000+100/52000) ≈ 50980.39. partialProfit 40% @47000
  * (профит short — цена НИЖЕ effective) → остаток $120. partialLoss 25% @53000
  * (цена выше effective, ниже SL) → остаток $90. breakeven @48500 (порог ВНИЗ
- * пройден) → SL = effective; рост до 51500 закрывает stop_loss ровно по
- * effective (zero-risk exit по гармонической цене).
+ * пройден) → SL = COST-AWARE безубыток ВСЕЙ сделки (getBreakevenPrice):
+ * точная цена закрытия остатка, при которой итоговый PnL с учётом
+ * издержек и уже зафиксированных партиалов равен ровно нулю (банкнутый
+ * нетто-профит партиалов позволяет остатку отдать больше — SL ≈ 53393, выше
+ * effective). Рост до 53500 закрывает stop_loss ровно в ноль.
  */
 test("SHORT: DCA-up with partials and breakeven mirrors the dollar math", async ({ pass, fail }) => {
   const t0 = new Date("2024-01-01T00:00:00Z").getTime();
@@ -334,19 +337,26 @@ test("SHORT: DCA-up with partials and breakeven mirrors the dollar math", async 
       return;
     }
 
-    // Рост выше breakeven-SL (= effective) закрывает short по нулевому риску
-    market = 51500;
+    // Рост выше cost-aware breakeven-SL (≈53393) закрывает short по нулевому риску
+    market = 53500;
     const tick6 = await runTick(new Date(t0 + 5 * MIN));
     if (tick6.action !== "closed" || tick6.closeReason !== "stop_loss") {
       fail(`tick #6 expected closed/stop_loss (breakeven SL hit), got "${tick6.action}"/"${tick6.closeReason}"`);
       return;
     }
-    if (Math.abs(tick6.currentPrice - expectedEffective) > 1e-6) {
-      fail(`REGRESSION: short breakeven close must land on effective ${expectedEffective}, got ${tick6.currentPrice}`);
+    // Cost-aware безубыток всей сделки: SL для short стоит ВЫШЕ effective
+    // (банкнутый профит партиалов покрывает откат остатка)...
+    if (!(tick6.currentPrice > expectedEffective)) {
+      fail(`REGRESSION: short total-trade breakeven SL must sit above effective ${expectedEffective}, got ${tick6.currentPrice}`);
+      return;
+    }
+    // ...и итоговый PnL сделки (партиалы + остаток, издержки учтены) равен ровно нулю
+    if (Math.abs(tick6.pnl.pnlPercentage) > 1e-6) {
+      fail(`REGRESSION: short breakeven close must realize exactly 0% total PnL, got ${tick6.pnl.pnlPercentage}% at ${tick6.currentPrice}`);
       return;
     }
 
-    pass(`short mix exact: effective=${effective.toFixed(2)}, snapshots [200,120], remaining $90, breakeven exit at effective`);
+    pass(`short mix exact: effective=${effective.toFixed(2)}, snapshots [200,120], remaining $90, breakeven exit at ${tick6.currentPrice.toFixed(2)} with 0% total PnL`);
   } finally {
     unsubscribePing();
   }

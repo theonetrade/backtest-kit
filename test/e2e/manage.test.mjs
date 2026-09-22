@@ -239,8 +239,11 @@ test("MANAGE: trailingTake from listenActivePing pulls TP closer and the close l
 /**
  * MANAGE: breakeven из listenActivePing.
  *
- * Порог (slippage+fee)*2+margin пройден на 51000 → SL переносится РОВНО на
- * эффективный вход 50000; откат цены под вход закрывает stop_loss по 50000.
+ * Порог (slippage+fee)*2+margin пройден на 51000 → SL переносится на
+ * COST-AWARE безубыток: точную цену закрытия с нулевым итоговым PnL
+ * (вход 50000 + round-trip издержки ≈ 50200.4, см. getBreakevenPrice).
+ * Голый вход 50000 безубытком НЕ является — закрытие там даёт ≈ -0.4%.
+ * Откат цены под уровень закрывает stop_loss ровно в ноль.
  */
 test("MANAGE: breakeven from listenActivePing moves SL to entry and the close lands exactly there", async ({ pass, fail }) => {
   const t0 = new Date("2024-01-01T00:00:00Z").getTime();
@@ -304,14 +307,20 @@ test("MANAGE: breakeven from listenActivePing moves SL to entry and the close la
       return;
     }
 
-    market = 49500; // под входом → SL на 50000 срабатывает
+    market = 49500; // под уровнем безубытка → SL срабатывает
     const tick3 = await runTick(new Date(t0 + 2 * MIN));
     if (tick3.action !== "closed" || tick3.closeReason !== "stop_loss") {
       fail(`tick #3 expected closed/stop_loss, got "${tick3.action}"/"${tick3.closeReason}"`);
       return;
     }
-    if (tick3.currentPrice !== 50000) {
-      fail(`REGRESSION: breakeven close must land exactly on entry 50000, got ${tick3.currentPrice}`);
+    // Cost-aware безубыток: SL стоит ВЫШЕ голого входа (издержки покрыты)...
+    if (!(tick3.currentPrice > 50000)) {
+      fail(`REGRESSION: cost-aware breakeven SL must sit above raw entry 50000, got ${tick3.currentPrice}`);
+      return;
+    }
+    // ...и итоговый PnL закрытия равен ровно нулю (а не -0.4% как при SL == entry)
+    if (Math.abs(tick3.pnl.pnlPercentage) > 1e-6) {
+      fail(`REGRESSION: breakeven close must realize exactly 0% PnL, got ${tick3.pnl.pnlPercentage}% at ${tick3.currentPrice}`);
       return;
     }
     if (!commits.includes("breakeven")) {
@@ -319,7 +328,7 @@ test("MANAGE: breakeven from listenActivePing moves SL to entry and the close la
       return;
     }
 
-    pass(`breakeven from active ping: closed at entry 50000 (zero-risk exit)`);
+    pass(`breakeven from active ping: closed at cost-aware level ${tick3.currentPrice.toFixed(2)} with exactly 0% PnL (zero-risk exit)`);
   } finally {
     unsubscribePing();
     unsubscribeCommit();

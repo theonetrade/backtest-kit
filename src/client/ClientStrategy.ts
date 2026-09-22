@@ -37,6 +37,7 @@ import {
 import toProfitLossDto from "../helpers/toProfitLossDto";
 import { getEffectivePriceOpen as GET_EFFECTIVE_PRICE_OPEN } from "../helpers/getEffectivePriceOpen";
 import { getLiquidationPrice as GET_LIQUIDATION_PRICE } from "../helpers/getLiquidationPrice";
+import { getBreakevenPrice as GET_BREAKEVEN_PRICE } from "../helpers/getBreakevenPrice";
 import { ICandleData } from "../interfaces/Exchange.interface";
 import { PersistSignalAdapter, PersistScheduleAdapter, PersistRecentAdapter, PersistStrategyAdapter } from "../classes/Persist";
 import { ExecutionContextService } from "../lib/services/context/ExecutionContextService";
@@ -2355,6 +2356,17 @@ const BREAKEVEN_FN = (
   currentPrice: number
 ): boolean => {
   const effectivePriceOpen = GET_EFFECTIVE_PRICE_OPEN(signal);
+  // COST-AWARE breakeven level: closing at the raw effective entry realizes
+  // the round-trip costs as ≈ -(slippage+fee)*2 × multiplier — NOT zero. The
+  // SL must sit at the exact zero-PNL price (inverts the real toProfitLossDto,
+  // см. getBreakevenPrice). Null = ничего защищать (позиция закрыта партиалами).
+  const breakevenPrice = GET_BREAKEVEN_PRICE(signal);
+  if (breakevenPrice === null) {
+    self.params.logger.debug("BREAKEVEN_FN: breakeven price undefined (no remaining position), skipping", {
+      signalId: signal.id,
+    });
+    return false;
+  }
   // Calculate breakeven threshold based on slippage and fees
   // Need to cover: entry slippage + entry fee + exit slippage + exit fee
   // Total: (slippage + fee) * 2 transactions, plus the configured extra margin
@@ -2365,11 +2377,11 @@ const BREAKEVEN_FN = (
   // Check if trailing stop is already set
   if (signal._trailingPriceStopLoss !== undefined) {
     const trailingStopLoss = signal._trailingPriceStopLoss;
-    const breakevenPrice = effectivePriceOpen;
 
     if (signal.position === "long") {
-      // LONG: trailing SL is positive if it's above entry (in profit zone)
-      const isPositiveTrailing = trailingStopLoss > effectivePriceOpen;
+      // LONG: trailing SL is positive if it's above the cost-aware breakeven
+      // level (true profit zone — round-trip costs covered)
+      const isPositiveTrailing = trailingStopLoss > breakevenPrice;
 
       if (isPositiveTrailing) {
         // Trailing stop is already protecting profit - consider breakeven achieved
@@ -2434,8 +2446,9 @@ const BREAKEVEN_FN = (
         }
       }
     } else {
-      // SHORT: trailing SL is positive if it's below entry (in profit zone)
-      const isPositiveTrailing = trailingStopLoss < effectivePriceOpen;
+      // SHORT: trailing SL is positive if it's below the cost-aware breakeven
+      // level (true profit zone — round-trip costs covered)
+      const isPositiveTrailing = trailingStopLoss < breakevenPrice;
 
       if (isPositiveTrailing) {
         // Trailing stop is already protecting profit - consider breakeven achieved
@@ -2504,7 +2517,6 @@ const BREAKEVEN_FN = (
 
   // No trailing stop set - proceed with normal breakeven logic
   const currentStopLoss = signal.priceStopLoss;
-  const breakevenPrice = effectivePriceOpen;
 
   // Calculate threshold price
   let thresholdPrice: number;
@@ -2572,7 +2584,7 @@ const BREAKEVEN_FN = (
     return false;
   }
 
-  // Move SL to breakeven (entry price)
+  // Move SL to the cost-aware breakeven price (exact zero-PNL close level)
   signal._trailingPriceStopLoss = breakevenPrice;
 
   self.params.logger.info("BREAKEVEN_FN executed", {
@@ -7105,6 +7117,14 @@ export class ClientStrategy implements IStrategy {
     const signal = this._pendingSignal;
     const effectivePriceOpen = GET_EFFECTIVE_PRICE_OPEN(signal);
 
+    // COST-AWARE breakeven level: the exact zero-PNL close price (round-trip
+    // slippage + fees covered), NOT the raw effective entry — keep in sync
+    // with BREAKEVEN_FN/validateBreakeven. Null = nothing left to protect.
+    const breakevenPrice = GET_BREAKEVEN_PRICE(signal);
+    if (breakevenPrice === null) {
+      return false;
+    }
+
     // Calculate breakeven threshold based on slippage and fees
     // Need to cover: entry slippage + entry fee + exit slippage + exit fee
     // Total: (slippage + fee) * 2 transactions
@@ -7116,36 +7136,36 @@ export class ClientStrategy implements IStrategy {
       const trailingStopLoss = signal._trailingPriceStopLoss;
 
       if (signal.position === "long") {
-        // LONG: trailing SL is positive if it's above entry (in profit zone)
-        const isPositiveTrailing = trailingStopLoss > effectivePriceOpen;
+        // LONG: trailing SL is positive if it's above the cost-aware breakeven
+        // level (true profit zone — round-trip costs covered)
+        const isPositiveTrailing = trailingStopLoss > breakevenPrice;
 
         if (isPositiveTrailing) {
           // Trailing stop is already protecting profit - breakeven achieved
           return true;
         }
 
-        // Trailing stop is negative (below entry)
+        // Trailing stop is negative (below breakeven)
         // Check if we can upgrade it to breakeven
         const thresholdPrice = effectivePriceOpen * (1 + breakevenThresholdPercent / 100);
         const isThresholdReached = currentPrice >= thresholdPrice;
-        const breakevenPrice = effectivePriceOpen;
 
         // Can upgrade to breakeven if threshold reached and breakeven is better than current trailing SL
         return isThresholdReached && breakevenPrice > trailingStopLoss;
       } else {
-        // SHORT: trailing SL is positive if it's below entry (in profit zone)
-        const isPositiveTrailing = trailingStopLoss < effectivePriceOpen;
+        // SHORT: trailing SL is positive if it's below the cost-aware breakeven
+        // level (true profit zone — round-trip costs covered)
+        const isPositiveTrailing = trailingStopLoss < breakevenPrice;
 
         if (isPositiveTrailing) {
           // Trailing stop is already protecting profit - breakeven achieved
           return true;
         }
 
-        // Trailing stop is negative (above entry)
+        // Trailing stop is negative (above breakeven)
         // Check if we can upgrade it to breakeven
         const thresholdPrice = effectivePriceOpen * (1 - breakevenThresholdPercent / 100);
         const isThresholdReached = currentPrice <= thresholdPrice;
-        const breakevenPrice = effectivePriceOpen;
 
         // Can upgrade to breakeven if threshold reached and breakeven is better than current trailing SL
         return isThresholdReached && breakevenPrice < trailingStopLoss;
@@ -7154,7 +7174,6 @@ export class ClientStrategy implements IStrategy {
 
     // No trailing stop set - proceed with normal breakeven logic
     const currentStopLoss = signal.priceStopLoss;
-    const breakevenPrice = effectivePriceOpen;
 
     // Calculate threshold price
     let thresholdPrice: number;
@@ -10368,7 +10387,12 @@ export class ClientStrategy implements IStrategy {
     if (typeof currentPrice !== "number" || !isFinite(currentPrice) || currentPrice <= 0) return false;
 
     const signal = this._pendingSignal;
-    const breakevenPrice = GET_EFFECTIVE_PRICE_OPEN(signal);
+    const effectivePriceOpen = GET_EFFECTIVE_PRICE_OPEN(signal);
+    // COST-AWARE breakeven level: exact zero-PNL close price (round-trip
+    // slippage + fees covered), NOT the raw effective entry — keep in sync
+    // with BREAKEVEN_FN/getBreakeven. Null = nothing left to protect.
+    const breakevenPrice = GET_BREAKEVEN_PRICE(signal);
+    if (breakevenPrice === null) return false;
 
     const effectiveTakeProfit = signal._trailingPriceTakeProfit ?? signal.priceTakeProfit;
     if (signal.position === "long" && breakevenPrice >= effectiveTakeProfit) return false;
@@ -10383,7 +10407,7 @@ export class ClientStrategy implements IStrategy {
       if (signal.position === "long") {
         const isPositiveTrailing = trailingStopLoss > breakevenPrice;
         if (isPositiveTrailing) return true; // already protecting profit
-        const thresholdPrice = breakevenPrice * (1 + breakevenThresholdPercent / 100);
+        const thresholdPrice = effectivePriceOpen * (1 + breakevenThresholdPercent / 100);
         const isThresholdReached = currentPrice >= thresholdPrice;
         if (!isThresholdReached || breakevenPrice <= trailingStopLoss) return false;
         if (currentPrice < breakevenPrice) return false; // price intrusion
@@ -10391,7 +10415,7 @@ export class ClientStrategy implements IStrategy {
       } else {
         const isPositiveTrailing = trailingStopLoss < breakevenPrice;
         if (isPositiveTrailing) return true; // already protecting profit
-        const thresholdPrice = breakevenPrice * (1 - breakevenThresholdPercent / 100);
+        const thresholdPrice = effectivePriceOpen * (1 - breakevenThresholdPercent / 100);
         const isThresholdReached = currentPrice <= thresholdPrice;
         if (!isThresholdReached || breakevenPrice >= trailingStopLoss) return false;
         if (currentPrice > breakevenPrice) return false; // price intrusion
@@ -10401,13 +10425,13 @@ export class ClientStrategy implements IStrategy {
 
     const currentStopLoss = signal.priceStopLoss;
     if (signal.position === "long") {
-      const thresholdPrice = breakevenPrice * (1 + breakevenThresholdPercent / 100);
+      const thresholdPrice = effectivePriceOpen * (1 + breakevenThresholdPercent / 100);
       const isThresholdReached = currentPrice >= thresholdPrice;
       const canMove = isThresholdReached && currentStopLoss < breakevenPrice;
       if (!canMove) return false;
       if (currentPrice < breakevenPrice) return false;
     } else {
-      const thresholdPrice = breakevenPrice * (1 - breakevenThresholdPercent / 100);
+      const thresholdPrice = effectivePriceOpen * (1 - breakevenThresholdPercent / 100);
       const isThresholdReached = currentPrice <= thresholdPrice;
       const canMove = isThresholdReached && currentStopLoss > breakevenPrice;
       if (!canMove) return false;
@@ -10497,9 +10521,17 @@ export class ClientStrategy implements IStrategy {
       );
     }
 
-    // Check for conflict with existing trailing take profit
+    // Check for conflict with existing trailing take profit.
+    // COST-AWARE breakeven level (exact zero-PNL close price) — the same value
+    // BREAKEVEN_FN will place the SL at; keep in sync with getBreakeven/validateBreakeven.
     const signal = this._pendingSignal;
-    const breakevenPrice = GET_EFFECTIVE_PRICE_OPEN(signal);
+    const breakevenPrice = GET_BREAKEVEN_PRICE(signal);
+    if (breakevenPrice === null) {
+      this.params.logger.debug("ClientStrategy breakeven: breakeven price undefined (no remaining position), skipping", {
+        signalId: signal.id,
+      });
+      return false;
+    }
     const effectiveTakeProfit = signal._trailingPriceTakeProfit ?? signal.priceTakeProfit;
 
     if (signal.position === "long" && breakevenPrice >= effectiveTakeProfit) {
