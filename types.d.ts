@@ -8613,6 +8613,94 @@ declare const GLOBAL_CONFIG: {
      */
     CC_REPORT_SHOW_SIGNAL_NOTE: boolean;
     /**
+     * Skips writing "idle" tick events to the report .jsonl files on disk
+     * (LiveReportService / BacktestReportService).
+     *
+     * An idle tick means "no pending and no scheduled signal" — on a quiet
+     * symbol the live loop produces one such row per tick, forever, so silent
+     * symbols dominate report disk usage while carrying no information beyond
+     * "still alive". Enabling this flag drops ONLY the idle rows; every event
+     * of an actual position lifecycle (scheduled, waiting, opened, active,
+     * closed, cancelled) is still written unconditionally.
+     *
+     * Default: false (idle rows are written — legacy behavior)
+     */
+    CC_REPORT_SKIP_IDLE_EVENTS: boolean;
+    /**
+     * Minimum duration (in milliseconds) a performance metric event must have to
+     * be written to the performance report .jsonl on disk (PerformanceReportService).
+     *
+     * The performance emitter fires on EVERY unit of work — including
+     * "backtest_timeframe" (one event per processed timeframe/tick), so an idle
+     * backtest floods the report with sub-millisecond rows that carry no
+     * diagnostic value. The report exists for bottleneck analysis: a fast
+     * operation is not a bottleneck. Rows at or above the threshold (genuinely
+     * slow ticks, signal processing, run totals) are always written.
+     *
+     * Set to 0 to write every event (legacy behavior).
+     * Set to Infinity to disable performance report writes entirely.
+     *
+     * Default: 300 ms (drops the per-tick noise, keeps everything slow enough to matter)
+     */
+    CC_REPORT_PERFORMANCE_MIN_DURATION_MS: number;
+    /**
+     * Minimum interval between risk-rejection rows written to the risk report
+     * .jsonl for a single rejection identity (RiskReportService).
+     *
+     * A risk rejection rolls back the signal-generation throttle so the open
+     * retries on the NEXT tick — a deterministic strategy stuck against a risk
+     * limit therefore produces the SAME rejection on every tick, flooding the
+     * report with one fat row (full signal snapshot) per minute per symbol.
+     * The throttle keys rows by the execution identity alone (symbol +
+     * strategy + exchange + frame): the FIRST rejection is always written,
+     * every further rejection for that identity — regardless of its reason —
+     * is dropped until the interval elapses (measured by the EVENT timestamp,
+     * so backtest replay throttles by virtual time, not wall clock). The
+     * reason fields (rejectionNote / rejectionId) are still carried in each
+     * written row.
+     *
+     * Set to 0 to write every rejection (legacy behavior).
+     *
+     * Default: 900000 ms (15 minutes — mirrors CC_NOTIFICATION_ORDER_CHECK_TTL)
+     */
+    CC_REPORT_RISK_REJECTION_TTL_MS: number;
+    /**
+     * Minimum improvement (in PnL percent) of the peak-profit record over the
+     * LAST WRITTEN one required to write a new row to the highest_profit report
+     * .jsonl (HighestProfitReportService).
+     *
+     * A peak record updates on ANY strict VWAP improvement, so a steady
+     * trending hour beats the record on nearly every candle — one row per
+     * minute for the whole trend. This gate collapses that grind into a few
+     * meaningful steps: the FIRST record of a signal is always written, the
+     * next one only when its peak PnL improved by at least this many percent
+     * over the previously written row. Internal tracking (signal._peak, the
+     * crash-recovery persist and the final peak stats in the closed row) stays
+     * EXACT — only the event/report channel is thinned.
+     *
+     * Set to 0 to write every record (legacy behavior).
+     *
+     * Default: 0.5 (percent PnL per written step)
+     */
+    CC_REPORT_HIGHEST_PROFIT_MIN_STEP_PERCENT: number;
+    /**
+     * Minimum worsening (in PnL percent) of the max-drawdown record over the
+     * LAST WRITTEN one required to write a new row to the max_drawdown report
+     * .jsonl (MaxDrawdownReportService).
+     *
+     * Mirror of CC_REPORT_HIGHEST_PROFIT_MIN_STEP_PERCENT for the loss side: a
+     * steady decline sets a new trough on nearly every candle. The FIRST
+     * record of a signal is always written, the next one only when its
+     * drawdown PnL worsened by at least this many percent versus the
+     * previously written row. Internal tracking (signal._fall, persist,
+     * final drawdown stats in the closed row) stays EXACT.
+     *
+     * Set to 0 to write every record (legacy behavior).
+     *
+     * Default: 0.5 (percent PnL per written step)
+     */
+    CC_REPORT_MAX_DRAWDOWN_MIN_STEP_PERCENT: number;
+    /**
      * Breakeven threshold percentage - minimum profit distance from entry to enable breakeven.
      * When price moves this percentage in profit direction, stop-loss can be moved to entry (breakeven).
      *
@@ -9023,6 +9111,11 @@ declare function getConfig(): {
     CC_GET_CANDLES_PRICE_ANOMALY_THRESHOLD_FACTOR: number;
     CC_GET_CANDLES_MIN_CANDLES_FOR_MEDIAN: number;
     CC_REPORT_SHOW_SIGNAL_NOTE: boolean;
+    CC_REPORT_SKIP_IDLE_EVENTS: boolean;
+    CC_REPORT_PERFORMANCE_MIN_DURATION_MS: number;
+    CC_REPORT_RISK_REJECTION_TTL_MS: number;
+    CC_REPORT_HIGHEST_PROFIT_MIN_STEP_PERCENT: number;
+    CC_REPORT_MAX_DRAWDOWN_MIN_STEP_PERCENT: number;
     CC_BREAKEVEN_THRESHOLD: number;
     CC_ORDER_BOOK_TIME_OFFSET_MINUTES: number;
     CC_ORDER_BOOK_MAX_DEPTH_LEVELS: number;
@@ -9088,6 +9181,11 @@ declare function getDefaultConfig(): Readonly<{
     CC_GET_CANDLES_PRICE_ANOMALY_THRESHOLD_FACTOR: number;
     CC_GET_CANDLES_MIN_CANDLES_FOR_MEDIAN: number;
     CC_REPORT_SHOW_SIGNAL_NOTE: boolean;
+    CC_REPORT_SKIP_IDLE_EVENTS: boolean;
+    CC_REPORT_PERFORMANCE_MIN_DURATION_MS: number;
+    CC_REPORT_RISK_REJECTION_TTL_MS: number;
+    CC_REPORT_HIGHEST_PROFIT_MIN_STEP_PERCENT: number;
+    CC_REPORT_MAX_DRAWDOWN_MIN_STEP_PERCENT: number;
     CC_BREAKEVEN_THRESHOLD: number;
     CC_ORDER_BOOK_TIME_OFFSET_MINUTES: number;
     CC_ORDER_BOOK_MAX_DEPTH_LEVELS: number;
@@ -45606,7 +45704,20 @@ declare class RiskReportService {
     /** Logger service for debug output */
     private readonly loggerService;
     /**
+     * Last written EVENT timestamp per execution identity — the write-throttle
+     * state for CC_REPORT_RISK_REJECTION_TTL_MS. FIFO-bounded (see
+     * RISK_THROTTLE_MAP_LIMIT).
+     */
+    private _lastWritten;
+    /**
      * Processes risk rejection events and logs them to the database.
+     *
+     * Throttled by CC_REPORT_RISK_REJECTION_TTL_MS: a risk rejection rolls back
+     * the generation throttle, so a strategy stuck against a limit re-emits a
+     * rejection every tick — only the first row per execution identity
+     * (symbol/strategy/exchange/frame) is written per interval, regardless of
+     * the rejection reason. The interval is measured by the EVENT timestamp
+     * (virtual time in backtest, tick time in live), never the wall clock.
      *
      * @param data - Risk event with rejection reason and pending signal information
      *
@@ -45852,6 +45963,12 @@ declare class SyncReportService {
 declare class HighestProfitReportService {
     private readonly loggerService;
     /**
+     * Last WRITTEN peak PnL percent per signal — state of the
+     * CC_REPORT_HIGHEST_PROFIT_MIN_STEP_PERCENT write-gate. FIFO-bounded (see
+     * HIGHEST_PROFIT_GATE_MAP_LIMIT).
+     */
+    private _lastWrittenPnl;
+    /**
      * Handles a single `HighestProfitContract` event emitted by `highestProfitSubject`.
      *
      * Writes a JSONL record to the `"highest_profit"` report database via
@@ -45913,6 +46030,12 @@ declare class HighestProfitReportService {
  */
 declare class MaxDrawdownReportService {
     private readonly loggerService;
+    /**
+     * Last WRITTEN drawdown PnL percent per signal — state of the
+     * CC_REPORT_MAX_DRAWDOWN_MIN_STEP_PERCENT write-gate. FIFO-bounded (see
+     * MAX_DRAWDOWN_GATE_MAP_LIMIT).
+     */
+    private _lastWrittenPnl;
     /**
      * Handles a single `MaxDrawdownContract` event emitted by `maxDrawdownSubject`.
      *
