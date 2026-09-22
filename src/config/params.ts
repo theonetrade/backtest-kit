@@ -151,6 +151,63 @@ export const GLOBAL_CONFIG = {
    */
   CC_REPORT_PERFORMANCE_MIN_DURATION_MS: 300,
   /**
+   * Minimum interval between risk-rejection rows written to the risk report
+   * .jsonl for a single rejection identity (RiskReportService).
+   *
+   * A risk rejection rolls back the signal-generation throttle so the open
+   * retries on the NEXT tick — a deterministic strategy stuck against a risk
+   * limit therefore produces the SAME rejection on every tick, flooding the
+   * report with one fat row (full signal snapshot) per minute per symbol.
+   * The throttle keys rows by the execution identity alone (symbol +
+   * strategy + exchange + frame): the FIRST rejection is always written,
+   * every further rejection for that identity — regardless of its reason —
+   * is dropped until the interval elapses (measured by the EVENT timestamp,
+   * so backtest replay throttles by virtual time, not wall clock). The
+   * reason fields (rejectionNote / rejectionId) are still carried in each
+   * written row.
+   *
+   * Set to 0 to write every rejection (legacy behavior).
+   *
+   * Default: 900000 ms (15 minutes — mirrors CC_NOTIFICATION_ORDER_CHECK_TTL)
+   */
+  CC_REPORT_RISK_REJECTION_TTL_MS: 900_000,
+  /**
+   * Minimum improvement (in PnL percent) of the peak-profit record over the
+   * LAST WRITTEN one required to write a new row to the highest_profit report
+   * .jsonl (HighestProfitReportService).
+   *
+   * A peak record updates on ANY strict VWAP improvement, so a steady
+   * trending hour beats the record on nearly every candle — one row per
+   * minute for the whole trend. This gate collapses that grind into a few
+   * meaningful steps: the FIRST record of a signal is always written, the
+   * next one only when its peak PnL improved by at least this many percent
+   * over the previously written row. Internal tracking (signal._peak, the
+   * crash-recovery persist and the final peak stats in the closed row) stays
+   * EXACT — only the event/report channel is thinned.
+   *
+   * Set to 0 to write every record (legacy behavior).
+   *
+   * Default: 0.5 (percent PnL per written step)
+   */
+  CC_REPORT_HIGHEST_PROFIT_MIN_STEP_PERCENT: 0.5,
+  /**
+   * Minimum worsening (in PnL percent) of the max-drawdown record over the
+   * LAST WRITTEN one required to write a new row to the max_drawdown report
+   * .jsonl (MaxDrawdownReportService).
+   *
+   * Mirror of CC_REPORT_HIGHEST_PROFIT_MIN_STEP_PERCENT for the loss side: a
+   * steady decline sets a new trough on nearly every candle. The FIRST
+   * record of a signal is always written, the next one only when its
+   * drawdown PnL worsened by at least this many percent versus the
+   * previously written row. Internal tracking (signal._fall, persist,
+   * final drawdown stats in the closed row) stays EXACT.
+   *
+   * Set to 0 to write every record (legacy behavior).
+   *
+   * Default: 0.5 (percent PnL per written step)
+   */
+  CC_REPORT_MAX_DRAWDOWN_MIN_STEP_PERCENT: 0.5,
+  /**
    * Breakeven threshold percentage - minimum profit distance from entry to enable breakeven.
    * When price moves this percentage in profit direction, stop-loss can be moved to entry (breakeven).
    *

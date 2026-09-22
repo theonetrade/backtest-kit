@@ -1,14 +1,24 @@
 import { inject } from "../../../lib/core/di";
 import LoggerService, { TLoggerService } from "../base/LoggerService";
 import TYPES from "../../../lib/core/types";
-import { singleshot } from "functools-kit";
+import { singleshot, LimitedMap } from "functools-kit";
 import { riskSubject } from "../../../config/emitters";
 import { ReportWriter } from "../../../classes/Writer";
 import { RiskEvent } from "../../../model/RiskStatistics.model";
+import { GLOBAL_CONFIG } from "../../../config/params";
 
 const RISK_REPORT_METHOD_NAME_SUBSCRIBE = "RiskReportService.subscribe";
 const RISK_REPORT_METHOD_NAME_UNSUBSCRIBE = "RiskReportService.unsubscribe";
 const RISK_REPORT_METHOD_NAME_TICK = "RiskReportService.tickRejection";
+
+/**
+ * How many execution identities the write-throttle remembers
+ * (symbol:strategy:exchange:frame -> last written event timestamp).
+ * One entry per identity being throttled; the oldest entry is evicted first
+ * (FIFO). An evicted identity simply writes its next rejection once more —
+ * never loses data, only loses the throttle memory.
+ */
+const RISK_THROTTLE_MAP_LIMIT = 500;
 
 /**
  * Service for logging risk rejection events to SQLite database.
@@ -43,7 +53,21 @@ export class RiskReportService {
   private readonly loggerService = inject<TLoggerService>(TYPES.loggerService);
 
   /**
+   * Last written EVENT timestamp per execution identity — the write-throttle
+   * state for CC_REPORT_RISK_REJECTION_TTL_MS. FIFO-bounded (see
+   * RISK_THROTTLE_MAP_LIMIT).
+   */
+  private _lastWritten = new LimitedMap<string, number>(RISK_THROTTLE_MAP_LIMIT);
+
+  /**
    * Processes risk rejection events and logs them to the database.
+   *
+   * Throttled by CC_REPORT_RISK_REJECTION_TTL_MS: a risk rejection rolls back
+   * the generation throttle, so a strategy stuck against a limit re-emits a
+   * rejection every tick — only the first row per execution identity
+   * (symbol/strategy/exchange/frame) is written per interval, regardless of
+   * the rejection reason. The interval is measured by the EVENT timestamp
+   * (virtual time in backtest, tick time in live), never the wall clock.
    *
    * @param data - Risk event with rejection reason and pending signal information
    *
@@ -51,6 +75,26 @@ export class RiskReportService {
    */
   private tickRejection = async (data: RiskEvent) => {
     this.loggerService.log(RISK_REPORT_METHOD_NAME_TICK, { data });
+
+    if (GLOBAL_CONFIG.CC_REPORT_RISK_REJECTION_TTL_MS > 0) {
+      // One bucket per execution identity: ANY rejection for this
+      // symbol/strategy/exchange/frame refreshes the same throttle slot —
+      // the reason (note/id) is carried in the written row, not in the key.
+      const throttleKey = [
+        data.symbol,
+        data.strategyName,
+        data.exchangeName,
+        data.frameName,
+      ].join(":");
+      const lastWritten = this._lastWritten.get(throttleKey);
+      if (
+        lastWritten !== undefined &&
+        data.timestamp - lastWritten < GLOBAL_CONFIG.CC_REPORT_RISK_REJECTION_TTL_MS
+      ) {
+        return;
+      }
+      this._lastWritten.set(throttleKey, data.timestamp);
+    }
 
     await ReportWriter.writeData("risk", {
       timestamp: data.timestamp,

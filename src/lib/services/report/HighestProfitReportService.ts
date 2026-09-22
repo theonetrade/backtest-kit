@@ -2,15 +2,24 @@ import { IPublicSignalRow } from "../../../interfaces/Strategy.interface";
 import { inject } from "../../../lib/core/di";
 import LoggerService, { TLoggerService } from "../base/LoggerService";
 import TYPES from "../../../lib/core/types";
-import { singleshot } from "functools-kit";
+import { singleshot, LimitedMap } from "functools-kit";
 import { highestProfitSubject } from "../../../config/emitters";
 import { ReportWriter } from "../../../classes/Writer";
 import { ExchangeName } from "../../../interfaces/Exchange.interface";
 import { FrameName } from "../../../interfaces/Frame.interface";
+import { GLOBAL_CONFIG } from "../../../config/params";
 
 const HIGHEST_PROFIT_REPORT_METHOD_NAME_SUBSCRIBE = "HighestProfitReportService.subscribe";
 const HIGHEST_PROFIT_REPORT_METHOD_NAME_UNSUBSCRIBE = "HighestProfitReportService.unsubscribe";
 const HIGHEST_PROFIT_REPORT_METHOD_NAME_TICK = "HighestProfitReportService.tick";
+
+/**
+ * How many signals the min-step write-gate remembers
+ * (symbol:strategy:exchange:frame:signalId -> last written peak PnL percent).
+ * FIFO eviction; an evicted signal simply writes its next record once more —
+ * never loses data, only loses the gate memory.
+ */
+const HIGHEST_PROFIT_GATE_MAP_LIMIT = 500;
 
 /**
  * Service for logging highest profit events to the JSONL report database.
@@ -20,6 +29,13 @@ const HIGHEST_PROFIT_REPORT_METHOD_NAME_TICK = "HighestProfitReportService.tick"
  */
 export class HighestProfitReportService {
   private readonly loggerService = inject<TLoggerService>(TYPES.loggerService);
+
+  /**
+   * Last WRITTEN peak PnL percent per signal — state of the
+   * CC_REPORT_HIGHEST_PROFIT_MIN_STEP_PERCENT write-gate. FIFO-bounded (see
+   * HIGHEST_PROFIT_GATE_MAP_LIMIT).
+   */
+  private _lastWrittenPnl = new LimitedMap<string, number>(HIGHEST_PROFIT_GATE_MAP_LIMIT);
 
   /**
    * Handles a single `HighestProfitContract` event emitted by `highestProfitSubject`.
@@ -48,6 +64,30 @@ export class HighestProfitReportService {
     frameName: FrameName;
   }) => {
     this.loggerService.log(HIGHEST_PROFIT_REPORT_METHOD_NAME_TICK, { data });
+
+    // Min-step write-gate: a steady trend beats the peak record on nearly
+    // every candle — write only steps of at least the configured PnL
+    // improvement over the LAST WRITTEN row (the first record of a signal is
+    // always written). Internal _peak tracking and the final peak stats in
+    // the closed row stay exact; only this report channel is thinned.
+    if (GLOBAL_CONFIG.CC_REPORT_HIGHEST_PROFIT_MIN_STEP_PERCENT > 0) {
+      const gateKey = [
+        data.symbol,
+        data.signal.strategyName,
+        data.exchangeName,
+        data.frameName,
+        data.signal.id,
+      ].join(":");
+      const peakPnl = data.signal.peakProfit.pnlPercentage;
+      const lastWritten = this._lastWrittenPnl.get(gateKey);
+      if (
+        lastWritten !== undefined &&
+        peakPnl - lastWritten < GLOBAL_CONFIG.CC_REPORT_HIGHEST_PROFIT_MIN_STEP_PERCENT
+      ) {
+        return;
+      }
+      this._lastWrittenPnl.set(gateKey, peakPnl);
+    }
 
     await ReportWriter.writeData("highest_profit", {
       timestamp: data.timestamp,
