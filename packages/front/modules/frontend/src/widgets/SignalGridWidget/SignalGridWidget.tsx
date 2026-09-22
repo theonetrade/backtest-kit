@@ -28,6 +28,7 @@ import {
   AutoFixHigh,
   Circle,
   Close,
+  RemoveCircleOutline,
 } from "@mui/icons-material";
 import useSignalOffsetPaginator from "../../api/useSignalOffsetPaginator";
 import IconWrapper from "../../components/common/IconWrapper";
@@ -44,6 +45,18 @@ interface GridItem extends ISignal {
   id: string;
   color?: never;
 }
+
+/**
+ * PNL within ±this percentage is considered breakeven and shown in orange
+ */
+const BREAKEVEN_PNL_PERCENT = 0.1;
+
+const getPnlColor = (pnlPercentage: number) => {
+  if (Math.abs(pnlPercentage) <= BREAKEVEN_PNL_PERCENT) {
+    return "#f9a825";
+  }
+  return pnlPercentage >= 0 ? "green" : "red";
+};
 
 const columns: IGridColumn<GridItem>[] = [
   {
@@ -140,7 +153,7 @@ const columns: IGridColumn<GridItem>[] = [
     format: ({ profitLossPercentage }) => {
       const isProfit = profitLossPercentage >= 0;
       return (
-        <span style={{ color: isProfit ? "green" : "red" }}>
+        <span style={{ color: getPnlColor(profitLossPercentage) }}>
           {isProfit ? "+" : ""}
           {profitLossPercentage.toFixed(2)}%
         </span>
@@ -152,10 +165,10 @@ const columns: IGridColumn<GridItem>[] = [
     label: t("PNL $"),
     minWidth: 80,
     width: () => 80,
-    format: ({ pnlCost }) => {
+    format: ({ pnlCost, profitLossPercentage }) => {
       const isProfit = pnlCost >= 0;
       return (
-        <span style={{ color: isProfit ? "green" : "red" }}>
+        <span style={{ color: getPnlColor(profitLossPercentage) }}>
           {isProfit ? "+" : ""}
           {formatAmount(pnlCost)}$
         </span>
@@ -299,6 +312,15 @@ const signal_fields: TypedField[] = [
     title: t("PNL %"),
     readonly: true,
     trailingIcon: ({ data }) => {
+      if (Math.abs(data.profitLossPercentage) <= BREAKEVEN_PNL_PERCENT) {
+        return (
+          <RemoveCircleOutline
+            sx={{
+              color: "#f9a825",
+            }}
+          />
+        );
+      }
       if (data.profitLossPercentage < 0) {
         return (
           <ArrowCircleDown

@@ -30,8 +30,19 @@ const COLOR_RED = "#da4453";
 const COLOR_BLUE = "#4FC0E8";
 const COLOR_ORANGE = "#FE9B31";
 const COLOR_PURPLE = "#967adc";
+const COLOR_YELLOW = "#f9a825";
 
-const pnlColor = (value: number) => (value >= 0 ? COLOR_GREEN : COLOR_RED);
+/**
+ * PNL within ±this percentage is considered breakeven and shown in yellow
+ */
+const BREAKEVEN_PNL_PERCENT = 0.1;
+
+const pnlColor = (pnlPercentage: number) =>
+    Math.abs(pnlPercentage) <= BREAKEVEN_PNL_PERCENT
+        ? COLOR_YELLOW
+        : pnlPercentage >= 0
+          ? COLOR_GREEN
+          : COLOR_RED;
 
 export const status_fields: TypedField[] = [
     // ── Row 1: 4 indicator widgets ─────────────────────────────────────
@@ -80,10 +91,10 @@ export const status_fields: TypedField[] = [
                 right: CC_CELL_PADDING,
                 child: {
                     type: FieldType.Component,
-                    element: ({ pnlCost, payload }) => (
+                    element: ({ pnlCost, pnlPercentage, payload }) => (
                         <IndicatorValueWidget
                             outlinePaper={payload.outlinePaper}
-                            color={pnlColor(pnlCost)}
+                            color={pnlColor(pnlPercentage)}
                             label={t("PNL $")}
                             value={`${pnlCost >= 0 ? "+" : "-"}${Math.abs(pnlCost).toFixed(getPriceScale(pnlCost))}${t("$")}`}
                             icon={Analytics}
@@ -275,7 +286,7 @@ export const status_fields: TypedField[] = [
                                     <IndicatorValueWidget
                                         color={
                                             +peakProfitCost > 0
-                                                ? pnlColor(+peakProfitCost)
+                                                ? pnlColor(+peakProfitPercentage)
                                                 : COLOR_BLUE
                                         }
                                         outlinePaper={payload.outlinePaper}

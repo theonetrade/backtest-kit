@@ -40,6 +40,11 @@ interface IListViewData {
  */
 const PENDING_ROW_COLOR = "#ffc40085";
 
+/**
+ * PNL within ±this percentage is considered breakeven and shown with an orange chip
+ */
+const BREAKEVEN_PNL_PERCENT = 0.1;
+
 function isLightColor(hex: string) {
     // Compare contrast with black (#000000) and white (#FFFFFF)
     const contrastWithBlack = getContrastRatio(hex, "#000000");
@@ -353,13 +358,17 @@ export const ListView = ({
                                                 py: 0.5,
                                                 borderRadius: 1,
                                                 background:
-                                                    item.pnl.pnlPercentage >= 0
-                                                        ? alpha("#4caf50", 0.15)
-                                                        : alpha("#f44336", 0.15),
+                                                    Math.abs(item.pnl.pnlPercentage) <= BREAKEVEN_PNL_PERCENT
+                                                        ? alpha("#ffeb3b", 0.2)
+                                                        : item.pnl.pnlPercentage >= 0
+                                                          ? alpha("#4caf50", 0.15)
+                                                          : alpha("#f44336", 0.15),
                                                 color:
-                                                    item.pnl.pnlPercentage >= 0
-                                                        ? "#2e7d32"
-                                                        : "#c62828",
+                                                    Math.abs(item.pnl.pnlPercentage) <= BREAKEVEN_PNL_PERCENT
+                                                        ? "#f9a825"
+                                                        : item.pnl.pnlPercentage >= 0
+                                                          ? "#2e7d32"
+                                                          : "#c62828",
                                             }}
                                         >
                                             {t("PNL")}: {item.pnl.pnlPercentage >= 0 ? "+" : ""}
