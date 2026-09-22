@@ -24,6 +24,16 @@ constructor();
 loggerService: any
 ```
 
+### _lastWrittenPnl
+
+```ts
+_lastWrittenPnl: any
+```
+
+Last WRITTEN peak PnL percent per signal — state of the
+CC_REPORT_HIGHEST_PROFIT_MIN_STEP_PERCENT write-gate. FIFO-bounded (see
+HIGHEST_PROFIT_GATE_MAP_LIMIT).
+
 ### tick
 
 ```ts

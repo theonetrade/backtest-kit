@@ -32,6 +32,16 @@ loggerService: any
 
 Logger service for debug output
 
+### _lastWritten
+
+```ts
+_lastWritten: any
+```
+
+Last written EVENT timestamp per execution identity — the write-throttle
+state for CC_REPORT_RISK_REJECTION_TTL_MS. FIFO-bounded (see
+RISK_THROTTLE_MAP_LIMIT).
+
 ### tickRejection
 
 ```ts
@@ -39,6 +49,13 @@ tickRejection: any
 ```
 
 Processes risk rejection events and logs them to the database.
+
+Throttled by CC_REPORT_RISK_REJECTION_TTL_MS: a risk rejection rolls back
+the generation throttle, so a strategy stuck against a limit re-emits a
+rejection every tick — only the first row per execution identity
+(symbol/strategy/exchange/frame) is written per interval, regardless of
+the rejection reason. The interval is measured by the EVENT timestamp
+(virtual time in backtest, tick time in live), never the wall clock.
 
 ### subscribe
 

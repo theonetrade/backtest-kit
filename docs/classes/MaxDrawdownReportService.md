@@ -24,6 +24,16 @@ constructor();
 loggerService: any
 ```
 
+### _lastWrittenPnl
+
+```ts
+_lastWrittenPnl: any
+```
+
+Last WRITTEN drawdown PnL percent per signal — state of the
+CC_REPORT_MAX_DRAWDOWN_MIN_STEP_PERCENT write-gate. FIFO-bounded (see
+MAX_DRAWDOWN_GATE_MAP_LIMIT).
+
 ### tick
 
 ```ts
