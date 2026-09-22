@@ -20,7 +20,7 @@ import type { IBrokerOrderVerdict } from "./Broker.interface";
  * This is a flexible structure that can hold any additional information a strategy wants to track at runtime.
  * The content of this object is not defined by the system and can be used freely by strategy implementations.
  */
-export type RuntimeData = Record<string, unknown>;
+export type RuntimeData = Record<string, any>;
 
 /**
  * Type for persisted deferred strategy state.
@@ -155,7 +155,7 @@ export interface ISignalDto {
    * Free-form data for external logic, monitoring or reporting — not interpreted by the system.
    * Defaults to {} if not provided (initialized in ClientStrategy).
    */
-  payload?: Record<string, unknown>;
+  payload?: Record<string, any>;
   /** Entry price for the position */
   priceOpen?: number;
   /** Take profit target price (must be > priceOpen for long, < priceOpen for short) */
@@ -214,7 +214,7 @@ export interface ISignalRow extends ISignalDto {
   /** Isolated-margin mode: force-close at -100% leveraged PNL with closeReason "liquidation" (required in row, defaults applied in ClientStrategy) */
   isolated: boolean;
   /** Custom user-defined dictionary attached to the signal (required in row, defaults to {} in ClientStrategy) */
-  payload: Record<string, unknown>;
+  payload: Record<string, any>;
   /** Unique exchange identifier for execution */
   exchangeName: ExchangeName;
   /** Unique strategy identifier for execution */
