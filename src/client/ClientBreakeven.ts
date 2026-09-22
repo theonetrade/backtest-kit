@@ -9,6 +9,7 @@ import { ExchangeName } from "../interfaces/Exchange.interface";
 import { PersistBreakevenAdapter } from "../classes/Persist";
 import { singleshot } from "functools-kit";
 import { GLOBAL_CONFIG } from "../config/params";
+import { getBreakevenPrice } from "../helpers/getBreakevenPrice";
 
 /**
  * Symbol marker indicating that breakeven state needs initialization.
@@ -22,10 +23,15 @@ const NEED_FETCH = Symbol("need_fetch");
  * Checks if breakeven conditions are met and emits event if triggered.
  * Uses state-based deduplication to ensure event is emitted only once per signal.
  *
- * Threshold calculation:
- * - breakevenThreshold = (CC_PERCENT_SLIPPAGE + CC_PERCENT_FEE) * 2
- * - For LONG: threshold reached when price >= entry * (1 + threshold%)
- * - For SHORT: threshold reached when price <= entry * (1 - threshold%)
+ * Threshold calculation (COST-AWARE, anchored at the exact zero-PNL price):
+ * - breakevenPrice = getBreakevenPrice(signal) — the close price at which the
+ *   realizable TOTAL PnL (slippage + fees + multiplier + DCA entries +
+ *   partial-close replay) equals exactly 0%. The raw entry price is NOT
+ *   breakeven — closing there realizes ≈ -(slippage+fee)*2 as a loss.
+ * - For LONG: threshold reached when price >= breakevenPrice * (1 + CC_BREAKEVEN_THRESHOLD%)
+ * - For SHORT: threshold reached when price <= breakevenPrice * (1 - CC_BREAKEVEN_THRESHOLD%)
+ * - Keep in sync with BREAKEVEN_FN/getBreakeven/validateBreakeven in ClientStrategy,
+ *   which place/validate the SL at the same cost-aware level.
  *
  * @param symbol - Trading pair symbol
  * @param data - Signal row data
@@ -72,21 +78,37 @@ const HANDLE_BREAKEVEN_FN = async (
     return false;
   }
 
-  // Calculate breakeven threshold based on slippage and fees
-  const breakevenThresholdPercent =
-    (GLOBAL_CONFIG.CC_PERCENT_SLIPPAGE + GLOBAL_CONFIG.CC_PERCENT_FEE) * 2 + GLOBAL_CONFIG.CC_BREAKEVEN_THRESHOLD;
+  // COST-AWARE trigger: the event must fire exactly when closing NOW realizes
+  // >= 0% TOTAL PnL (round-trip slippage + fees + DCA/partials included) — not
+  // when price is (slippage+fee)*2 percent away from the raw entry. The old
+  // entry-based proxy diverged from the true zero for DCA/partial positions
+  // and fired while ClientStrategy.breakeven() would still be rejected by its
+  // intrusion check against the same cost-aware level.
+  const breakevenPrice = getBreakevenPrice(data);
+  if (breakevenPrice === null) {
+    // Nothing left to protect (position fully closed by partials)
+    self.params.logger.debug("ClientBreakeven check: breakeven price undefined (no remaining position)", {
+      symbol,
+      signalId: data.id,
+    });
+    return false;
+  }
+
+  // The configured extra margin (CC_BREAKEVEN_THRESHOLD) is applied ON TOP of
+  // the exact zero-PNL price — same headroom semantics as before, new anchor.
+  const breakevenThresholdPercent = GLOBAL_CONFIG.CC_BREAKEVEN_THRESHOLD;
 
   // Check if threshold reached
   let thresholdPrice: number;
   let isThresholdReached: boolean;
 
   if (data.position === "long") {
-    // LONG: threshold reached when price goes UP by breakevenThresholdPercent from entry
-    thresholdPrice = data.priceOpen * (1 + breakevenThresholdPercent / 100);
+    // LONG: threshold reached when price rises past the zero-PNL level (+ margin)
+    thresholdPrice = breakevenPrice * (1 + breakevenThresholdPercent / 100);
     isThresholdReached = currentPrice >= thresholdPrice;
   } else {
-    // SHORT: threshold reached when price goes DOWN by breakevenThresholdPercent from entry
-    thresholdPrice = data.priceOpen * (1 - breakevenThresholdPercent / 100);
+    // SHORT: threshold reached when price falls past the zero-PNL level (- margin)
+    thresholdPrice = breakevenPrice * (1 - breakevenThresholdPercent / 100);
     isThresholdReached = currentPrice <= thresholdPrice;
   }
 
@@ -97,6 +119,7 @@ const HANDLE_BREAKEVEN_FN = async (
       position: data.position,
       priceOpen: data.priceOpen,
       currentPrice,
+      breakevenPrice,
       thresholdPrice,
       breakevenThresholdPercent,
     });
@@ -112,6 +135,7 @@ const HANDLE_BREAKEVEN_FN = async (
     position: data.position,
     priceOpen: data.priceOpen,
     currentPrice,
+    breakevenPrice,
     thresholdPrice,
     breakevenThresholdPercent,
     backtest,
